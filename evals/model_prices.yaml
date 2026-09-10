@@ -1,0 +1,11 @@
+# USD per 1M tokens, used ONLY for the cost-estimate column in eval reports.
+# PLACEHOLDER VALUES — update from the providers' pricing pages before quoting
+# numbers to anyone. Unknown models simply get no cost estimate.
+openai/gpt-oss-120b:    {input: 0.15,  output: 0.75}
+openai/gpt-oss-20b:     {input: 0.10,  output: 0.50}
+llama-3.1-8b-instant:   {input: 0.05,  output: 0.08}
+qwen/qwen3-32b:         {input: 0.29,  output: 0.59}
+amazon.nova-premier-v1:0: {input: 2.50, output: 12.50}
+amazon.nova-pro-v1:0:   {input: 0.80,  output: 3.20}
+amazon.nova-lite-v1:0:  {input: 0.06,  output: 0.24}
+amazon.nova-micro-v1:0: {input: 0.035, output: 0.14}

@@ -1,0 +1,16 @@
+{
+ "run_id": "run_20260708_152119",
+ "n_cases": 1,
+ "n_judged": 0,
+ "accuracy_full": null,
+ "partial_credit": null,
+ "groundedness": null,
+ "actionability": null,
+ "brier_calibration": null,
+ "precheck_failure_cases": 1,
+ "judge_disagreements": 0,
+ "unjudged_cases": 1,
+ "mean_elapsed_s": 185.4,
+ "per_category": {},
+ "generated_at": "2026-07-08T15:24:26"
+}

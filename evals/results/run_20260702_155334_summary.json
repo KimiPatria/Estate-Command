@@ -1,0 +1,23 @@
+{
+ "run_id": "run_20260702_155334",
+ "n_cases": 2,
+ "accuracy_full": 0.0,
+ "partial_credit": 0.0,
+ "groundedness": 1.0,
+ "actionability": 1.0,
+ "brier_calibration": 0.0,
+ "precheck_failure_cases": 2,
+ "judge_disagreements": 0,
+ "mean_elapsed_s": 15.35,
+ "per_category": {
+  "no_anomaly": {
+   "n": 1,
+   "partial_credit": 0.0
+  },
+  "unknown_external": {
+   "n": 1,
+   "partial_credit": 0.0
+  }
+ },
+ "generated_at": "2026-07-02T15:54:05"
+}

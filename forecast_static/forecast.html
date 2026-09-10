@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPMS · Production Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg:          #f7faf9;
+  --surface:     #ffffff;
+  --card:        #ffffff;
+  --card-h:      #f1f5f4;
+  --border:      #dce4e1;
+  --border-s:    #ebf1ef;
+  --text:        #20312e;
+  --muted:       #64746f;
+  --accent:      #115e6e;
+  --accent-deep: #0b4351;
+  --sage:        #7ba39f;
+  --olive:       #8b8c7a;
+  --gold:        #c79a36;
+  --accent-dim:  rgba(17,94,110,.07);
+  --accent-glow: rgba(17,94,110,.20);
+  --sage-dim:    rgba(123,163,159,.16);
+  --gold-dim:    rgba(212,168,75,.14);
+  --error:       #b3382e;
+  --r:           8px;
+  --font:        'Inter', system-ui, sans-serif;
+  --ease-out:    cubic-bezier(.16, 1, .3, 1);
+}
+
+html, body { height:100%; overflow:hidden; }
+body {
+  font-family: var(--font);
+  background: #ffffff;
+  color: var(--text);
+  display: flex; flex-direction: column;
+  font-size: 14px; line-height: 1.5;
+}
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
+
+/* ── HEADER (shared) ─────────────────────────────────────────────── */
+.app-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 20px; height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; z-index: 10; position: relative;
+}
+.app-name { font-weight: 800; font-size: 14px; letter-spacing: -.3px; color: var(--accent-deep); }
+.app-sep  { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
+.app-sub  { font-size: 12px; color: var(--muted); }
+.app-nav { display: flex; align-items: center; gap: 2px; position: absolute; left: 50%; transform: translateX(-50%); }
+.nav-pill {
+  position: absolute; background: var(--accent); border-radius: 99px;
+  z-index: 0; pointer-events: none; opacity: 0;
+  transition: left .3s var(--ease-out), width .3s var(--ease-out), opacity .15s;
+}
+.app-nav a {
+  position: relative; z-index: 1;
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  text-decoration: none; padding: 5px 12px; border-radius: 99px;
+  transition: color .18s; white-space: nowrap;
+}
+.app-nav a:not(.nav-active):hover { color: var(--accent); }
+.app-nav a.nav-active { color: var(--muted); }
+.nav-clone {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; gap: 2px;
+  pointer-events: none; z-index: 2;
+  clip-path: inset(0 100% 0 0 round 99px);
+  transition: clip-path .3s var(--ease-out);
+}
+.nav-clone span { font-size: 12px; font-weight: 500; color: #fff; padding: 5px 12px; white-space: nowrap; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.provider-pill { font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; }
+
+/* ── TITLE BAR ───────────────────────────────────────────────────── */
+.fc-titlebar {
+  padding: 11px 18px; flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.fc-title { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.fc-title .accent { color: var(--accent); }
+.fc-meta  { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.badge {
+  font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 99px;
+  background: var(--accent-dim); border: 1px solid var(--accent-glow); color: var(--accent);
+}
+.meta-txt { font-size: 11px; color: var(--muted); }
+.btn-refresh {
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 99px;
+  padding: 3px 12px; cursor: pointer; font-family: var(--font);
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.btn-refresh:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── HORIZON TOGGLE ──────────────────────────────────────────────── */
+.hz-toggle { display: flex; align-items: center; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
+.hz-btn { font-size: 11px; font-weight: 600; color: var(--muted); background: transparent; border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer; font-family: var(--font); transition: color .15s, background .15s; }
+.hz-btn:hover:not(.active) { color: var(--accent); }
+.hz-btn.active { background: var(--accent); color: #fff; }
+
+/* ── CONTENT ─────────────────────────────────────────────────────── */
+.fc-content { flex: 1; overflow-y: auto; padding: 16px 18px 28px; }
+.fc-content::-webkit-scrollbar { width: 4px; }
+.fc-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.fc-wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+/* ── KPI ROW ─────────────────────────────────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; }
+.cov-inline { color: var(--muted); font-size: 11px; font-weight: 500; }
+.kpi-card {
+  background: var(--card); border: 1px solid var(--border-s);
+  border-radius: var(--r); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  animation: fadeUp .45s var(--ease-out) both;
+}
+.kpi-card .k-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.kpi-card .k-value { font-size: 30px; font-weight: 800; letter-spacing: -1.2px; color: var(--text); line-height: 1.1; }
+.kpi-card .k-sub   { font-size: 11px; color: var(--muted); }
+.kpi-card.accent .k-value { color: var(--accent); }
+.kpi-card.gold   { border-color: var(--gold-dim); background: linear-gradient(180deg, rgba(212,168,75,.05), #fff); }
+.kpi-card.gold   .k-value { color: var(--gold); }
+
+/* ── SCOPE BAR (head-office hierarchy) ───────────────────────────── */
+.scope-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border-s);
+  border-radius: var(--r); padding: 9px 14px;
+  animation: fadeUp .45s var(--ease-out) both;
+}
+.scope-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.scope-chips { display: flex; align-items: center; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
+.scope-chip {
+  font-size: 11px; font-weight: 600; color: var(--muted); background: transparent;
+  border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer;
+  font-family: var(--font); transition: color .15s, background .15s;
+}
+.scope-chip:hover:not(.active):not(:disabled) { color: var(--accent); }
+.scope-chip.active { background: var(--accent); color: #fff; }
+.scope-chip:disabled { opacity: .4; cursor: not-allowed; }
+.crumbs { display: flex; align-items: center; gap: 7px; margin-left: auto; flex-wrap: wrap; }
+.crumb { font-size: 11px; color: var(--muted); }
+.crumb.on  { color: var(--text); font-weight: 600; }
+.crumb.off { opacity: .42; }
+.crumb-sep { font-size: 11px; color: var(--border); }
+
+/* ── EXECUTIVE OVERVIEW ──────────────────────────────────────────── */
+.exec-card {
+  background: var(--card); border: 1px solid var(--border-s);
+  border-radius: var(--r); padding: 16px 18px 18px;
+  animation: fadeUp .45s var(--ease-out) .02s both;
+}
+.exec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.exec-head h2 { font-size: 13px; font-weight: 700; }
+.exec-head .sub { font-size: 11px; color: var(--muted); }
+.badge.warn { background: var(--gold-dim); border-color: rgba(212,168,75,.45); color: #9a7414; }
+.exec-hero { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; padding-bottom: 15px; border-bottom: 1px solid var(--border-s); }
+.hero-main { display: flex; flex-direction: column; gap: 2px; }
+.hero-main .h-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.exec-value { font-size: 42px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; color: var(--accent); }
+.exec-value .unit { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
+.exec-value.na { color: var(--muted); font-size: 30px; letter-spacing: -1px; }
+.exec-range { font-size: 11.5px; color: var(--muted); }
+.hero-deltas { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
+.delta-box { display: flex; flex-direction: column; gap: 2px; min-width: 128px; }
+.delta-box .d-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.delta-val { font-size: 20px; font-weight: 800; letter-spacing: -.6px; }
+.delta-val.up   { color: var(--accent); }
+.delta-val.down { color: var(--error); }
+.delta-val.na   { color: var(--muted); font-size: 17px; font-weight: 700; }
+.delta-box .d-sub { font-size: 10.5px; color: var(--muted); }
+.exec-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin-top: 15px; }
+.exec-metric { display: flex; flex-direction: column; gap: 2px; padding: 0 15px; border-left: 1px solid var(--border-s); }
+.exec-metric:first-child { padding-left: 0; border-left: none; }
+.exec-metric .m-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.exec-metric .m-value { font-size: 19px; font-weight: 700; letter-spacing: -.5px; color: var(--text); }
+.exec-metric.na .m-value { font-size: 16px; color: var(--muted); }
+.exec-metric .m-sub { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+
+/* ── ESTATE BREAKDOWN ────────────────────────────────────────────── */
+.strip-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: -4px; }
+.strip-head h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.strip-head .sub { font-size: 11px; color: var(--muted); }
+.est-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.est-tile {
+  background: var(--card); border: 1px solid var(--border-s); border-radius: var(--r);
+  padding: 13px 15px; display: flex; flex-direction: column; gap: 3px;
+  animation: fadeUp .45s var(--ease-out) both;
+}
+.est-tile.na { background: linear-gradient(180deg, var(--bg), #fff); border-style: dashed; }
+.est-top { display: flex; align-items: center; gap: 8px; }
+.est-name { font-size: 12px; font-weight: 700; letter-spacing: -.1px; }
+.est-flag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 99px; margin-left: auto; }
+.est-flag.live { background: var(--sage-dim); color: var(--accent); }
+.est-flag.none { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+.est-value { font-size: 25px; font-weight: 800; letter-spacing: -1.1px; color: var(--text); line-height: 1.15; }
+.est-tile.na .est-value { font-size: 20px; color: var(--muted); font-weight: 700; }
+.est-sub { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.est-delta { font-size: 11px; font-weight: 700; }
+.est-delta.up { color: var(--accent); } .est-delta.down { color: var(--error); } .est-delta.na { color: var(--muted); font-weight: 600; }
+
+/* ── UNAVAILABLE-DATA STATE (shared) ─────────────────────────────── */
+.na-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 9px; text-align: center; padding: 32px 20px;
+  background: var(--bg); border: 1px dashed var(--border);
+  border-radius: var(--r); color: var(--muted);
+}
+.na-state.tall { min-height: 340px; }
+.na-state .na-ico { opacity: .45; }
+.na-state b { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.na-state p { font-size: 11.5px; line-height: 1.6; max-width: 540px; }
+.na-req {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 99px; padding: 3px 11px;
+}
+
+/* ── MAP CARD (overlay chips are inert until geometry exists) ────── */
+.ovl-chips { display: flex; align-items: center; gap: 5px; margin-left: auto; flex-wrap: wrap; }
+.ovl-chip {
+  font-size: 10.5px; font-weight: 600; color: var(--muted); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px;
+  font-family: var(--font); cursor: not-allowed; opacity: .55;
+}
+.ovl-chip:not(:disabled) { cursor: pointer; opacity: 1; }
+.ovl-chip:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+.ovl-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.blk-map { height: 420px; border-radius: var(--r); overflow: hidden; border: 1px solid var(--border); }
+.map-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 10.5px; color: var(--muted); }
+.map-legend .ramp { display: flex; height: 10px; border-radius: 3px; overflow: hidden; width: 150px; border: 1px solid var(--border); }
+.map-legend .ramp span { flex: 1; }
+.leaflet-popup-content { font-family: var(--font); font-size: 12px; line-height: 1.55; color: var(--text); }
+.leaflet-popup-content b { color: var(--accent-deep); }
+
+/* ── HEADER LINK BUTTON ──────────────────────────────────────────── */
+a.btn-refresh { text-decoration: none; }
+
+/* ── INTELLIGENCE PANEL ──────────────────────────────────────────── */
+.intel-card {
+  background: var(--card); border: 1px solid var(--border-s);
+  border-radius: var(--r); padding: 16px 18px 18px;
+  animation: fadeUp .45s var(--ease-out) .04s both;
+}
+.intel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.intel-head h2 { font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; }
+.intel-head h2 .spark { color: var(--gold); }
+.intel-head .sub { font-size: 11px; color: var(--muted); }
+.btn-analyze {
+  margin-left: auto; font-size: 11px; font-weight: 600; color: #fff;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 99px;
+  padding: 5px 14px; cursor: pointer; font-family: var(--font);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background .15s, opacity .15s;
+}
+.btn-analyze:hover { background: var(--accent-deep); }
+.btn-analyze:disabled { opacity: .55; cursor: not-allowed; }
+
+.intel-placeholder { font-size: 12px; color: var(--muted); padding: 6px 0 2px; line-height: 1.6; }
+
+.intel-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; padding: 8px 0; }
+.intel-loading .spinner { width: 18px; height: 18px; border-width: 2.5px; }
+
+.intel-err {
+  background: #fdf3f2; border: 1px solid #fecaca; color: var(--error);
+  border-radius: var(--r); padding: 10px 14px; font-size: 12px; line-height: 1.5;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.intel-err button {
+  font-size: 11px; font-weight: 600; color: var(--error); background: #fff;
+  border: 1px solid #fecaca; border-radius: 99px; padding: 3px 10px; cursor: pointer; font-family: var(--font);
+}
+
+.risk-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.risk-badge {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  padding: 4px 12px; border-radius: 99px; display: inline-flex; align-items: center; gap: 7px;
+}
+.risk-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+.risk-badge.low      { background: var(--sage-dim);  color: var(--accent);     }
+.risk-badge.low      .dot { background: var(--accent); }
+.risk-badge.moderate { background: var(--gold-dim);  color: #9a7414;           }
+.risk-badge.moderate .dot { background: var(--gold); }
+.risk-badge.high     { background: rgba(179,56,46,.10); color: var(--error);    }
+.risk-badge.high     .dot { background: var(--error); }
+.risk-summary { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.intel-narrative { font-size: 13px; color: var(--text); line-height: 1.65; }
+.intel-narrative p { margin-bottom: 9px; }
+.intel-narrative p:last-child { margin-bottom: 0; }
+
+.intel-signals { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.intel-signals .sig-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sig-pill {
+  font-size: 11px; color: var(--muted); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 99px; padding: 3px 11px;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.sig-pill b { color: var(--text); font-weight: 600; }
+.sig-pill.na { opacity: .6; }
+.intel-foot { font-size: 10.5px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+
+/* ── CHART CARD ──────────────────────────────────────────────────── */
+.chart-card {
+  background: var(--card); border: 1px solid var(--border-s);
+  border-radius: var(--r); padding: 16px 18px 18px;
+  animation: fadeUp .45s var(--ease-out) .08s both;
+}
+.chart-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.chart-head h2 { font-size: 13px; font-weight: 700; }
+.legend { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+.legend .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.lg .swatch { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.lg .swatch.line  { background: #157082; }
+.lg .swatch.fcst  { background: var(--gold); height: 0; border-top: 2px dashed var(--gold); }
+.lg .swatch.band  { height: 11px; border-radius: 3px; background: var(--gold-dim); border: 1px solid rgba(212,168,75,.4); }
+.lg .swatch.under { width: 9px; height: 9px; border-radius: 50%; background: #b07a5e; }
+.chart-box { position: relative; height: 420px; }
+.chart-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+/* ── FORECAST TABLE ──────────────────────────────────────────────── */
+.tbl-card {
+  background: var(--card); border: 1px solid var(--border-s);
+  border-radius: var(--r); overflow: hidden;
+  animation: fadeUp .45s var(--ease-out) .16s both;
+}
+.tbl-card h2 {
+  font-size: 12px; font-weight: 700; padding: 11px 16px; border-bottom: 1px solid var(--border-s);
+  background: var(--bg); display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.btn-collapse {
+  font-size: 10.5px; font-weight: 600; color: var(--accent); background: var(--accent-dim);
+  border: 1px solid var(--accent-glow); border-radius: 99px; padding: 3px 10px;
+  font-family: var(--font); cursor: pointer; white-space: nowrap;
+}
+.btn-collapse:hover { background: var(--accent-glow); }
+.blk-scroll { max-height: 360px; overflow-y: auto; }
+.blk-scroll.expanded { max-height: none; }
+.fc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fc-table thead th {
+  background: var(--surface); color: var(--muted); font-size: 10px;
+  text-transform: uppercase; letter-spacing: .05em;
+  padding: 9px 16px; text-align: right; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1;
+}
+.fc-table thead th:first-child { text-align: left; }
+.fc-table tbody td { padding: 9px 16px; text-align: right; border-bottom: 1px solid var(--border-s); white-space: nowrap; }
+.fc-table tbody td:first-child { text-align: left; font-weight: 600; }
+.fc-table tbody tr:last-child td { border-bottom: none; }
+.fc-table tbody tr:hover td { background: var(--card-h); }
+.fc-table .num { font-variant-numeric: tabular-nums; }
+.fc-table .ens { font-weight: 700; color: var(--gold); }
+.fc-table .rng { color: var(--muted); font-size: 11px; }
+.fc-table td.na { color: var(--muted); font-weight: 600; }
+
+/* ── DRIVERS (TreeSHAP) ──────────────────────────────────────────── */
+.drv-tabs { display: flex; align-items: center; gap: 2px; margin-left: auto;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
+.drv-tab { font-size: 11px; font-weight: 600; color: var(--muted); background: transparent;
+  border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer;
+  font-family: var(--font); transition: color .15s, background .15s; }
+.drv-tab:hover:not(.active) { color: var(--accent); }
+.drv-tab.active { background: var(--accent); color: #fff; }
+.drv-base { font-size: 11.5px; color: var(--muted); margin-bottom: 12px; }
+.drv-base b { color: var(--text); font-weight: 600; }
+.drv-row { display: grid; grid-template-columns: minmax(180px, 1.1fr) 2fr 90px;
+  align-items: center; gap: 12px; padding: 5px 0; }
+.drv-label { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drv-label .drv-val { color: var(--muted); font-size: 11px; margin-left: 6px; }
+.drv-track { position: relative; height: 14px; background: var(--bg);
+  border-radius: 4px; overflow: hidden; }
+.drv-track::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+  width: 1px; background: var(--border); }
+.drv-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; min-width: 2px;
+  transition: width .4s var(--ease-out); }
+.drv-bar.pos { left: 50%; background: var(--accent); opacity: .75; }
+.drv-bar.neg { right: 50%; background: var(--error); opacity: .6; }
+.drv-amt { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.drv-amt.pos { color: var(--accent); }
+.drv-amt.neg { color: var(--error); }
+@media (max-width: 640px) { .drv-row { grid-template-columns: 1fr 1.2fr 70px; gap: 8px; } }
+
+/* ── STATES ──────────────────────────────────────────────────────── */
+.center-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 80px 20px; color: var(--muted); text-align: center;
+}
+.spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.err-box {
+  background: #fdf3f2; border: 1px solid #fecaca; color: var(--error);
+  border-radius: var(--r); padding: 14px 18px; font-size: 12px; line-height: 1.6; max-width: 560px;
+}
+.hidden { display: none !important; }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .app-sep, .app-sub { display: none; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .chart-box { height: 340px; }
+  .exec-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 0; }
+  .exec-metric:nth-child(odd) { padding-left: 0; border-left: none; }
+  .exec-value { font-size: 34px; }
+  .hero-deltas { margin-left: 0; }
+  .crumbs { margin-left: 0; width: 100%; }
+}
+@media (max-width: 480px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .exec-grid { grid-template-columns: 1fr; }
+  .exec-metric { padding-left: 0; border-left: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="app-name">EPMS AI</span>
+  <div class="app-sep"></div>
+  <span class="app-sub">Production Forecast</span>
+  <nav class="app-nav" id="app-nav">
+    <span class="nav-pill" id="nav-pill"></span>
+    <a href="/">Dashboard</a>
+    <a href="/report">Report</a>
+    <a href="/chat">Chat</a>
+    <a href="/forecast" class="nav-active">Forecast</a>
+    <div class="nav-clone" id="nav-clone" aria-hidden="true">
+      <span>Dashboard</span><span>Report</span><span>Chat</span><span>Forecast</span>
+    </div>
+  </nav>
+  <div class="header-right">
+    <a class="btn-refresh" href="/model-health" title="Model accuracy, interval calibration, data quality and drift">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+      </svg>
+      <span>Model health</span>
+    </a>
+    <span class="provider-pill" id="model-pill">N/A</span>
+  </div>
+</header>
+
+<div class="fc-titlebar">
+  <span class="fc-title">Plantation Production Forecast <span class="accent">· next 3 months</span></span>
+  <div class="fc-meta">
+    <div class="hz-toggle" id="hz-toggle">
+      <button class="hz-btn active" data-hz="3">3M</button>
+      <button class="hz-btn" data-hz="6">6M</button>
+      <button class="hz-btn" data-hz="12">1Y</button>
+    </div>
+    <button id="refresh-btn" class="btn-refresh" title="Recompute the forecast">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+      <span>Refresh</span>
+    </button>
+  </div>
+</div>
+
+<div class="fc-content">
+  <div class="fc-wrap">
+
+    <!-- loading -->
+    <div id="state-loading" class="center-state">
+      <div class="spinner"></div>
+      <p>Fitting the forecast model on monthly production history…</p>
+    </div>
+
+    <!-- error -->
+    <div id="state-error" class="center-state hidden">
+      <div class="err-box" id="err-msg"></div>
+      <button class="btn-refresh" onclick="loadForecast(false)">↻ Retry</button>
+    </div>
+
+    <!-- result -->
+    <div id="state-result" class="hidden" style="display:flex; flex-direction:column; gap:14px;">
+
+      <!-- ── SCOPE BAR — head-office hierarchy. Estates with no model are
+           disabled; division/block crumbs stay dimmed until a per-block model
+           exists (see forecast_router.MODELED_ESTATES / AVAILABLE_LEVELS). ── -->
+      <div class="scope-bar">
+        <span class="scope-lbl">Scope</span>
+        <div class="scope-chips" id="scope-chips"></div>
+        <div class="crumbs" id="scope-crumbs"></div>
+      </div>
+
+      <!-- ── EXECUTIVE OVERVIEW ─────────────────────────────────────────── -->
+      <div class="exec-card">
+        <div class="exec-head">
+          <h2 id="exec-title">Group Production Outlook</h2>
+          <span class="sub" id="exec-window">N/A</span>
+          <span class="badge" id="exec-coverage">N/A</span>
+        </div>
+        <div class="exec-hero">
+          <div class="hero-main">
+            <span class="h-label" id="exec-hz-label">Expected production</span>
+            <span class="exec-value" id="exec-total">N/A<span class="unit" id="exec-unit">bunches</span></span>
+            <span class="exec-range" id="exec-range">N/A</span>
+          </div>
+          <div class="hero-deltas">
+            <div class="delta-box">
+              <span class="d-label">vs same period LY</span>
+              <span class="delta-val na" id="exec-yoy">N/A</span>
+              <span class="d-sub" id="exec-yoy-sub">N/A</span>
+            </div>
+            <div class="delta-box">
+              <span class="d-label">vs last forecast</span>
+              <span class="delta-val na" id="exec-rev">N/A</span>
+              <span class="d-sub">No forecast run is archived yet</span>
+            </div>
+          </div>
+        </div>
+        <div class="exec-grid" id="exec-grid"></div>
+      </div>
+
+      <!-- ── ESTATE BREAKDOWN ───────────────────────────────────────────── -->
+      <div class="strip-head">
+        <h3>Estate breakdown</h3>
+        <span class="sub" id="strip-sub">N/A</span>
+      </div>
+      <div class="est-strip" id="est-strip"></div>
+
+      <div class="kpi-row" id="kpi-row"></div>
+
+      <!-- ── INTELLIGENCE PANEL (LLM risk synthesis — narrative only, never
+           touches the chart/KPI/table numbers) ───────────────────────────── -->
+      <div class="intel-card">
+        <div class="intel-head">
+          <h2><span class="spark">✦</span> Production Risk Intelligence</h2>
+          <span class="sub">AI synthesis · weather · ENSO · hotspots</span>
+          <button id="invg-btn" class="btn-refresh" title="Run the Forecast Investigator agent (root-cause analysis)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span>Investigate</span>
+          </button>
+          <button id="intel-btn" class="btn-analyze" title="Pull live signals and analyse risk">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <span id="intel-btn-label">Analyze</span>
+          </button>
+        </div>
+
+        <!-- placeholder (initial) -->
+        <div id="intel-placeholder" class="intel-placeholder">
+          Click <strong>Analyze</strong> to pull live weather, ENSO and fire-hotspot
+          signals and generate an AI risk assessment that contextualises the forecast
+          above. The forecast numbers themselves are unaffected.
+        </div>
+
+        <!-- loading -->
+        <div id="intel-loading" class="intel-loading hidden">
+          <div class="spinner"></div>
+          <span>Pulling live signals and synthesising risk… (~5–10s)</span>
+        </div>
+
+        <!-- error -->
+        <div id="intel-error" class="intel-err hidden">
+          <span id="intel-err-msg"></span>
+          <button onclick="loadIntelligence(false)">↻ Retry</button>
+        </div>
+
+        <!-- result -->
+        <div id="intel-result" class="hidden">
+          <div class="risk-row">
+            <span id="intel-badge" class="risk-badge"><span class="dot"></span><span id="intel-level"></span></span>
+            <span id="intel-summary" class="risk-summary"></span>
+          </div>
+          <div id="intel-narrative" class="intel-narrative"></div>
+          <div class="intel-signals">
+            <span class="sig-label">Signals</span>
+            <span id="intel-sig-pills"></span>
+          </div>
+          <div id="intel-foot" class="intel-foot"></div>
+        </div>
+
+        <!-- investigator result (agent root-cause analysis) -->
+        <div id="invg-result" class="hidden" style="border-top:1px solid var(--border-s); margin-top:14px; padding-top:14px;">
+          <div class="risk-row">
+            <span id="invg-badge" class="risk-badge moderate"><span class="dot"></span><span id="invg-conf"></span></span>
+            <span id="invg-cause" class="risk-summary"></span>
+          </div>
+          <div id="invg-narrative" class="intel-narrative"></div>
+          <div class="intel-signals">
+            <span class="sig-label">Evidence</span>
+            <span id="invg-pills"></span>
+          </div>
+          <div id="invg-foot" class="intel-foot"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-head">
+          <h2>Monthly FFB Production · Actuals &amp; Forecast</h2>
+          <div class="legend">
+            <span class="lg"><span class="swatch line"></span>Actual</span>
+            <span class="lg"><span class="swatch fcst"></span>Forecast</span>
+            <span class="lg"><span class="swatch band"></span><span id="band-legend">± sMAPE band</span></span>
+            <span class="lg"><span class="swatch under"></span>Under-recorded month</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="fc-chart"></canvas></div>
+        <p class="chart-note" id="chart-note"></p>
+      </div>
+
+      <!-- Directly under the production chart it explains (TreeSHAP drivers
+           of that same forecast) rather than after the unrelated Block Map. -->
+      <div class="chart-card hidden" id="drv-card">
+        <div class="chart-head">
+          <h2>Forecast Drivers · TreeSHAP attribution</h2>
+          <div class="drv-tabs" id="drv-tabs"></div>
+        </div>
+        <div class="drv-base" id="drv-base"></div>
+        <div id="drv-rows"></div>
+        <p class="chart-note" id="drv-note"></p>
+      </div>
+
+      <!-- ── BLOCK MAP — renders real block polygons once the selected scope
+           has geometry (forecast/blocks.py, forecast/<ID>/<ID>_overlay.csv).
+           The data-driven overlay chips (forecast, yield, NDVI, ...) stay
+           inert regardless — geometry alone doesn't justify them; they need
+           a per-block model or a remote-sensing feed, neither of which
+           exists for any estate yet. ────────────────────────────────────── -->
+      <div class="chart-card" id="map-card">
+        <div class="chart-head">
+          <h2>Block Map · spatial forecast</h2>
+          <div class="ovl-chips" title="Overlays activate once a per-block model or remote-sensing feed exists">
+            <button class="ovl-chip" id="ovl-forecast" data-overlay="forecast" disabled>Forecast</button>
+            <button class="ovl-chip" disabled>Δ vs LY</button>
+            <button class="ovl-chip" disabled>Yield t/ha</button>
+            <button class="ovl-chip" disabled>Palm age</button>
+            <button class="ovl-chip" disabled>Rainfall</button>
+            <button class="ovl-chip" disabled>NDVI</button>
+            <button class="ovl-chip" disabled>Forecast error</button>
+          </div>
+        </div>
+        <div class="na-state tall" id="map-na-state">
+          <svg class="na-ico" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          <b id="map-na-title">No block geometry loaded</b>
+          <p id="map-na-body">Select a single estate above to view its block boundaries, once
+             that estate has block geometry loaded.</p>
+          <span class="na-req" id="map-na-req">Requires · an estate scope with block polygons</span>
+        </div>
+        <div id="blk-map" class="blk-map hidden"></div>
+        <div class="map-legend hidden" id="map-legend">
+          <span>Low</span><span class="ramp" id="map-legend-ramp"></span><span>High</span>
+          <span id="map-legend-label" style="margin-left:6px;"></span>
+        </div>
+        <p class="chart-note" id="map-note">Planned overlays: forecast volume, change vs last year, yield,
+           palm age, rainfall, NDVI and forecast error, each rendered as a choropleth over
+           the same block polygons, with click-through to the block forecast below.</p>
+      </div>
+
+      <!-- ── BLOCK DRILL-DOWN — container only until a per-block model
+           produces a series per block. ───────────────────────────────────── -->
+      <div class="tbl-card" id="blk-card">
+        <h2>
+          <span>Block drill-down · <span id="blk-scope">estate</span></span>
+          <button class="btn-collapse hidden" id="blk-collapse-btn"></button>
+        </h2>
+        <div id="blk-table-wrap" class="hidden">
+          <div class="blk-scroll" id="blk-scroll">
+            <table class="fc-table">
+              <thead>
+                <tr>
+                  <th>Division / Block</th>
+                  <th>Planted area (ha)</th>
+                  <th>Forecast (bunches)</th>
+                  <th>vs LY</th>
+                  <th>Yield (t/ha)</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+              <tbody id="blk-tbody"></tbody>
+            </table>
+          </div>
+          <p class="chart-note" id="blk-note" style="padding:10px 16px 14px;"></p>
+        </div>
+        <div style="padding:14px 16px;" id="blk-na-wrap">
+          <div class="na-state" id="blk-na-state">
+            <svg class="na-ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <b id="blk-na-title">No block-level forecast</b>
+            <p id="blk-na-body">The served model produces one monthly series for the estate as a whole.
+               Block rows appear here once the model is refitted per block and planted
+               area per block is available.</p>
+            <span class="na-req" id="blk-na-req">Requires · per-block model + block area register</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tbl-card">
+        <h2>Forecast detail</h2>
+        <table class="fc-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Horizon</th>
+              <th>Forecast (bunches)</th>
+              <th id="rng-th">Range (± sMAPE)</th>
+              <th id="bw-th">Band ±%</th>
+              <th>SARIMAX</th>
+              <th>Trailing-3</th>
+              <th>LightGBM</th>
+            </tr>
+          </thead>
+          <tbody id="fc-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const C = { teal:'#157082', tealFill:'rgba(21,112,130,.07)', gold:'#d4a84b',
+            goldFill:'rgba(212,168,75,.12)', under:'#b07a5e', grid:'rgba(220,228,225,.65)', tick:'#64746f' };
+
+let chart = null;
+let currentHorizon = 3;
+
+/* ── boot ─────────────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('refresh-btn').addEventListener('click', () => loadForecast(true));
+  document.getElementById('intel-btn').addEventListener('click', () => loadIntelligence(intelLoaded));
+  document.getElementById('invg-btn').addEventListener('click', loadInvestigation);
+  document.getElementById('ovl-forecast').addEventListener('click', function() {
+    if (this.disabled) return;
+    setForecastOverlay(!forecastOverlayOn);
+  });
+  document.getElementById('blk-collapse-btn').addEventListener('click', toggleBlockTable);
+
+  document.getElementById('hz-toggle').querySelectorAll('.hz-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const hz = +this.dataset.hz;
+      if (hz === currentHorizon) return;
+      currentHorizon = hz;
+      document.querySelectorAll('#hz-toggle .hz-btn').forEach(b =>
+        b.classList.toggle('active', +b.dataset.hz === hz));
+      loadForecast(false);
+    });
+  });
+
+  loadForecast(false);
+});
+
+/* ── fetch + render ───────────────────────────────────────────────── */
+async function loadForecast(refresh) {
+  const btn = document.getElementById('refresh-btn');
+  // 'all' (group view) always serves k3's series — see the "Group rollup"
+  // decision in forecast_router.py: two modeled estates' forecasts cover
+  // different calendar windows (k3 real, ec synthetic) and can't be honestly
+  // summed, so the group tile stays exactly what it always showed.
+  const estateParam = currentScope === 'all' ? 'k3' : currentScope;
+  // Fast path: the server pre-injects the ML forecast into the page (see the
+  // /forecast route — always k3's default payload), so first paint needs no
+  // network round-trip. Only valid for that same default estate. Guarded so a
+  // render glitch can NEVER strand the page on the spinner — it falls back to a
+  // fetch instead of leaving the user stuck.
+  if (!refresh && currentHorizon === 3 && estateParam === 'k3' && window.__FORECAST_DATA__) {
+    try {
+      render(window.__FORECAST_DATA__);
+      showState('result');
+      return;
+    } catch (e) {
+      console.error('[forecast] inject render failed, falling back to fetch:', e);
+    }
+  }
+  showState('loading');
+  btn.disabled = true;
+  try {
+    // Hard 30s timeout so a stalled request can never hang the spinner forever.
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30000);
+    const url   = '/forecast/data?horizon=' + currentHorizon + '&estate=' + encodeURIComponent(estateParam)
+                + (refresh ? '&refresh=1' : '');
+    const res   = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
+    showState('result');
+    await new Promise(r => requestAnimationFrame(r));
+    render(data);
+  } catch (err) {
+    const msg = (err && err.name === 'AbortError')
+      ? 'The forecast took too long to respond. Please retry.'
+      : (err && err.message ? err.message : 'Could not load the forecast.');
+    document.getElementById('err-msg').textContent = '⚠ ' + msg;
+    showState('error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showState(which) {
+  document.getElementById('state-loading').classList.toggle('hidden', which !== 'loading');
+  document.getElementById('state-error').classList.toggle('hidden',   which !== 'error');
+  document.getElementById('state-result').classList.toggle('hidden',  which !== 'result');
+}
+
+// ── intelligence panel (LLM risk synthesis) ──────────────────────────
+// Self-contained: fetches /forecast/intelligence and writes ONLY to
+// #intel-* nodes. It never calls render() — never touches `chart` or `data`,
+// so the forecast figures (chart, KPIs, table) are guaranteed untouched.
+let intelLoaded = false;
+
+function intelState(which) {
+  document.getElementById('intel-placeholder').classList.toggle('hidden', which !== 'placeholder');
+  document.getElementById('intel-loading').classList.toggle('hidden',     which !== 'loading');
+  document.getElementById('intel-error').classList.toggle('hidden',       which !== 'error');
+  document.getElementById('intel-result').classList.toggle('hidden',      which !== 'result');
+}
+
+async function loadIntelligence(refresh) {
+  intelState('loading');
+  const btn = document.getElementById('intel-btn');
+  btn.disabled = true;
+  try {
+    const res  = await fetch('/forecast/intelligence?estate=' + encodeURIComponent(intelEstate())
+                             + (refresh ? '&refresh=1' : ''));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
+    renderIntel(data);
+    intelState('result');
+    intelLoaded = true;
+    document.getElementById('intel-btn-label').textContent = 'Re-analyze';
+  } catch (err) {
+    document.getElementById('intel-err-msg').textContent =
+      '⚠ ' + (err && err.message ? err.message : 'Could not generate the risk analysis.');
+    intelState('error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderIntel(d) {
+  const level = (d.risk_level || 'moderate').toLowerCase();
+  const badge = document.getElementById('intel-badge');
+  badge.className = 'risk-badge ' + level;
+  document.getElementById('intel-level').textContent = level + ' risk';
+  document.getElementById('intel-summary').textContent = d.risk_summary || '';
+
+  // narrative → paragraphs (split on blank lines); text-only, so it's XSS-safe
+  const narr = document.getElementById('intel-narrative');
+  narr.innerHTML = '';
+  String(d.narrative || '').split(/\n\s*\n/).filter(s => s.trim()).forEach(par => {
+    const p = document.createElement('p');
+    p.textContent = par.trim();
+    narr.appendChild(p);
+  });
+
+  document.getElementById('intel-sig-pills').innerHTML = sigPills(d.signals || {});
+
+  const gen = d.generated_at ? d.generated_at.replace('T', ' ') : '';
+  // Name the estate and coordinates the signals came from: these panels are now
+  // estate-aware, and the whole point is that EC no longer shows Sabah's weather.
+  const g = d.geo || {};
+  const where = g.label ? g.label + ' (' + g.lat + ', ' + g.lon + ')' : '';
+  document.getElementById('intel-foot').textContent =
+    'AI synthesis is advisory context only. It does not modify the model forecast above. '
+    + (where ? 'Signals fetched at ' + where + '. ' : '')
+    + (d.model ? 'Model: ' + d.model + '. ' : '') + (gen ? 'Generated ' + gen + '.' : '');
+}
+
+function sigPills(sig) {
+  const pills = [];
+  const w = sig.weather || {};
+  if (w.available) {
+    pills.push(pill('Rain ' + (w.period_days || 14) + 'd',
+                    fmtFull(w.total_rain_mm) + ' mm · ' + w.dry_days + ' dry',
+                    w.area ? 'Open-Meteo point forecast at ' + w.area
+                             + ' (' + w.lat + ', ' + w.lon + ')' : ''));
+  } else { pills.push(pillNA('Weather')); }
+
+  // ENSO: the categorical alert label plus the numeric index behind it. A label
+  // alone cannot say whether an event is building or nearly spent.
+  const e = sig.enso || {};
+  if (e.available) {
+    pills.push(pill('ENSO', e.status + (e.stale ? ' (stale)' : ''),
+                    e.stale ? 'CPC unreachable — last good reading ' + (e.fetched_at || '')
+                            : 'NOAA CPC ENSO Alert System status'));
+    if (e.roni != null) {
+      const sign = e.roni > 0 ? '+' : '';
+      pills.push(pill('RONI', sign + e.roni.toFixed(2) + '°C'
+                      + (e.roni_trend ? ' · ' + e.roni_trend : ''),
+                      'Relative Oceanic Niño Index for ' + (e.roni_season || '')
+                      + ' — CPC’s official ENSO index since 2026-02-01, replacing ONI. '
+                      + 'El Niño ≥ +0.5, La Niña ≤ −0.5. Previous season '
+                      + (e.roni_prev != null ? (e.roni_prev > 0 ? '+' : '') + e.roni_prev.toFixed(2) : 'n/a') + '.'));
+    }
+  } else { pills.push(pillNA('ENSO')); }
+
+  // Fire: intensity (radiative power), not just a detection count — ten
+  // smouldering pixels and one large fire front are very different things.
+  const f = sig.firms || {};
+  if (f.available) {
+    const win = f.window_days || 5;
+    pills.push(pill('Hotspots ' + win + 'd', fmtFull(f.hotspot_count),
+                    'VIIRS detections within ~' + (f.radius_deg || 2) + '° of '
+                    + (f.area || 'the estate') + '. '
+                    + (f.low_confidence_dropped ? f.low_confidence_dropped
+                       + ' low-confidence detection(s) excluded of '
+                       + f.raw_detections + ' raw.' : '')));
+    if (f.total_frp_mw) {
+      pills.push(pill('Fire power', fmtFull(f.total_frp_mw) + ' MW',
+                      'Total Fire Radiative Power over the window — a physical measure of '
+                      + 'burn intensity. Largest single detection '
+                      + fmtFull(f.max_frp_mw) + ' MW.'));
+    }
+    if (f.nearest_km != null) {
+      pills.push(pill('Nearest fire', fmtFull(f.nearest_km) + ' km',
+                      'Great-circle distance from the estate centroid to the closest '
+                      + 'VIIRS detection in the window.'));
+    }
+  } else { pills.push(pillNA('Hotspots')); }
+
+  return pills.join('');
+}
+function pill(label, val, tip) {
+  const t = tip ? ` title="${esc(tip)}"` : '';
+  return `<span class="sig-pill"${t}>${esc(label)}: <b>${esc(val)}</b></span>`;
+}
+function pillNA(label)     { return `<span class="sig-pill na">${esc(label)}: N/A</span>`; }
+
+/* ── investigator (LangGraph root-cause agent) ────────────────────── */
+async function loadInvestigation() {
+  const btn = document.getElementById('invg-btn');
+  const box = document.getElementById('invg-result');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Investigating… (~10–30s)';
+  try {
+    const res  = await fetch('/forecast/investigate?force=1&refresh=1&estate='
+                             + encodeURIComponent(intelEstate()));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
+    renderInvestigation(data);
+    box.classList.remove('hidden');
+  } catch (err) {
+    box.classList.remove('hidden');
+    document.getElementById('invg-cause').textContent =
+      '⚠ ' + (err && err.message ? err.message : 'Investigation failed.');
+    document.getElementById('invg-narrative').innerHTML = '';
+    document.getElementById('invg-pills').innerHTML = '';
+    document.getElementById('invg-foot').textContent = '';
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'Investigate';
+  }
+}
+
+function renderInvestigation(d) {
+  const r = d.report || {};
+  const conf = (r.confidence != null) ? Math.round(r.confidence * 100) : null;
+  const badge = document.getElementById('invg-badge');
+  badge.className = 'risk-badge ' + (conf == null ? 'moderate' : conf >= 70 ? 'low' : conf >= 40 ? 'moderate' : 'high');
+  document.getElementById('invg-conf').textContent =
+    conf == null ? 'agent' : 'confidence ' + conf + '%';
+  document.getElementById('invg-cause').textContent = r.root_cause || d.note || '';
+
+  const narr = document.getElementById('invg-narrative');
+  narr.innerHTML = '';
+  String(r.narrative || '').split(/\n\s*\n/).filter(s => s.trim()).forEach(par => {
+    const p = document.createElement('p'); p.textContent = par.trim(); narr.appendChild(p);
+  });
+  if (r.actions && r.actions.length) {
+    const p = document.createElement('p');
+    p.innerHTML = '<b>Follow-ups:</b> ' + r.actions.map(esc).join(' · ');
+    narr.appendChild(p);
+  }
+
+  const tools = (d.evidence_log || []).map(e =>
+    `<span class="sig-pill${e.ok ? '' : ' na'}">${esc(e.tool)}</span>`).join('');
+  document.getElementById('invg-pills').innerHTML = tools || '<span class="sig-pill na">no tools run</span>';
+
+  const trig = d.triggered
+    ? 'Trigger: ' + (d.triggers || []).map(t => t.type).join(', ')
+    : 'No automatic trigger (manual run; last actual was inside the conformal band)';
+  document.getElementById('invg-foot').textContent =
+    trig + '. Root-cause agent output is advisory and evidence-linked; it never alters the forecast. '
+    + (d.iterations ? d.iterations + ' reasoning steps, ' : '') + (d.elapsed_s ? d.elapsed_s + 's.' : '');
+}
+
+/* ── render ───────────────────────────────────────────────────────── */
+function render(data) {
+  const hist   = data.history || [];
+  const fc     = data.forecast || [];
+  const anchor = data.anchor || (hist.length ? { month: hist[hist.length-1].month, value: hist[hist.length-1].value } : null);
+
+  const hz = data.horizon || 3;
+
+  // header meta
+  document.getElementById('model-pill').textContent = data.model_name || 'Ensemble';
+
+  // update titlebar horizon label
+  const accentEl = document.querySelector('.fc-title .accent');
+  if (accentEl) accentEl.textContent = '· next ' + hz + (hz === 12 ? ' months (1 year)' : ' months');
+
+  // interval metadata (measured sMAPE band served by default; conformal path
+  // kept for the Investigator's stats and shown here only if ever re-served)
+  const iv     = data.interval || {};
+  const isConf = String(iv.method || '').startsWith('conformal');
+  // nomPct is the CONFORMAL nominal level. It is needed on the default
+  // (measured-sMAPE) path too, to say what the sMAPE band is *not*, so it must
+  // not be null there.
+  const nomPct = iv.conformal_nominal_pct ?? 90;
+  const covPct = (iv.conformal_coverage_h1_3 != null)
+    ? Math.round(iv.conformal_coverage_h1_3 * 100) + '%' : null;
+
+  // update chart legend + table range header
+  const bandLegendEl = document.getElementById('band-legend');
+  if (bandLegendEl) bandLegendEl.textContent = isConf ? nomPct + '% conformal band' : '± sMAPE band';
+  const rngTh = document.getElementById('rng-th');
+  if (rngTh) rngTh.textContent = isConf ? `Range (${nomPct}% conformal)` : 'Range (± sMAPE)';
+
+  lastData = data;
+  applyScope(data);
+  renderKpis(data, fc, iv, isConf, nomPct, covPct);
+  // per-step empirical coverage of the band that is actually drawn
+  const bandCov = {};
+  Object.entries(iv.per_step || {}).forEach(([k, v]) => { bandCov[+k] = v.coverage; });
+  renderTable(fc, bandCov);
+  renderChart(hist, fc, anchor, data);
+  renderDrivers(data);
+
+  const fcMonths = fc.length <= 4
+    ? fc.map(f => mLabel(f.month)).join(', ')
+    : mLabel(fc[0].month) + ' – ' + mLabel(fc[fc.length - 1].month);
+  const lastBand  = (fc[fc.length - 1] || {}).band_pct ?? data.smape;
+  const firstBand = (fc[0] || {}).band_pct ?? data.smape;
+  const covs = Object.values(iv.per_step || {})
+    .map(v => v.coverage).filter(v => v != null);
+  const bandCovNote = covs.length
+    ? Math.round(Math.min(...covs) * 100) + '–' + Math.round(Math.max(...covs) * 100) + '%'
+    : 'an unmeasured share';
+  const bandNote = isConf
+    ? `The shaded band is a ${nomPct}% conformal prediction interval `
+      + `(${iv.method.endsWith('aci') ? 'adaptive ACI' : 'split-conformal'}), calibrated on `
+      + `multi-step walk-forward residuals of this exact pipeline`
+      + (covPct ? `; its honest backtest coverage is ${covPct} (steps 1–3)` : '')
+      + `. It widens from ±${fmtPct(firstBand)} at step 1 to ±${fmtPct(lastBand)} at step ${hz}.`
+    : `The shaded band is per-step sMAPE measured directly on a multi-step walk-forward backtest `
+      + `of this exact pipeline (not an assumed growth curve); it runs ±${fmtPct(firstBand)} at step 1 `
+      + `to ±${fmtPct(lastBand)} at step ${hz}, reflecting the model's real observed error at each horizon. `
+      + `It is a typical-error band, NOT a 90% prediction interval: across the backtest folds the actual `
+      + `landed inside it ${bandCovNote} of the time. The wider ${nomPct}% conformal interval that does `
+      + `hold at its nominal level is reported on the model-health page.`;
+  document.getElementById('chart-note').textContent =
+    `The teal line is recorded monthly production (under-recorded months are seasonally imputed and marked). ` +
+    `The dashed gold line is the ${data.model_label || 'ensemble'} forecast for ${fcMonths}, ` +
+    `connected at the last complete month. ` + bandNote;
+}
+
+/* ══ HEAD-OFFICE SCOPE + EXECUTIVE OVERVIEW ═══════════════════════════
+   The served model is one estate-level monthly series (see
+   forecast_router.MODELED_ESTATES). Everything below reports that fact
+   honestly: estates without a model render as N/A tiles, and metrics with no
+   input behind them (planted area, bunch weight, budget, archived forecast
+   runs) render as N/A rather than a derived-looking number. When a scope gains
+   a model server-side, these panels fill in with no change here. */
+
+let lastData = null;
+let currentScope = 'all';   // 'all' = group roll-up, otherwise an estate id
+
+/** Re-render only the scope-dependent panels (no chart rebuild). */
+function applyScope(data) {
+  const scope   = data.scope || {};
+  const estates = scope.estates || [];
+  // Guard against a stale selection if an estate loses its model or its
+  // block geometry (either is enough to keep a scope selectable).
+  if (currentScope !== 'all' && !estates.some(e => e.id === currentScope && (e.modeled || e.has_blocks))) {
+    currentScope = 'all';
+  }
+  renderScopeBar(data);
+  renderExec(data);
+  renderEstates(data);
+  renderBlockMap(data);
+  renderBlockForecast(data);
+  updateEstateGatedPanels();
+  const blkScope = document.getElementById('blk-scope');
+  if (blkScope) blkScope.textContent = scopeLabel(data).toLowerCase();
+}
+
+/** Change the active scope. 'all' (group) always serves k3 — see the "Group
+    rollup" note in loadForecast — so it and 'k3' itself get a real refetch
+    for a genuine series; any other MODELED estate (e.g. 'ec') also refetches
+    its own real series. A non-modeled/spatial-only tile just re-renders the
+    existing payload's panels — today's honest N/A treatment, no fetch. */
+function switchScope(id) {
+  if (id === currentScope) return;
+  const estates = (lastData && lastData.scope && lastData.scope.estates) || [];
+  const isServable = id === 'all' || estates.some(e => e.id === id && e.modeled);
+  currentScope = id;
+  if (isServable) {
+    loadForecast(false);
+  } else if (lastData) {
+    applyScope(lastData);
+  }
+}
+
+/** Estate the Intelligence / Investigator panels analyze. Mirrors the estateParam
+    rule used for /forecast/data: the group roll-up reports k3's series, so it
+    analyzes k3. */
+function intelEstate() {
+  return currentScope === 'all' ? 'k3' : currentScope;
+}
+
+/** The Intelligence and Investigator panels are now estate-aware: the server
+    fetches weather and FIRMS at the requested estate's own coordinates (read
+    from its weather provenance sidecar), so they are enabled for every MODELED
+    estate rather than k3 only. They still need a model behind them, so a
+    spatial-only tile keeps them disabled. Switching between estates clears the
+    panels — otherwise one estate's risk narrative would linger under another's
+    tile, which is exactly the confusion the old k3-only gate was guarding against. */
+let gatedPanelsAllowed = true;
+let lastIntelEstate = null;
+function updateEstateGatedPanels() {
+  const estates = (lastData && lastData.scope && lastData.scope.estates) || [];
+  const target = intelEstate();
+  const allowed = currentScope === 'all'
+    || estates.some(e => e.id === currentScope && e.modeled);
+  const tip = allowed ? '' : 'Needs a forecast model for this estate.';
+  ['intel-btn', 'invg-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = !allowed;
+    btn.title = tip;
+  });
+  const estateChanged = allowed && lastIntelEstate !== null && lastIntelEstate !== target;
+  if ((!allowed && gatedPanelsAllowed) || estateChanged) {
+    resetIntelligencePanel();
+    resetInvestigatorPanel();
+  }
+  if (allowed) lastIntelEstate = target;
+  gatedPanelsAllowed = allowed;
+}
+
+function resetIntelligencePanel() {
+  intelLoaded = false;
+  intelState('placeholder');
+  document.getElementById('intel-btn-label').textContent = 'Analyze';
+}
+
+function resetInvestigatorPanel() {
+  document.getElementById('invg-result').classList.add('hidden');
+  document.getElementById('invg-cause').textContent = '';
+  document.getElementById('invg-narrative').innerHTML = '';
+  document.getElementById('invg-pills').innerHTML = '';
+  document.getElementById('invg-foot').textContent = '';
+  const btn = document.getElementById('invg-btn');
+  if (btn) btn.querySelector('span').textContent = 'Investigate';
+}
+
+function scopeLabel(data) {
+  const estates = (data.scope || {}).estates || [];
+  if (currentScope === 'all') return 'All estates';
+  const e = estates.find(x => x.id === currentScope);
+  return e ? e.label + ' estate' : 'All estates';
+}
+
+function renderScopeBar(data) {
+  const scope   = data.scope || {};
+  const estates = scope.estates || [];
+  const chips = [{ id: 'all', label: 'All estates', on: (scope.modeled_count || 0) > 0,
+                   why: 'Head-office roll-up' }]
+    .concat(estates.map(e => ({ id: e.id, label: e.label, on: e.modeled || e.has_blocks,
+                                why: e.modeled ? 'Forecast model available'
+                                     : e.has_blocks ? 'Block geometry available (no forecast model yet)'
+                                     : 'No forecast model yet' })));
+
+  const box = document.getElementById('scope-chips');
+  box.innerHTML = chips.map(c =>
+    `<button class="scope-chip${c.id === currentScope ? ' active' : ''}"
+             data-scope="${esc(c.id)}" title="${esc(c.why)}"${c.on ? '' : ' disabled'}
+      >${esc(c.label)}</button>`).join('');
+  box.querySelectorAll('.scope-chip').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (this.disabled || this.dataset.scope === currentScope) return;
+      switchScope(this.dataset.scope);
+    });
+  });
+
+  // Hierarchy crumbs — dimmed for levels with no model behind them.
+  const avail   = scope.available_levels || ['group', 'estate'];
+  const levels  = scope.levels || ['group', 'estate', 'division', 'block'];
+  const current = currentScope === 'all' ? 'group' : 'estate';
+  const NAMES   = { group: 'Group', estate: 'Estate', division: 'Division', block: 'Block' };
+  document.getElementById('scope-crumbs').innerHTML = levels.map((lv, i) => {
+    const cls = lv === current ? 'on' : (avail.includes(lv) ? '' : 'off');
+    const tip = avail.includes(lv) ? '' : ' title="No model at this level yet"';
+    return (i ? '<span class="crumb-sep">›</span>' : '')
+         + `<span class="crumb ${cls}"${tip}>${NAMES[lv] || lv}</span>`;
+  }).join('');
+}
+
+/** Same calendar months, one year earlier, from the recorded history.
+    Returns null if any of those months is absent — a partial sum must never
+    be presented as a year-on-year comparison. */
+function yoyBaseline(hist, fc) {
+  const byMonth = new Map(hist.map(h => [h.month, h]));
+  let total = 0, imputed = 0;
+  for (const f of fc) {
+    const p    = mParts(f.month);
+    const prev = byMonth.get((p.y - 1) + '-' + String(p.m).padStart(2, '0'));
+    if (!prev || prev.value == null) return null;
+    total += prev.value;
+    if (prev.underrecorded) imputed++;
+  }
+  return { total, imputed };
+}
+
+/** Confidence tier from the measured band width. A stated banding rule over
+    the model's own backtested error — not a separate model output. */
+function confidenceTier(bandPct) {
+  if (bandPct == null) return { label: 'N/A', rule: '' };
+  if (bandPct <= 10)  return { label: 'High',     rule: 'band ≤ ±10%' };
+  if (bandPct <= 20)  return { label: 'Moderate', rule: 'band ±10–20%' };
+  return { label: 'Low', rule: 'band > ±20%' };
+}
+
+function renderExec(data) {
+  const fc    = data.forecast || [];
+  const hist  = data.history || [];
+  const hz    = data.horizon || 3;
+  const scope = data.scope || {};
+  const modeled = scope.modeled_count ?? 0;
+  const nEstate = scope.estate_count ?? 0;
+  const isGroup = currentScope === 'all';
+  const partial = isGroup && modeled < nEstate;
+
+  document.getElementById('exec-title').textContent =
+    isGroup ? 'Group Production Outlook' : scopeLabel(data) + ' · Production Outlook';
+
+  // The served forecast is one estate's series (see MODELED_ESTATES). A
+  // single-estate scope with no model of its own — e.g. a spatial-only
+  // research estate — must never show that series under its name; render
+  // the same honest N/A treatment the estate tile already uses instead of
+  // stopping here and leaking it.
+  const scopeEstate = (scope.estates || []).find(e => e.id === currentScope);
+  const hasSeries = isGroup || (scopeEstate && scopeEstate.modeled);
+  if (!hasSeries) {
+    const hasBlocks = !!(scopeEstate && scopeEstate.has_blocks);
+    document.getElementById('exec-window').textContent = 'N/A';
+    const cov = document.getElementById('exec-coverage');
+    cov.className = 'badge warn';
+    cov.textContent = hasBlocks ? 'Spatial data only' : 'No forecast model';
+    document.getElementById('exec-hz-label').textContent = 'Expected production · N/A';
+    document.getElementById('exec-total').innerHTML = 'N/A';
+    document.getElementById('exec-range').textContent = 'N/A';
+    const yoyEl  = document.getElementById('exec-yoy');
+    const yoySub = document.getElementById('exec-yoy-sub');
+    yoyEl.className = 'delta-val na';
+    yoyEl.textContent = 'N/A';
+    yoySub.textContent = hasBlocks
+      ? 'Block geometry is loaded (see Block Map below); no forecast model has been fitted yet.'
+      : 'No forecast model has been fitted for this estate yet.';
+    const metrics = [
+      { label: 'Forecast confidence', value: 'N/A', sub: 'No forecast model for this estate', na: true },
+      { label: 'FFB tonnage',         value: 'N/A', sub: 'No forecast model for this estate', na: true },
+      { label: 'Yield (t/ha)',        value: 'N/A', sub: 'No forecast model for this estate', na: true },
+      { label: 'vs Budget',           value: 'N/A', sub: 'No forecast model for this estate', na: true },
+      { label: 'Block geometry', value: hasBlocks ? 'Loaded' : 'N/A',
+        sub: hasBlocks ? 'See Block Map below' : 'No block geometry for this estate', na: !hasBlocks },
+    ];
+    document.getElementById('exec-grid').innerHTML = metrics.map(m => `
+      <div class="exec-metric${m.na ? ' na' : ''}">
+        <span class="m-label">${esc(m.label)}</span>
+        <span class="m-value">${esc(m.value)}</span>
+        <span class="m-sub">${esc(m.sub)}</span>
+      </div>`).join('');
+    return;
+  }
+
+  const window_ = fc.length
+    ? mLabel(fc[0].month) + ' – ' + mLabel(fc[fc.length - 1].month)
+    : 'N/A';
+  document.getElementById('exec-window').textContent = window_;
+
+  const cov = document.getElementById('exec-coverage');
+  cov.className = 'badge' + (partial ? ' warn' : '');
+  cov.textContent = isGroup
+    ? modeled + ' of ' + nEstate + ' estates modelled'
+    : 'Single-estate model';
+
+  document.getElementById('exec-hz-label').textContent =
+    'Expected production · ' + hz + ' months' + (partial ? ' · modelled estates only' : '');
+
+  const total = data.total_forecast ?? data.total_3m;
+  document.getElementById('exec-total').innerHTML =
+    fmtNum(total) + '<span class="unit">bunches</span>';
+
+  const lo = fc.reduce((s, f) => s + f.lower, 0);
+  const up = fc.reduce((s, f) => s + f.upper, 0);
+  document.getElementById('exec-range').textContent = fc.length
+    ? 'Range ' + fmtNum(lo) + ' – ' + fmtNum(up) + ' · sum of the monthly ±sMAPE bands'
+    : 'N/A';
+
+  // vs same period last year, computed from recorded actuals.
+  const yoy    = yoyBaseline(hist, fc);
+  const yoyEl  = document.getElementById('exec-yoy');
+  const yoySub = document.getElementById('exec-yoy-sub');
+  if (yoy && yoy.total > 0 && total != null) {
+    const pct = (total - yoy.total) / yoy.total * 100;
+    yoyEl.className = 'delta-val ' + (pct >= 0 ? 'up' : 'down');
+    yoyEl.textContent = (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(1) + '%';
+    yoySub.textContent = fmtNum(yoy.total) + ' same months last year'
+      + (yoy.imputed ? ' · ' + yoy.imputed + ' imputed' : '');
+  } else {
+    yoyEl.className = 'delta-val na';
+    yoyEl.textContent = 'N/A';
+    yoySub.textContent = 'History does not cover the same months last year';
+  }
+
+  // Metric strip — two measured, three awaiting inputs that do not exist yet.
+  const tier = confidenceTier(data.avg_band_pct ?? data.smape);
+  const metrics = [
+    { label: 'Forecast confidence', value: tier.label,
+      sub: tier.rule ? tier.rule + ' · measured on walk-forward backtest' : 'N/A',
+      na: tier.label === 'N/A' },
+    { label: 'FFB tonnage', value: 'N/A',
+      sub: 'Needs average bunch weight; the model targets bunch counts', na: true },
+    { label: 'Yield (t/ha)', value: 'N/A',
+      sub: 'Needs mature planted area per estate', na: true },
+    { label: 'vs Budget', value: 'N/A',
+      sub: 'No production budget is loaded', na: true },
+    { label: 'Estates covered', value: modeled + ' / ' + nEstate,
+      sub: (scope.series_label ? scope.series_label + ' only' : 'N/A')
+           + ' · ' + (nEstate - modeled) + ' awaiting a model', na: false },
+  ];
+  document.getElementById('exec-grid').innerHTML = metrics.map(m => `
+    <div class="exec-metric${m.na ? ' na' : ''}">
+      <span class="m-label">${esc(m.label)}</span>
+      <span class="m-value">${esc(m.value)}</span>
+      <span class="m-sub">${esc(m.sub)}</span>
+    </div>`).join('');
+}
+
+function renderEstates(data) {
+  const fc      = data.forecast || [];
+  const hist    = data.history || [];
+  const hz      = data.horizon || 3;
+  const scope   = data.scope || {};
+  const estates = scope.estates || [];
+  const total   = data.total_forecast ?? data.total_3m;
+  const yoy     = yoyBaseline(hist, fc);
+
+  document.getElementById('strip-sub').textContent =
+    hz + '-month forecast per estate · ' + (scope.modeled_count ?? 0)
+    + ' of ' + (scope.estate_count ?? 0) + ' modelled';
+
+  document.getElementById('est-strip').innerHTML = estates.map((e, i) => {
+    const delay = `style="animation-delay:${i * 60}ms"`;
+    if (!e.modeled) {
+      const flag = e.has_blocks ? 'Spatial data only' : 'No model';
+      const sub  = e.has_blocks
+        ? 'Block geometry is loaded — see the Block Map below. No forecast model has been fitted yet.'
+        : 'No forecast model has been fitted for this estate yet.';
+      return `<div class="est-tile na" ${delay}>
+        <div class="est-top"><span class="est-name">${esc(e.label)}</span>
+          <span class="est-flag none">${esc(flag)}</span></div>
+        <span class="est-value">N/A</span>
+        <span class="est-delta na">vs LY N/A</span>
+        <span class="est-sub">${esc(sub)}</span>
+      </div>`;
+    }
+    let deltaHtml = '<span class="est-delta na">vs LY N/A</span>';
+    if (yoy && yoy.total > 0 && total != null) {
+      const pct = (total - yoy.total) / yoy.total * 100;
+      deltaHtml = `<span class="est-delta ${pct >= 0 ? 'up' : 'down'}">`
+        + (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(1) + '% vs LY</span>';
+    }
+    return `<div class="est-tile" ${delay}>
+      <div class="est-top"><span class="est-name">${esc(e.label)}</span>
+        <span class="est-flag live">Modelled</span></div>
+      <span class="est-value">${fmtNum(total)}</span>
+      ${deltaHtml}
+      <span class="est-sub">${esc(hz)}-month bunches · ±${fmtPct(data.avg_band_pct ?? data.smape)} band</span>
+    </div>`;
+  }).join('');
+}
+
+/* ── BLOCK MAP — real block polygons for whichever scope has geometry
+   (see forecast/blocks.py). Deliberately separate from the forecast series:
+   an estate can have block geometry with no model (EC today) or, later, a
+   model with no geometry (K3 today) — the two must never be conflated, so
+   this reads only scope.estates[].has_blocks and fetches per-estate GeoJSON
+   on demand, never touching `data.forecast` / `data.history`. ═══════════ */
+let blockMap = null;
+let blockLayer = null;
+let blockMapEstate = null;   // id of the estate currently drawn on blockMap
+let blockMapToken = 0;       // race guard: a later scope switch wins
+const blockGeomCache = {};   // estate id -> GeoJSON | null (null = fetch failed/absent)
+
+function showMapState(which) {   // 'na' | 'map'
+  document.getElementById('map-na-state').classList.toggle('hidden', which !== 'na');
+  document.getElementById('blk-map').classList.toggle('hidden', which !== 'map');
+}
+
+async function renderBlockMap(data) {
+  const estates = (data.scope || {}).estates || [];
+  const e = currentScope === 'all' ? null : estates.find(x => x.id === currentScope);
+  const naTitle = document.getElementById('map-na-title');
+  const naBody  = document.getElementById('map-na-body');
+  const naReq   = document.getElementById('map-na-req');
+  const note    = document.getElementById('map-note');
+  const plannedNote = 'Planned overlays: forecast volume, change vs last year, yield, '
+    + 'palm age, rainfall, NDVI and forecast error, each rendered as a choropleth over '
+    + 'the same block polygons, with click-through to the block forecast below.';
+
+  if (!e || !e.has_blocks) {
+    showMapState('na');
+    if (!e) {
+      naTitle.textContent = 'No block geometry loaded';
+      naBody.textContent  = 'Select a single estate above to view its block boundaries, '
+        + 'once that estate has block geometry loaded.';
+      naReq.textContent   = 'Requires · an estate scope with block polygons';
+    } else {
+      naTitle.textContent = 'No block geometry for ' + e.label;
+      naBody.textContent  = 'This estate has no block polygons loaded yet.';
+      naReq.textContent   = 'Requires · block polygons (GeoJSON) for this estate';
+    }
+    note.textContent = plannedNote;
+    return;
+  }
+
+  const token = ++blockMapToken;
+  let geo = blockGeomCache[e.id];
+  if (geo === undefined) {
+    try {
+      const res = await fetch('/forecast/blocks?estate=' + encodeURIComponent(e.id));
+      geo = res.ok ? await res.json() : null;
+    } catch (err) {
+      console.error('[forecast] block geometry fetch failed:', err);
+      geo = null;
+    }
+    blockGeomCache[e.id] = geo;
+  }
+  if (token !== blockMapToken) return;   // a newer scope switch has since happened
+
+  if (!geo || !geo.features || !geo.features.length) {
+    showMapState('na');
+    naTitle.textContent = 'Block geometry unavailable';
+    naBody.textContent  = 'The block overlay for ' + e.label + ' could not be loaded.';
+    naReq.textContent   = 'Requires · a readable block-overlay export';
+    note.textContent = plannedNote;
+    return;
+  }
+
+  showMapState('map');
+  note.textContent = geo.block_count + ' block' + (geo.block_count === 1 ? '' : 's') + ' for '
+    + e.label + ' · click a block for its division, planting year, seed variety, tree count '
+    + 'and area. Forecast, yield, rainfall, NDVI and forecast-error overlays stay disabled — '
+    + 'no per-block model or remote-sensing feed exists yet.';
+
+  if (!blockMap) {
+    blockMap = L.map('blk-map', { scrollWheelZoom: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(blockMap);
+  }
+  if (blockMapEstate !== e.id) {
+    if (blockLayer) blockMap.removeLayer(blockLayer);
+    blockLayer = L.geoJSON(geo, {
+      style: { color: '#115e6e', weight: 1.2, fillColor: '#157082', fillOpacity: .18 },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const age = p.TT ? (new Date().getFullYear() - Number(p.TT)) : null;
+        const ha  = p.Shape_Area ? (Number(p.Shape_Area) / 10000).toFixed(1) : null;
+        layer.bindPopup(
+          '<b>Block ' + esc(p.Blok ?? p._section_code ?? '') + '</b><br>' +
+          'Division ' + esc(p.Divisi ?? p._division_code ?? '') + '<br>' +
+          (p.TT ? 'Planted ' + esc(p.TT) + (age != null ? ' (' + age + ' yrs)' : '') + '<br>' : '') +
+          (p.JnsBibit ? 'Seed variety: ' + esc(p.JnsBibit) + '<br>' : '') +
+          (p.JlhPokok ? 'Trees: ' + esc(fmtNum(p.JlhPokok)) + '<br>' : '') +
+          (ha ? 'Area: ' + esc(ha) + ' ha' : '')
+        );
+        layer.on({
+          // Restore to the CURRENT choropleth state on mouseout, not a
+          // hardcoded pre-overlay default — otherwise a block colored by the
+          // Forecast overlay loses that color (falls back to the pale
+          // no-overlay fillOpacity) the moment the cursor leaves it.
+          mouseover: () => layer.setStyle({ ...blockRestStyle(p), fillOpacity: Math.min(1, blockRestStyle(p).fillOpacity + .2), weight: 2 }),
+          mouseout:  () => layer.setStyle({ ...blockRestStyle(p), weight: 1.2 }),
+        });
+      },
+    }).addTo(blockMap);
+    blockMap.fitBounds(blockLayer.getBounds(), { padding: [12, 12] });
+    blockMapEstate = e.id;
+  }
+  requestAnimationFrame(() => blockMap.invalidateSize());
+  applyForecastOverlay();   // reapply choropleth if it was already toggled on
+}
+
+/* ── block-level forecast: drill-down table + map "Forecast" overlay ──
+   forecast/build_block_forecast.py output (trailing-mean per block — every
+   block has the same thin ~4-month history the estate itself has, so this is
+   NOT the estate-level LightGBM+SARIMAX ensemble refitted 291 times; see the
+   script's own docstring). "vs LY" and "Yield (t/ha)" stay N/A here same as
+   estate level — no prior-year block data and no average-bunch-weight
+   conversion exists anywhere in this codebase; never fabricate either. ── */
+const BLOCK_RAMP = ['#8fbdb5', '#71a89f', '#4e8d85', '#2a7169', '#0b4351']; // validated sequential teal, light->dark (dataviz skill)
+const blockForecastCache = {};   // estate id -> {blocks:[...], caveat} | null
+let blockForecastData = null;    // current estate's payload (or null)
+let forecastOverlayOn = false;
+
+function showBlockTableState(which) {   // 'na' | 'table'
+  document.getElementById('blk-na-wrap').classList.toggle('hidden', which !== 'na');
+  document.getElementById('blk-table-wrap').classList.toggle('hidden', which !== 'table');
+}
+
+function setForecastOverlay(on) {
+  forecastOverlayOn = on;
+  document.getElementById('ovl-forecast').classList.toggle('active', on);
+  document.getElementById('map-legend').classList.toggle('hidden', !on);
+  applyForecastOverlay();
+}
+
+/** Quantile buckets (robust to a few outlier blocks) mapped onto BLOCK_RAMP. */
+function blockColorScale(blocks) {
+  const sorted = blocks.map(b => b.forecast_bunches).slice().sort((a, b) => a - b);
+  const n = BLOCK_RAMP.length;
+  const breaks = [];
+  for (let i = 1; i < n; i++) {
+    breaks.push(sorted[Math.min(sorted.length - 1, Math.floor(i * sorted.length / n))]);
+  }
+  return (v) => {
+    let i = 0;
+    while (i < breaks.length && v >= breaks[i]) i++;
+    return BLOCK_RAMP[i];
+  };
+}
+
+// { byKey, colorOf } for the current choropleth state, or null when the
+// overlay is off — rebuilt once per applyForecastOverlay() call and read by
+// both the layer styling below and the hover handlers in renderBlockMap, so
+// mouseout always restores to what's actually showing (see blockRestStyle).
+let blockColorCache = null;
+
+function blockRestStyle(p) {
+  if (!blockColorCache) return { fillColor: '#157082', fillOpacity: .18 };
+  const b = blockColorCache.byKey.get(String(p._division_code) + '/' + String(p._block_code));
+  return b ? { fillColor: blockColorCache.colorOf(b.forecast_bunches), fillOpacity: .62 }
+           : { fillColor: '#157082', fillOpacity: .12 };
+}
+
+function applyForecastOverlay() {
+  if (!blockLayer) return;
+  const blocks = blockForecastData && blockForecastData.blocks;
+  blockColorCache = (forecastOverlayOn && blocks && blocks.length)
+    ? { byKey: new Map(blocks.map(b => [b.division_code + '/' + b.block_code, b])),
+        colorOf: blockColorScale(blocks) }
+    : null;
+
+  blockLayer.eachLayer(l => {
+    const p = (l.feature && l.feature.properties) || {};
+    l.setStyle(blockRestStyle(p));
+  });
+
+  if (!blockColorCache) return;
+  const vals = blocks.map(b => b.forecast_bunches);
+  document.getElementById('map-legend-ramp').innerHTML =
+    BLOCK_RAMP.map(c => `<span style="background:${c}"></span>`).join('');
+  document.getElementById('map-legend-label').textContent =
+    fmtNum(Math.min(...vals)) + ' – ' + fmtNum(Math.max(...vals)) + ' bunches (trailing mean)';
+}
+
+async function renderBlockForecast(data) {
+  const estates = (data.scope || {}).estates || [];
+  const e = currentScope === 'all' ? null : estates.find(x => x.id === currentScope);
+  const chip = document.getElementById('ovl-forecast');
+
+  if (!e || !e.has_blocks) {
+    blockForecastData = null;
+    chip.disabled = true;
+    setForecastOverlay(false);
+    showBlockTableState('na');
+    document.getElementById('blk-na-title').textContent = 'No block-level forecast';
+    document.getElementById('blk-na-body').textContent =
+      'The served model produces one monthly series for the estate as a whole. Block '
+      + 'rows appear here once the model is refitted per block and planted area per '
+      + 'block is available.';
+    document.getElementById('blk-na-req').textContent = 'Requires · per-block model + block area register';
+    return;
+  }
+
+  let payload = blockForecastCache[e.id];
+  if (payload === undefined) {
+    try {
+      const res = await fetch('/forecast/block-forecast?estate=' + encodeURIComponent(e.id));
+      payload = res.ok ? await res.json() : null;
+    } catch (err) {
+      console.error('[forecast] block-forecast fetch failed:', err);
+      payload = null;
+    }
+    blockForecastCache[e.id] = payload;
+  }
+  if (currentScope !== e.id) return;   // a newer scope switch has since happened
+
+  blockForecastData = payload;
+  const blocks = payload && payload.blocks;
+  chip.disabled = !(blocks && blocks.length);
+
+  const collapseBtn = document.getElementById('blk-collapse-btn');
+  if (!blocks || !blocks.length) {
+    setForecastOverlay(false);
+    showBlockTableState('na');
+    collapseBtn.classList.add('hidden');
+    document.getElementById('blk-na-title').textContent = 'No block-level forecast for ' + e.label;
+    document.getElementById('blk-na-body').textContent =
+      'A block-level forecast has not been built for this estate yet.';
+    document.getElementById('blk-na-req').textContent =
+      'Requires · forecast/build_block_forecast.py output for this estate';
+    return;
+  }
+
+  showBlockTableState('table');
+  const rows = blocks.slice().sort((a, b) =>
+    (Number(a.division_code) - Number(b.division_code)) || (Number(a.block_code) - Number(b.block_code)));
+  document.getElementById('blk-tbody').innerHTML = rows.map(b => `
+    <tr>
+      <td>${esc(b.division_code)} / ${esc(b.block_code)}</td>
+      <td class="num${b.planted_area_ha == null ? ' na' : ''}">${b.planted_area_ha != null ? Number(b.planted_area_ha).toFixed(1) : 'N/A'}</td>
+      <td class="num">${fmtFull(b.forecast_bunches)}</td>
+      <td class="num na">N/A</td>
+      <td class="num na">N/A</td>
+      <td>${esc(b.confidence)}</td>
+    </tr>`).join('');
+  document.getElementById('blk-note').textContent = payload.caveat || '';
+
+  // Collapsed by default (scrollable, capped height) — 291 rows is too long a
+  // page scroll otherwise; the toggle lets someone expand the full list.
+  document.getElementById('blk-scroll').classList.remove('expanded');
+  collapseBtn.textContent = 'Show all ' + rows.length + ' blocks';
+  collapseBtn.classList.remove('hidden');
+
+  applyForecastOverlay();
+}
+
+function toggleBlockTable() {
+  const scroll = document.getElementById('blk-scroll');
+  const btn = document.getElementById('blk-collapse-btn');
+  const nowExpanded = scroll.classList.toggle('expanded');
+  const n = (blockForecastData && blockForecastData.blocks && blockForecastData.blocks.length) || 0;
+  btn.textContent = nowExpanded ? 'Collapse' : 'Show all ' + n + ' blocks';
+  if (!nowExpanded) scroll.scrollIntoView({ block: 'nearest' });
+}
+
+/* ── drivers panel (TreeSHAP) ─────────────────────────────────────── */
+function renderDrivers(data) {
+  const card   = document.getElementById('drv-card');
+  const months = (data.drivers && data.drivers.months) || [];
+  if (!months.length) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  const tabs = document.getElementById('drv-tabs');
+  tabs.innerHTML = months.map((m, i) =>
+    `<button class="drv-tab${i === 0 ? ' active' : ''}" data-i="${i}">${esc(mLabel(m.month))}</button>`).join('');
+  tabs.querySelectorAll('.drv-tab').forEach(btn => {
+    btn.addEventListener('click', function() {
+      tabs.querySelectorAll('.drv-tab').forEach(b => b.classList.toggle('active', b === this));
+      drawDrivers(months[+this.dataset.i]);
+    });
+  });
+
+  document.getElementById('drv-note').textContent =
+    (data.drivers.note || '') + ' Bars show how much each input pushed the prediction above (teal) or below (red) the model baseline.';
+  drawDrivers(months[0]);
+}
+
+function drawDrivers(m) {
+  document.getElementById('drv-base').innerHTML =
+    `LightGBM baseline <b>${fmtFull(m.base)}</b> bunches → predicted <b>${fmtFull(m.prediction)}</b> for ${esc(mLabel(m.month))}`;
+  const rows  = m.contributions || [];
+  const maxC  = Math.max(...rows.map(c => Math.abs(c.contribution)), 1);
+  document.getElementById('drv-rows').innerHTML = rows.map(c => {
+    const pos = c.contribution >= 0;
+    const w   = Math.max(2, Math.abs(c.contribution) / maxC * 50);
+    const val = (c.feature === 'seasonality') ? ''
+      : `<span class="drv-val">${c.value == null ? 'n/a' : esc(typeof c.value === 'number' ? c.value.toLocaleString('en-US') : c.value)}</span>`;
+    return `<div class="drv-row">
+      <span class="drv-label" title="${esc(c.feature)}">${esc(c.label)}${val}</span>
+      <div class="drv-track"><div class="drv-bar ${pos ? 'pos' : 'neg'}" style="width:${w}%"></div></div>
+      <span class="drv-amt ${pos ? 'pos' : 'neg'}">${pos ? '+' : '−'}${fmtFull(Math.abs(c.contribution))}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderKpis(data, fc, iv, isConf, nomPct, covPct) {
+  const next = fc[0];
+  const hz   = data.horizon || 3;
+  const row  = document.getElementById('kpi-row');
+
+  const lastBand = (fc[fc.length - 1] || {}).band_pct ?? data.smape;
+  const firstBand = (fc[0] || {}).band_pct ?? data.smape;
+
+  // Headline accuracy = pooled sMAPE over steps 1-3 of the multi-horizon
+  // walk-forward (what the client actually receives), NOT the 1-step figure.
+  // The 1-step sMAPE/MASE are deliberately NOT shown here: they come from a
+  // different backtest (the model reads the target month's recorded feature
+  // row, including work-done effort the live path rebuilds and may not have),
+  // so they read slightly better than the served product and cost a paragraph
+  // of explanation in front of a client. They stay on /model-health, where the
+  // contrast is the point, and in the payload for existing consumers.
+  const mh = data.accuracy_multih || {};
+  const perH = mh.per_horizon || [];
+  const headline = data.headline_smape ?? data.avg_band_pct ?? data.smape;
+  const perHSub = perH.length
+    ? perH.map(h => 'h' + h.step + ' ' + fmtPct(h.smape)).join(' · ')
+    : 'measured 1-step: ' + fmtPct(firstBand) + ' · step ' + hz + ': ' + fmtPct(lastBand);
+
+  const fcSub = fc.length <= 4
+    ? fc.map(f => mLabel(f.month)).join(' · ')
+    : mLabel(fc[0].month) + ' – ' + mLabel(fc[fc.length - 1].month);
+
+  const hzLabel = hz === 12 ? '12-month total (1 year)' : hz + '-month total';
+
+  // Benchmark card: MASE over the same walk-forward rows as the headline
+  // sMAPE, shown as "x% less error" because that is the sentence a client
+  // actually asks for. MASE stays in the sub-line for anyone who wants it.
+  const mhMase = data.headline_mase ?? mh.pooled_mase;
+  const maseSub = perH.filter(h => h.mase != null)
+    .map(h => 'h' + h.step + ' ' + h.mase.toFixed(2)).join(' · ');
+  const benchCard = mhMase == null
+    ? { cls:'', label:'vs seasonal-naïve · ' + Math.min(hz, 3) + '-month', value:'N/A',
+        sub:'benchmark unavailable' }
+    : { cls:'', label:'vs seasonal-naïve · ' + Math.min(hz, 3) + '-month',
+        value: Math.round((1 - mhMase) * 100) + '% less error',
+        sub: 'MASE ' + mhMase.toFixed(2) + (maseSub ? ' · ' + maseSub : '') };
+
+  const accuracyCard = isConf
+    ? { cls:'', label: nomPct + '% band · empirical coverage', value: covPct ?? 'N/A',
+        sub: 'honest walk-forward · ' + (mhMase == null ? 'MASE N/A'
+             : Math.round((1 - mhMase) * 100) + '% less error than seasonal-naïve') }
+    : benchCard;
+
+  const cards = [
+    next ? { cls:'gold', label:'Next month · ' + mLabel(next.month), value: fmtNum(next.ensemble),
+             sub:'Range ' + fmtNum(next.lower) + ' – ' + fmtNum(next.upper) + ' bunches' } : null,
+    { cls:'', label: hzLabel, value: fmtNum(data.total_forecast ?? data.total_3m), sub: fcSub },
+    { cls:'accent', label:'Forecast error · ' + Math.min(hz, 3) + '-month (sMAPE)',
+      value: fmtPct(headline),
+      sub: perHSub + (mh.n_origins ? ' · ' + mh.n_origins + ' origins' : '') },
+    accuracyCard,
+    isConf
+      ? { cls:'', label:'Interval half-width (avg)', value: fmtPct(data.avg_band_pct),
+          sub: 'conformal ' + (iv.method.endsWith('aci') ? 'ACI' : 'split')
+               + ' · coverage ' + (covPct ?? 'N/A') }
+      : { cls:'', label:'Band half-width · step ' + hz, value: fmtPct(lastBand),
+          sub: 'step 1 ±' + fmtPct(firstBand) + ' → step ' + hz + ' ±' + fmtPct(lastBand) },
+  ].filter(Boolean);
+  row.innerHTML = cards.map((c, i) => `
+    <div class="kpi-card ${c.cls}" style="animation-delay:${i*60}ms">
+      <span class="k-label">${esc(c.label)}</span>
+      <span class="k-value">${esc(c.value)}</span>
+      <span class="k-sub">${esc(c.sub)}</span>
+    </div>`).join('');
+}
+
+function renderTable(fc, cov) {
+  // Band width is shown per horizon rather than as one averaged figure: the
+  // client's complaint is about width, and width is not constant across the
+  // three months (it grows as the recursive forecast compounds).
+  document.getElementById('fc-tbody').innerHTML = fc.map((f, i) => {
+    const h = f.step ?? (i + 1);
+    const c = (cov || {})[h];
+    return `
+    <tr>
+      <td>${esc(mLabel(f.month))}</td>
+      <td class="num">h${h}</td>
+      <td class="num ens">${fmtFull(f.ensemble)}</td>
+      <td class="num rng">${fmtFull(f.lower)} – ${fmtFull(f.upper)}</td>
+      <td class="num" title="${c != null ? 'empirical coverage ' + Math.round(c * 100) + '%' : 'coverage unavailable'}">±${fmtPct(f.band_pct)}${c != null ? ' <span class="cov-inline">(' + Math.round(c * 100) + '% cov)</span>' : ''}</td>
+      <td class="num">${fmtFull(f.sarimax)}</td>
+      <td class="num">${fmtFull(f.trailing3)}</td>
+      <td class="num">${fmtFull(f.lightgbm)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderChart(hist, fc, anchor, data) {
+  const labels = hist.map(h => h.month).concat(fc.map(f => f.month));
+  const N = hist.length, M = fc.length;
+  const anchorIdx = N - 1;
+
+  const histData = hist.map(h => h.value).concat(new Array(M).fill(null));
+
+  // Forecast / band datasets are null across history, pinned to the anchor
+  // point so the dashed line and band fan out from the last actual month.
+  const fcData = new Array(labels.length).fill(null);
+  const upData = new Array(labels.length).fill(null);
+  const loData = new Array(labels.length).fill(null);
+  if (anchorIdx >= 0 && anchor) {
+    fcData[anchorIdx] = anchor.value;
+    upData[anchorIdx] = anchor.value;
+    loData[anchorIdx] = anchor.value;
+  }
+  fc.forEach((f, i) => { fcData[N + i] = f.ensemble; upData[N + i] = f.upper; loData[N + i] = f.lower; });
+
+  const underFlag = hist.map(h => !!h.underrecorded).concat(new Array(M).fill(false));
+
+  // vertical divider at the forecast boundary
+  const dividerPlugin = {
+    id: 'fcDivider',
+    afterDatasetsDraw(c) {
+      if (anchorIdx < 0) return;
+      const x = c.scales.x.getPixelForValue(anchorIdx);
+      const { top, bottom } = c.chartArea;
+      const ctx = c.ctx;
+      ctx.save();
+      ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(100,116,111,.45)';
+      ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = '#9aa6a2';
+      ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('Forecast →', x + 6, top + 12);
+      ctx.restore();
+    }
+  };
+
+  const cfg = {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '_upper', data: upData, borderColor: 'transparent',
+          backgroundColor: C.goldFill, pointRadius: 0, fill: '+1', tension: .3, spanGaps: false },
+        { label: '_lower', data: loData, borderColor: 'transparent',
+          pointRadius: 0, fill: false, tension: .3, spanGaps: false },
+        { label: 'Actual production', data: histData, borderColor: C.teal,
+          backgroundColor: C.tealFill, borderWidth: 2, fill: true, tension: .3,
+          pointRadius: (ctx) => underFlag[ctx.dataIndex] ? 3.5 : 0,
+          pointBackgroundColor: C.under, pointBorderColor: C.under,
+          pointHoverRadius: 5, spanGaps: false },
+        { label: 'Forecast', data: fcData, borderColor: C.gold,
+          backgroundColor: C.goldFill, borderWidth: 2.5, borderDash: [6, 4],
+          fill: false, tension: .3,
+          pointRadius: (ctx) => ctx.dataIndex === anchorIdx ? 0 : 4,
+          pointHoverRadius: (ctx) => ctx.dataIndex === anchorIdx ? 0 : 6,
+          pointBackgroundColor: C.gold, pointBorderColor: '#fff', pointBorderWidth: 1.5,
+          spanGaps: false },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 500 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#ffffff', borderColor: '#dce4e1', borderWidth: 1,
+          titleColor: '#20312e', bodyColor: '#64746f', padding: 10,
+          filter: (item) => !item.dataset.label.startsWith('_'),
+          callbacks: {
+            title: (items) => items.length ? mLabel(items[0].label) : '',
+            label: (item) => {
+              const v = item.parsed.y;
+              if (v == null) return null;
+              return item.dataset.label + ': ' + fmtFull(v) + ' bunches';
+            },
+            afterBody: (items) => {
+              const it = items.find(i => i.dataset.label === 'Forecast');
+              if (!it) return '';
+              const f = fc[it.dataIndex - N];
+              if (!f) return '';
+              return 'Range: ' + fmtFull(f.lower) + ' – ' + fmtFull(f.upper);
+            },
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: C.grid },
+          ticks: { color: C.tick, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12,
+            callback(v) { return mShort(this.getLabelForValue(v)); } } },
+        y: { grid: { color: C.grid }, beginAtZero: false,
+          ticks: { color: C.tick, font: { size: 10 }, callback: (v) => fmtNum(v) } },
+      },
+    },
+    plugins: [dividerPlugin],
+  };
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('fc-chart'), cfg);
+}
+
+/* ── formatting ───────────────────────────────────────────────────── */
+const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function mParts(s) { const [y, m] = String(s).split('-'); return { y: +y, m: +m }; }
+function mLabel(s) { const p = mParts(s); return (_MONTHS[p.m-1] || '?') + ' ' + p.y; }
+function mShort(s) { const p = mParts(s); return (_MONTHS[p.m-1] || '?') + " '" + String(p.y).slice(2); }
+function fmtPct(v) { return (v == null) ? 'N/A' : (Math.round(v * 10) / 10) + '%'; }
+function fmtFull(v) { return (v == null || isNaN(v)) ? 'N/A' : Math.round(v).toLocaleString('en-US'); }
+function fmtNum(v) {
+  if (v == null || isNaN(v)) return 'N/A';
+  const n = +v;
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+/* ── nav pill animation (shared) ──────────────────────────────────── */
+(function(){
+  const nav=document.getElementById('app-nav'),pill=document.getElementById('nav-pill'),clone=document.getElementById('nav-clone');
+  if(!nav||!pill)return;
+  function movePill(el,instant){
+    const nr=nav.getBoundingClientRect(),er=el.getBoundingClientRect();
+    const l=er.left-nr.left,t=er.top-nr.top,w=er.width,h=er.height;
+    if(instant){pill.style.transition='none';if(clone)clone.style.transition='none';}
+    pill.style.left=l+'px';pill.style.top=t+'px';pill.style.width=w+'px';pill.style.height=h+'px';
+    if(clone){const nw=nav.offsetWidth,nh=nav.offsetHeight;clone.style.clipPath=`inset(${t}px ${nw-l-w}px ${nh-t-h}px ${l}px round 99px)`;}
+    if(instant)requestAnimationFrame(()=>{pill.style.transition='';if(clone)clone.style.transition='';});
+  }
+  const active=nav.querySelector('.nav-active');
+  if(active){movePill(active,true);requestAnimationFrame(()=>{pill.style.opacity='1';});}
+  nav.querySelectorAll('a:not(.nav-active)').forEach(a=>{
+    a.addEventListener('click',function(e){
+      e.preventDefault();movePill(this,false);
+      setTimeout(()=>{location.href=this.href;},280);
+    });
+  });
+})();
+</script>
+</body>
+</html>

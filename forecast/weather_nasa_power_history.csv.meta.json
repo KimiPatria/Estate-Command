@@ -1,0 +1,12 @@
+{
+  "source": "NASA POWER daily point (community=AG)",
+  "url": "https://power.larc.nasa.gov/api/temporal/daily/point",
+  "parameters": "T2M,T2M_MAX,T2M_MIN,RH2M,ALLSKY_SFC_SW_DWN,PRECTOTCORR,WS2M,PS",
+  "latitude": 5.0409,
+  "longitude": 118.6354,
+  "start": "2020-01-01",
+  "end": "2026-08-26",
+  "rows": 2425,
+  "et0_method": "FAO-56 Penman-Monteith",
+  "fetched_at": "2026-08-26T15:38:22"
+}

@@ -1,0 +1,427 @@
+# Golden test set for the text-to-SQL pipeline (Bedrock migration plan #1).
+#
+# Seeded from real query patterns in query_history.db (131 successful queries,
+# incl. the Indonesian phrasings users actually type) plus schema coverage of
+# the high-traffic tables (t_oph, m_employee, t_workdone, t_attendance,
+# t_harvesting_plan, m_block, m_estate).
+#
+# Fields per case:
+#   id              stable identifier
+#   query           the natural-language question, verbatim style of real users
+#   expected_sql    reference SQL — executed live at eval time; the generated
+#                   SQL's result ROWS are diffed against this one's ROWS
+#                   (execution accuracy, not string match)
+#   expected_tables tables a correct answer needs (retrieval ground truth)
+#   ordered         true when row order is part of correctness (top-N cases)
+#   notes           what the case probes
+#
+# Authoring rules:
+#   * expected_sql follows business_rules.txt — the rules define correctness
+#     for this deployment: t_oph time filters use oph_created_date (rule 5)
+#     and tables whose DDL exposes an is_deleted column get the
+#     (x_is_deleted = 0 OR x_is_deleted IS NULL) guard (rule 3).
+#   * fixed date ranges only (no "last 30 days") so results are deterministic
+#   * string literals in ALL CAPS (matches DB storage convention)
+#   * every expected_sql must execute against the live EPMS schema — run
+#     `python sql_eval.py --check-cases` after editing this file.
+
+- id: sql_001
+  query: "Total harvest in 2025"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: simple aggregate, year filter (top real pattern)
+
+- id: sql_002
+  query: "berapa panen yang dihasilkan pada Q2 2025"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND EXTRACT(MONTH FROM oph_created_date) IN (4, 5, 6)
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: Indonesian, quarter filter (verbatim real query)
+
+- id: sql_003
+  query: "berapa banyak bunches yang di produksi bulan maret 2023"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2023
+      AND EXTRACT(MONTH FROM oph_created_date) = 3
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: Indonesian, single month (verbatim real query)
+
+- id: sql_004
+  query: "berapa banyak bunches yang dihasilkan di block 001 pada bulan januari - september 2025"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE oph_block_code = '001'
+      AND EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND EXTRACT(MONTH FROM oph_created_date) BETWEEN 1 AND 9
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: Indonesian, block + month-range filter (verbatim real query)
+
+- id: sql_005
+  query: "Which 5 blocks had the most ripe bunches in 2025?"
+  expected_sql: |
+    SELECT oph_block_code, SUM(bunches_ripe) AS total_ripe_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_block_code
+    ORDER BY total_ripe_bunches DESC
+    LIMIT 5
+  expected_tables: [t_oph]
+  ordered: true
+  notes: top-N ranking (real pattern)
+
+- id: sql_006
+  query: "ripe vs unripe vs overripe bunches breakdown for 2025"
+  expected_sql: |
+    SELECT SUM(bunches_ripe) AS ripe_bunches,
+           SUM(bunches_unripe) AS unripe_bunches,
+           SUM(bunches_overripe) AS overripe_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: multi-aggregate quality breakdown (rule 6 makes the model add more
+    grading columns — superset columns are accepted by the row diff)
+
+- id: sql_007
+  query: "monthly harvest trend in 2025"
+  expected_sql: |
+    SELECT EXTRACT(MONTH FROM oph_created_date) AS month,
+           SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(MONTH FROM oph_created_date)
+    ORDER BY month
+  expected_tables: [t_oph]
+  ordered: true
+  notes: time-series group-by
+
+- id: sql_008
+  query: "total loose fruits collected in 2025"
+  expected_sql: |
+    SELECT SUM(loose_fruits) AS total_loose_fruits
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: column selection (loose_fruits vs bunches)
+
+- id: sql_009
+  query: "compare harvest production between 2024 and 2025"
+  expected_sql: |
+    SELECT EXTRACT(YEAR FROM oph_created_date) AS year,
+           SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) IN (2024, 2025)
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(YEAR FROM oph_created_date)
+    ORDER BY year
+  expected_tables: [t_oph]
+  ordered: true
+  notes: year-over-year comparison (real follow-up pattern)
+
+- id: sql_010
+  query: "berapa total panen per divisi di tahun 2025"
+  expected_sql: |
+    SELECT oph_division_code, SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_division_code
+  expected_tables: [t_oph]
+  notes: Indonesian, division group-by
+
+- id: sql_011
+  query: "How many bunches were rejected as rotten or diseased in 2025?"
+  expected_sql: |
+    SELECT SUM(bunches_rotten) AS rotten_bunches,
+           SUM(bunches_diseased) AS diseased_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: less-common quality columns
+
+- id: sql_012
+  query: "daily harvest for March 2025"
+  expected_sql: |
+    SELECT oph_created_date, SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE oph_created_date BETWEEN '2025-03-01' AND '2025-03-31'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_created_date
+    ORDER BY oph_created_date
+  expected_tables: [t_oph]
+  ordered: true
+  notes: daily granularity, BETWEEN date range
+
+- id: sql_013
+  query: "average bunches per harvest record in 2025"
+  expected_sql: |
+    SELECT AVG(bunches_total) AS avg_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: AVG aggregate
+
+- id: sql_014
+  query: "how many harvest records from 2025 are still not approved"
+  expected_sql: |
+    SELECT COUNT(*) AS unapproved_records
+    FROM t_oph
+    WHERE is_approved = 0
+      AND EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: flag-column filter (is_approved int)
+
+- id: sql_015
+  query: "perbandingan employee pria dan wanita"
+  expected_sql: |
+    SELECT employee_sex, COUNT(employee_id) AS total_employees
+    FROM m_employee
+    WHERE employee_sex IN ('MALE', 'FEMALE')
+    GROUP BY employee_sex
+  expected_tables: [m_employee]
+  notes: Indonesian, ALL-CAPS string literals (verbatim real query)
+
+- id: sql_016
+  query: "How many employees are there per estate?"
+  expected_sql: |
+    SELECT employee_estate_code, COUNT(employee_id) AS total_employees
+    FROM m_employee
+    GROUP BY employee_estate_code
+  expected_tables: [m_employee]
+  notes: estate group-by (real pattern)
+
+- id: sql_017
+  query: "how many internal vs external employees do we have"
+  expected_sql: |
+    SELECT employee_is_internal_estate, COUNT(employee_id) AS total_employees
+    FROM m_employee
+    GROUP BY employee_is_internal_estate
+  expected_tables: [m_employee]
+  notes: int-flag group-by
+
+- id: sql_018
+  query: "list the block code and block name of every block that is not planted"
+  expected_sql: |
+    SELECT block_code, block_name
+    FROM m_block
+    WHERE block_is_planted = 0
+  expected_tables: [m_block]
+  notes: row listing with flag filter (46 rows — deterministic set, no ORDER BY)
+
+- id: sql_019
+  query: "berapa jumlah karyawan per department"
+  expected_sql: |
+    SELECT employee_department, COUNT(employee_id) AS total_employees
+    FROM m_employee
+    GROUP BY employee_department
+  expected_tables: [m_employee]
+  notes: Indonesian, department group-by
+
+# NOTE: t_work_assignment is empty in the current replica, which would make
+# every count-style case on it trivially 0 (any wrong-table query would
+# false-positive match). Worker-assignment questions are therefore grounded in
+# t_workdone, which has real data. Revisit if assignments start flowing.
+
+- id: sql_020
+  query: "berapa banyak pekerja yang tercatat bekerja di blok 002 pada tahun 2025"
+  expected_sql: |
+    SELECT COUNT(DISTINCT workdone_employee_code) AS total_employees
+    FROM t_workdone
+    WHERE workdone_block_code = '002'
+      AND EXTRACT(YEAR FROM workdone_date) = 2025
+  expected_tables: [t_workdone]
+  notes: Indonesian, DISTINCT count + block filter (real query pattern)
+
+- id: sql_021
+  query: "how many distinct workers recorded work done in 2025"
+  expected_sql: |
+    SELECT COUNT(DISTINCT workdone_employee_code) AS total_employees
+    FROM t_workdone
+    WHERE EXTRACT(YEAR FROM workdone_date) = 2025
+  expected_tables: [t_workdone]
+  notes: DISTINCT count + year
+
+- id: sql_022
+  query: "top 5 activities by quantity of work done in 2025"
+  expected_sql: |
+    SELECT workdone_activity_name, SUM(workdone_qty) AS total_qty
+    FROM t_workdone
+    WHERE EXTRACT(YEAR FROM workdone_date) = 2025
+    GROUP BY workdone_activity_name
+    ORDER BY total_qty DESC NULLS LAST
+    LIMIT 5
+  expected_tables: [t_workdone]
+  ordered: true
+  notes: activity ranking
+
+- id: sql_023
+  query: "how many distinct mandors supervised work done in 2025"
+  expected_sql: |
+    SELECT COUNT(DISTINCT workdone_mandor_employee_code) AS total_mandors
+    FROM t_workdone
+    WHERE EXTRACT(YEAR FROM workdone_date) = 2025
+  expected_tables: [t_workdone]
+  notes: DISTINCT count over supervisor code (codes, not names — names can
+    have spelling variants for one mandor)
+
+- id: sql_024
+  query: "tampilkan total work duration pekerja di bulan januari 2025"
+  expected_sql: |
+    SELECT workdone_employee_code, workdone_employee_name,
+           SUM(workdone_duration) AS total_duration
+    FROM t_workdone
+    WHERE workdone_date BETWEEN '2025-01-01' AND '2025-01-31'
+    GROUP BY workdone_employee_code, workdone_employee_name
+  expected_tables: [t_workdone]
+  notes: Indonesian, per-employee duration (verbatim real query)
+
+- id: sql_025
+  query: "total mandays spent on manuring work from january to march 2025"
+  expected_sql: |
+    SELECT SUM(workdone_mandays) AS total_mandays
+    FROM t_workdone
+    WHERE workdone_activity_name LIKE '%MANURING%'
+      AND workdone_date BETWEEN '2025-01-01' AND '2025-03-31'
+  expected_tables: [t_workdone]
+  notes: activity LIKE filter per rule 9 + date range (real pattern)
+
+- id: sql_026
+  query: "which activity consumed the most mandays in 2025"
+  expected_sql: |
+    SELECT workdone_activity_name, SUM(workdone_mandays) AS total_mandays
+    FROM t_workdone
+    WHERE EXTRACT(YEAR FROM workdone_date) = 2025
+    GROUP BY workdone_activity_name
+    ORDER BY total_mandays DESC NULLS LAST
+    LIMIT 1
+  expected_tables: [t_workdone]
+  ordered: true
+  notes: argmax via ORDER/LIMIT
+
+- id: sql_027
+  query: "actual quantity done vs target quantity per activity in 2025"
+  expected_sql: |
+    SELECT workdone_activity_name,
+           SUM(workdone_qty) AS total_qty,
+           SUM(workdone_target_qty) AS total_target_qty
+    FROM t_workdone
+    WHERE EXTRACT(YEAR FROM workdone_date) = 2025
+    GROUP BY workdone_activity_name
+  expected_tables: [t_workdone]
+  notes: two-measure comparison
+
+- id: sql_028
+  query: "how many attendance records were taken in January 2025"
+  expected_sql: |
+    SELECT COUNT(*) AS total_attendance_records
+    FROM t_attendance
+    WHERE attendance_date BETWEEN '2025-01-01' AND '2025-01-31'
+  expected_tables: [t_attendance]
+  notes: simple count on attendance
+
+- id: sql_029
+  query: "attendance breakdown by attendance code in 2025"
+  expected_sql: |
+    SELECT attendance_code, COUNT(*) AS total_records
+    FROM t_attendance
+    WHERE EXTRACT(YEAR FROM attendance_date) = 2025
+    GROUP BY attendance_code
+  expected_tables: [t_attendance]
+  notes: attendance-code distribution
+
+- id: sql_030
+  query: "berapa banyak rencana panen yang sudah disetujui di 2025"
+  expected_sql: |
+    SELECT COUNT(*) AS approved_plans
+    FROM t_harvesting_plan
+    WHERE harvesting_plan_is_approved = 1
+      AND EXTRACT(YEAR FROM harvesting_plan_date) = 2025
+  expected_tables: [t_harvesting_plan]
+  notes: Indonesian, approval-flag filter on plans
+
+- id: sql_031
+  query: "planned hectares per division in 2025"
+  expected_sql: |
+    SELECT harvesting_plan_division_code,
+           SUM(harvesting_plan_ha::NUMERIC) AS total_ha
+    FROM t_harvesting_plan
+    WHERE EXTRACT(YEAR FROM harvesting_plan_date) = 2025
+    GROUP BY harvesting_plan_division_code
+  expected_tables: [t_harvesting_plan]
+  notes: varchar-stored numeric (rule 8 cast) — known schema trap
+
+- id: sql_032
+  query: "list all estates with their names"
+  expected_sql: |
+    SELECT estate_code, estate_name
+    FROM m_estate
+  expected_tables: [m_estate]
+  notes: master-data listing
+
+- id: sql_033
+  query: "how many blocks are planted vs not planted"
+  expected_sql: |
+    SELECT block_is_planted, COUNT(*) AS total_blocks
+    FROM m_block
+    GROUP BY block_is_planted
+  expected_tables: [m_block]
+  notes: block master flag
+
+- id: sql_034
+  query: "total hectarage per estate from the block master"
+  expected_sql: |
+    SELECT block_estate_code, SUM(block_hectarage) AS total_hectarage
+    FROM m_block
+    GROUP BY block_estate_code
+  expected_tables: [m_block]
+  notes: hectarage aggregate
+
+# NOTE on 035/036: block_code repeats across estates in m_block, so a join on
+# block_code alone fans out (~18x duplication). The correct join is composite:
+# block_code AND estate_code. These are deliberately the hardest cases.
+
+- id: sql_035
+  query: "harvest total per block name in 2025 (use the block master names)"
+  expected_sql: |
+    SELECT m_block.block_name, SUM(t_oph.bunches_total) AS total_bunches
+    FROM t_oph
+    JOIN m_block ON t_oph.oph_block_code = m_block.block_code
+               AND t_oph.oph_estate_code = m_block.block_estate_code
+    WHERE EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025
+      AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)
+    GROUP BY m_block.block_name
+  expected_tables: [t_oph, m_block]
+  notes: composite join t_oph->m_block (hard — join on code alone fans out)
+
+- id: sql_036
+  query: "berapa rata-rata bunches per hektar per block di 2025"
+  expected_sql: |
+    SELECT m_block.block_code,
+           SUM(t_oph.bunches_total) / NULLIF(MAX(m_block.block_hectarage), 0) AS bunches_per_ha
+    FROM t_oph
+    JOIN m_block ON t_oph.oph_block_code = m_block.block_code
+               AND t_oph.oph_estate_code = m_block.block_estate_code
+    WHERE EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025
+      AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)
+    GROUP BY m_block.block_code
+  expected_tables: [t_oph, m_block]
+  notes: Indonesian, composite join + derived ratio (hardest stretch case)

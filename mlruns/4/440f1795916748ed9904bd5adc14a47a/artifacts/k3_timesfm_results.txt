@@ -1,0 +1,53 @@
+==============================================================================
+TimesFM benchmark -- estate k3
+==============================================================================
+VERDICT: WIN -- best SHIPPABLE variant TimesFM30_monthly_cov sMAPE 9.82% / MASE 0.558
+         vs incumbent Ensemble_workdone 10.07% / 0.572  (delta -0.25 pp sMAPE, -0.014 MASE)
+LICENSE: 2.5 Apache-2.0 (shippable) | 3.0 timesfm-non-commercial-license-v1.0 (benchmark only)
+
+-- headline scoreboard, all folds (sorted by MASE) --
+                model    MAE   RMSE sMAPE  MASE   Bias
+TimesFM30_monthly_cov 11,382 14,068  9.8% 0.558    627
+    Ensemble_workdone 11,664 15,106 10.1% 0.572  4,001
+             Ensemble 12,064 15,392 10.4% 0.592  3,897
+     Ensemble_weather 12,072 15,446 10.4% 0.592  3,911
+              SARIMAX 13,722 18,176 11.5% 0.673  3,625
+            Trailing3 14,479 17,409 12.4% 0.710  3,273
+    LightGBM_workdone 14,747 17,526 12.6% 0.723  5,105
+             LightGBM 15,135 18,341 12.9% 0.742  4,793
+     LightGBM_weather 15,203 18,479 13.0% 0.746  4,834
+        LightGBM_comp 15,320 18,644 13.1% 0.751  5,172
+        SeasonalNaive 20,387 27,152 17.6% 1.000 10,002
+
+-- TimesFM30_monthly --
+   checkpoint google/timesfm-3.0-pytorch  (timesfm-non-commercial-license-v1.0)
+   30 origins, 7.6s inference
+   matched-context subset (n_context >= 24, 16 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM30_monthly            9.87% / 0.595
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_aci, coverage h1-3 0.984, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=10.2%  h2=12.8%  h3=13.1%  h4=13.1%  h5=13.1%  h6=13.1%
+
+-- TimesFM30_monthly_cov --
+   checkpoint google/timesfm-3.0-pytorch  (timesfm-non-commercial-license-v1.0)
+   30 origins, 13.2s inference
+   past_future ['month_sin', 'month_cos', 'temp_lag1m', 'humid_lag1m']
+   past_only   ['rain_mo', 'et0_mo', 'wb_mo', 'solar_mo', 'temp_mo', 'humid_mo', 'rain_lag1m', 'wb_lag1m', 'rain_lag2m', 'wb_lag2m', 'rain_lag3m', 'wb_lag3m', 'rain_flower_5_7m', 'wb_flower_5_7m']
+   matched-context subset (n_context >= 24, 16 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM30_monthly_cov        8.82% / 0.526
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_split, coverage h1-3 0.984, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=9.8%  h2=12.8%  h3=14.1%  h4=14.9%  h5=15.9%  h6=17.3%
+
+-- why this could be wrong --
+  * Context below TimesFM's own 32-point minimum on most folds: the
+    walk-forward starts at 6 months of history. 2 variant(s) had
+    fewer matched-context folds than total folds.
+  * The shippable backend (2.5) is univariate-only on Windows -- its
+    XReg covariate path needs jax[cuda], which has no Windows wheels.
+  * Zero-shot: the model has no palm-agronomy signal. The incumbent
+    uses pruning man-days at lag 1, pruning qty at lag 5, fertiliser
+    at lag 3 and rainfall at flowering 5-7 months prior.
+  * Single estate, ~30 folds. A 90% coverage estimate has ~7pp
+    standard error at this fold count; treat coverage claims loosely.
+==============================================================================

@@ -1,0 +1,54 @@
+# Environment & secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDEs
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Generated / runtime data (may contain company schema info)
+chroma_store/
+query_history.db
+schema_metadata.json
+
+# Company-specific configuration (use .example files as templates)
+glossary.yaml
+business_rules.txt
+
+# Forecast module data & trained artifacts (company production data)
+forecast/*.csv
+forecast/*.joblib
+forecast/monthly_results.txt
+# ...and per-estate subdirectories (forecast/<ESTATE>/*), same policy
+forecast/*/*.csv
+forecast/*/*.joblib
+forecast/*/monthly_results.txt
+
+# TimesFM R&D benchmark outputs. The rules above stop one level deep
+# (forecast/<ESTATE>/*), so this nested dir would otherwise be committed --
+# and these artifacts carry real production figures.
+forecast/experiments/
+
+
+# Runtime telemetry & experiment tracking (regenerated locally)
+llm_calls.jsonl
+rag_calls.jsonl
+mlflow.db
+mlartifacts/
+
+# Eval artifacts containing company production data or row-level query output
+# (aggregate *_summary.json files ARE committed as the baseline record)
+evals/anomaly_cases.jsonl
+evals/results/*.jsonl
+
+# Generated document-ingestion outputs (regenerable via generate_samples.py + dry_run.py)
+doc_ingestion/samples/
+doc_ingestion/dry_run_report.json

@@ -1,0 +1,23 @@
+{
+ "run_id": "sqlrun_20260708_145409",
+ "llm_provider": "groq",
+ "model": "openai/gpt-oss-120b",
+ "with_examples": false,
+ "k": 5,
+ "n_cases": 3,
+ "n_bad_cases": 0,
+ "execution_accuracy": 0.0,
+ "executable_rate": 0.6667,
+ "sql_valid_rate": 1.0,
+ "self_correction_used": 0,
+ "retrieval_precision": 0.2,
+ "retrieval_recall": 1.0,
+ "retrieval_mrr": 0.6667,
+ "retrieval_all_found_rate": 1.0,
+ "mean_retrieval_ms": 338.6667,
+ "mean_generation_ms": 13156.6667,
+ "total_tokens_in": 7755,
+ "total_tokens_out": 2916,
+ "total_cost_usd": 0.0034,
+ "generated_at": "2026-07-08T14:54:53"
+}

@@ -1,0 +1,41 @@
+{
+ "run_id": "run_20260702_161929",
+ "n_cases": 20,
+ "n_judged": 20,
+ "accuracy_full": 0.2,
+ "partial_credit": 0.2,
+ "groundedness": 1.45,
+ "actionability": 1.5,
+ "brier_calibration": 0.022,
+ "precheck_failure_cases": 16,
+ "judge_disagreements": 0,
+ "unjudged_cases": 0,
+ "mean_elapsed_s": 30.85,
+ "per_category": {
+  "under_recording": {
+   "n": 4,
+   "partial_credit": 0.25
+  },
+  "weather_lagged": {
+   "n": 3,
+   "partial_credit": 0.0
+  },
+  "seasonal_model_bias": {
+   "n": 3,
+   "partial_credit": 0.0
+  },
+  "level_shift": {
+   "n": 3,
+   "partial_credit": 0.0
+  },
+  "no_anomaly": {
+   "n": 6,
+   "partial_credit": 0.333
+  },
+  "unknown_external": {
+   "n": 1,
+   "partial_credit": 1.0
+  }
+ },
+ "generated_at": "2026-07-02T16:30:26"
+}

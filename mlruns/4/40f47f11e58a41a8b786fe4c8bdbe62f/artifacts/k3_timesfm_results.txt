@@ -1,0 +1,97 @@
+==============================================================================
+TimesFM benchmark -- estate k3
+==============================================================================
+VERDICT (shippable, Apache-2.0 weights only): LOSS -- TimesFM25_monthly sMAPE 10.38% / MASE 0.590
+         vs incumbent Ensemble_workdone 10.07% / 0.572  (delta +0.31 pp sMAPE, +0.018 MASE)
+
+  Best OVERALL is TimesFM30_monthly_cov 9.82% / 0.558, but it uses TimesFM 3.0 weights under
+  timesfm-non-commercial-license-v1.0 -- NON-COMMERCIAL, NON-PRODUCTION. It CANNOT be
+  served on this dashboard. Treat it as an upper bound, not a deployable result.
+LICENSE: 2.5 Apache-2.0 (shippable) | 3.0 timesfm-non-commercial-license-v1.0 (benchmark only)
+
+-- headline scoreboard, all folds (sorted by MASE) --
+                model    MAE   RMSE sMAPE  MASE    Bias
+TimesFM30_monthly_cov 11,382 14,068  9.8% 0.558     627
+    Ensemble_workdone 11,664 15,106 10.1% 0.572   4,001
+    TimesFM30_monthly 11,909 14,311 10.2% 0.584   1,897
+    TimesFM25_monthly 12,026 14,113 10.4% 0.590   2,383
+             Ensemble 12,064 15,392 10.4% 0.592   3,897
+     Ensemble_weather 12,072 15,446 10.4% 0.592   3,911
+              SARIMAX 13,722 18,176 11.5% 0.673   3,625
+            Trailing3 14,479 17,409 12.4% 0.710   3,273
+    LightGBM_workdone 14,747 17,526 12.6% 0.723   5,105
+             LightGBM 15,135 18,341 12.9% 0.742   4,793
+     LightGBM_weather 15,203 18,479 13.0% 0.746   4,834
+        LightGBM_comp 15,320 18,644 13.1% 0.751   5,172
+        SeasonalNaive 20,387 27,152 17.6% 1.000  10,002
+  TimesFM30_daily_agg 48,311 54,101 56.5% 2.370 -48,311
+  TimesFM25_daily_agg 52,932 55,991 61.1% 2.596 -52,932
+
+-- paired fold-by-fold vs Ensemble_workdone (step 1) --
+   TimesFM30_monthly          wins 14/30 folds | mean MAE gain -245 bunches | t=-0.22 | NOT significant
+   TimesFM30_monthly_cov      wins 13/30 folds | mean MAE gain +282 bunches | t=+0.17 | NOT significant
+   TimesFM30_daily_agg        wins 3/30 folds | mean MAE gain -36,647 bunches | t=-7.35 | SIGNIFICANT at 5%
+   TimesFM25_monthly          wins 14/30 folds | mean MAE gain -362 bunches | t=-0.35 | NOT significant
+   TimesFM25_daily_agg        wins 1/30 folds | mean MAE gain -41,268 bunches | t=-10.22 | SIGNIFICANT at 5%
+   A win on the aggregate with a non-significant paired test means the
+   models are indistinguishable on this much data -- not that one is better.
+
+-- TimesFM30_monthly --
+   checkpoint google/timesfm-3.0-pytorch  (timesfm-non-commercial-license-v1.0)
+   30 origins, 14.3s inference
+   matched-context subset (n_context >= 24, 16 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM30_monthly            9.87% / 0.595
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_aci, coverage h1-3 0.984, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=10.2%  h2=12.8%  h3=13.1%  h4=13.1%  h5=13.1%  h6=13.1%
+
+-- TimesFM30_monthly_cov --
+   checkpoint google/timesfm-3.0-pytorch  (timesfm-non-commercial-license-v1.0)
+   30 origins, 15.1s inference
+   past_future ['month_sin', 'month_cos', 'temp_lag1m', 'humid_lag1m']
+   past_only   ['rain_mo', 'et0_mo', 'wb_mo', 'solar_mo', 'temp_mo', 'humid_mo', 'rain_lag1m', 'wb_lag1m', 'rain_lag2m', 'wb_lag2m', 'rain_lag3m', 'wb_lag3m', 'rain_flower_5_7m', 'wb_flower_5_7m']
+   matched-context subset (n_context >= 24, 16 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM30_monthly_cov        8.82% / 0.526
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_split, coverage h1-3 0.984, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=9.8%  h2=12.8%  h3=14.1%  h4=14.9%  h5=15.9%  h6=17.3%
+
+-- TimesFM30_daily_agg --
+   checkpoint google/timesfm-3.0-pytorch  (timesfm-non-commercial-license-v1.0)
+   30 origins, 9.8s inference
+   matched-context subset (n_context >= 24, 30 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM30_daily_agg          56.45% / 2.370
+     Ensemble_workdone            10.07% / 0.572
+   conformal: method conformal_split, coverage h1-3 1.0, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=56.5%  h2=62.0%  h3=67.9%  h4=68.5%  h5=68.5%  h6=68.5%
+
+-- TimesFM25_monthly --
+   checkpoint google/timesfm-2.5-200m-pytorch  (Apache-2.0)
+   30 origins, 13.1s inference
+   matched-context subset (n_context >= 24, 16 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM25_monthly            9.91% / 0.599
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_split, coverage h1-3 0.984, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=10.4%  h2=12.8%  h3=12.8%  h4=12.8%  h5=12.8%  h6=12.8%
+
+-- TimesFM25_daily_agg --
+   checkpoint google/timesfm-2.5-200m-pytorch  (Apache-2.0)
+   30 origins, 78.1s inference
+   matched-context subset (n_context >= 24, 30 folds) -- INCUMBENT RE-SCORED ON THE SAME FOLDS:
+     TimesFM25_daily_agg          61.05% / 2.596
+     Ensemble_workdone            10.07% / 0.572
+   conformal: method conformal_aci, coverage h1-3 0.984, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=61.1%  h2=64.0%  h3=68.2%  h4=69.8%  h5=70.1%  h6=70.1%
+
+-- why this could be wrong --
+  * Context below TimesFM's own 32-point minimum on most folds: the
+    walk-forward starts at 6 months of history. 3 variant(s) had
+    fewer matched-context folds than total folds.
+  * The shippable backend (2.5) is univariate-only on Windows -- its
+    XReg covariate path needs jax[cuda], which has no Windows wheels.
+  * Zero-shot: the model has no palm-agronomy signal. The incumbent
+    uses pruning man-days at lag 1, pruning qty at lag 5, fertiliser
+    at lag 3 and rainfall at flowering 5-7 months prior.
+  * Single estate, ~30 folds. A 90% coverage estimate has ~7pp
+    standard error at this fold count; treat coverage claims loosely.
+==============================================================================

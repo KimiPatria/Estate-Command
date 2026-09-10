@@ -1,0 +1,30 @@
+# TimesFM R&D benchmark dependencies (forecast/timesfm_*.py).
+#
+# Deliberately SEPARATE from requirements.txt. That file currently omits the
+# entire ML stack already in use (lightgbm, statsmodels, pandas, numpy,
+# joblib) -- a pre-existing gap. Adding only timesfm there would imply the
+# rest is covered, which it is not. Fixing that gap is its own piece of work.
+#
+# Install into the env that runs the dashboard
+# (C:\Users\DP\anaconda3\python.exe, Python 3.13.5):
+#
+#     python -m pip install -r requirements-timesfm.txt
+#
+# Verified on this machine: pulls ONLY timesfm + safetensors. torch 2.9.1,
+# numpy 2.1.3 and huggingface_hub 1.14.0 already satisfy the rest, and nothing
+# is upgraded or replaced.
+#
+# Do NOT install the [xreg] or [flax] extras: both pull jax[cuda], which has
+# no Windows wheels. That is why TimesFM 2.5 is univariate-only here.
+#
+# Checkpoints are ~1.3 GB (3.0) and ~800 MB (2.5), cached under
+# ~/.cache/huggingface -- outside the OneDrive-synced repo tree. Keep it that way.
+#
+# Weight licensing, which decides what a benchmark win is worth:
+#   google/timesfm-3.0-pytorch     timesfm-non-commercial-license-v1.0
+#                                  -> benchmark only, cannot be served
+#   google/timesfm-2.5-200m-pytorch  Apache-2.0  -> the shippable backend
+# (Both packages' CODE is Apache-2.0; only the 3.0 checkpoint is restricted.)
+
+timesfm[torch]==3.0.1
+safetensors>=0.5.3

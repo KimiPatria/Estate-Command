@@ -1,0 +1,30 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+groq>=0.11
+google-generativeai>=0.8
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+python-dotenv>=1.0
+sqlparse>=0.5
+pydantic>=2.6
+pyyaml>=6.0
+fastembed>=0.3
+chromadb>=0.5
+rank-bm25>=0.2
+mlflow>=3.0
+langgraph>=1.0
+arize-phoenix>=8.0
+arize-phoenix-otel>=0.9
+openinference-instrumentation-groq>=0.1
+
+# --- provider-agnostic LLM layer (llm_client.py) ---
+langchain-core>=1.0
+langchain-groq>=1.0
+# Bedrock path — importable/smoke-testable now, INERT until AWS credentials
+# exist and LLM_PROVIDER=bedrock is set (see README "Switching LLM providers").
+langchain-aws>=1.0
+
+# --- document ingestion dry run (doc_ingestion/, no AWS dependency) ---
+pypdf>=5.0
+python-docx>=1.1
+fpdf2>=2.7   # synthetic sample-contract generation only
