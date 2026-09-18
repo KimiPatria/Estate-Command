@@ -1,0 +1,175 @@
+# SYNTHETIC. Breakdown work orders. SAP PM holds these; the EC export has none.
+order_id,vehicle_id,vehicle_class,raised_date,fault,downtime_h,cost_idr
+PM-00001,TR-01,tractor-trailer,2025-04-21,clutch plate,3.8,1366122
+PM-00002,TR-01,tractor-trailer,2025-03-21,hydraulic hose,7.4,2792598
+PM-00003,TR-01,tractor-trailer,2025-03-06,injector pump,9.5,2821686
+PM-00004,TR-01,tractor-trailer,2025-02-15,clutch plate,6.5,2177358
+PM-00005,TR-01,tractor-trailer,2025-05-21,clutch plate,3.4,1196577
+PM-00006,TR-01,tractor-trailer,2025-03-13,radiator,5.6,2469055
+PM-00007,TR-01,tractor-trailer,2025-04-08,injector pump,5.2,1398960
+PM-00008,TR-01,tractor-trailer,2025-04-29,injector pump,4.4,1623851
+PM-00009,TR-01,tractor-trailer,2025-03-15,brake shoe,5.0,3072993
+PM-00010,TR-01,tractor-trailer,2025-01-04,brake shoe,12.7,7312620
+PM-00011,TR-01,tractor-trailer,2025-01-10,injector pump,1.5,888518
+PM-00012,TR-01,tractor-trailer,2025-02-28,tyre carcass,5.8,3128200
+PM-00013,TR-01,tractor-trailer,2025-02-19,tyre carcass,4.7,1175259
+PM-00014,TR-01,tractor-trailer,2025-05-10,wheel bearing,4.2,2414713
+PM-00015,TR-01,tractor-trailer,2025-04-13,brake shoe,3.3,789913
+PM-00016,TR-01,tractor-trailer,2025-04-15,wheel bearing,5.2,1225272
+PM-00017,TR-01,tractor-trailer,2025-04-04,clutch plate,3.8,1067639
+PM-00018,TR-02,tractor-trailer,2025-02-06,tyre carcass,3.7,2286839
+PM-00019,TR-02,tractor-trailer,2025-01-31,radiator,5.0,2730114
+PM-00020,TR-02,tractor-trailer,2025-05-20,tyre carcass,6.4,2305290
+PM-00021,TR-02,tractor-trailer,2025-05-19,wheel bearing,4.9,1386988
+PM-00022,TR-02,tractor-trailer,2025-05-01,hydraulic hose,10.4,3851096
+PM-00023,TR-02,tractor-trailer,2025-04-07,clutch plate,2.7,647309
+PM-00024,TR-02,tractor-trailer,2025-05-07,alternator,9.3,4193700
+PM-00025,TR-02,tractor-trailer,2025-01-20,hydraulic hose,13.0,3378918
+PM-00026,TR-02,tractor-trailer,2025-03-03,alternator,3.6,1890586
+PM-00027,TR-02,tractor-trailer,2025-01-02,alternator,2.0,923309
+PM-00028,TR-02,tractor-trailer,2025-02-19,tyre carcass,2.9,1463894
+PM-00029,TR-02,tractor-trailer,2025-01-16,radiator,3.7,972758
+PM-00030,TR-03,tractor-trailer,2025-02-17,brake shoe,17.8,7693870
+PM-00031,TR-03,tractor-trailer,2025-04-13,radiator,8.1,1537109
+PM-00032,TR-03,tractor-trailer,2025-04-11,hydraulic hose,8.1,4287524
+PM-00033,TR-03,tractor-trailer,2025-02-12,wheel bearing,3.9,1829002
+PM-00034,TR-03,tractor-trailer,2025-02-28,clutch plate,13.5,7379609
+PM-00035,TR-03,tractor-trailer,2025-05-01,wheel bearing,1.6,349311
+PM-00036,TR-03,tractor-trailer,2025-03-24,brake shoe,1.5,442157
+PM-00037,TR-03,tractor-trailer,2025-02-10,clutch plate,21.2,7830357
+PM-00038,TR-03,tractor-trailer,2025-02-08,injector pump,6.7,2737121
+PM-00039,TR-03,tractor-trailer,2025-05-20,tyre carcass,1.5,593297
+PM-00040,TR-03,tractor-trailer,2025-02-02,clutch plate,10.1,5619447
+PM-00041,TR-03,tractor-trailer,2025-03-02,injector pump,3.3,1205952
+PM-00042,TR-03,tractor-trailer,2025-02-14,wheel bearing,5.1,1663595
+PM-00043,TR-03,tractor-trailer,2025-05-20,injector pump,1.5,518191
+PM-00044,TR-04,tractor-trailer,2025-04-07,clutch plate,9.5,5351929
+PM-00045,TR-04,tractor-trailer,2025-03-30,injector pump,2.6,939697
+PM-00046,TR-04,tractor-trailer,2025-04-24,tyre carcass,1.5,372501
+PM-00047,TR-04,tractor-trailer,2025-04-08,radiator,5.2,2460741
+PM-00048,TR-04,tractor-trailer,2025-02-04,brake shoe,1.7,747968
+PM-00049,TR-04,tractor-trailer,2025-05-08,injector pump,7.7,1869045
+PM-00050,TR-04,tractor-trailer,2025-05-04,alternator,2.1,929027
+PM-00051,TR-04,tractor-trailer,2025-04-16,injector pump,6.2,1580393
+PM-00052,TR-04,tractor-trailer,2025-03-07,injector pump,2.5,1100256
+PM-00053,TR-04,tractor-trailer,2025-05-02,wheel bearing,5.6,1082810
+PM-00054,TR-04,tractor-trailer,2025-05-22,brake shoe,3.7,2029121
+PM-00055,TR-04,tractor-trailer,2025-04-28,hydraulic hose,18.5,3487686
+PM-00056,TR-05,tractor-trailer,2025-04-06,injector pump,3.2,865207
+PM-00057,TR-05,tractor-trailer,2025-01-22,wheel bearing,11.4,6633339
+PM-00058,TR-05,tractor-trailer,2025-04-18,injector pump,3.8,982142
+PM-00059,TR-05,tractor-trailer,2025-02-25,tyre carcass,10.3,4293391
+PM-00060,TR-05,tractor-trailer,2025-02-13,injector pump,15.3,7896107
+PM-00061,TR-05,tractor-trailer,2025-02-13,hydraulic hose,4.4,1279777
+PM-00062,TR-05,tractor-trailer,2025-03-29,radiator,1.5,464335
+PM-00063,TR-05,tractor-trailer,2025-03-31,clutch plate,4.0,1492588
+PM-00064,TR-05,tractor-trailer,2025-02-03,hydraulic hose,5.6,1768693
+PM-00065,TR-05,tractor-trailer,2025-01-18,tyre carcass,4.2,1964206
+PM-00066,TR-05,tractor-trailer,2025-03-09,alternator,10.0,3368535
+PM-00067,TR-06,tractor-trailer,2025-03-14,brake shoe,4.3,2047400
+PM-00068,TR-06,tractor-trailer,2025-05-13,hydraulic hose,5.1,2809510
+PM-00069,TR-06,tractor-trailer,2025-03-01,alternator,6.8,4090638
+PM-00070,TR-06,tractor-trailer,2025-02-14,wheel bearing,1.8,654654
+PM-00071,TR-06,tractor-trailer,2025-02-06,tyre carcass,4.0,2372431
+PM-00072,TR-06,tractor-trailer,2025-01-22,brake shoe,9.2,4810243
+PM-00073,TR-06,tractor-trailer,2025-04-15,alternator,3.9,827415
+PM-00074,TR-06,tractor-trailer,2025-04-29,radiator,3.4,761177
+PM-00075,TR-06,tractor-trailer,2025-02-09,alternator,3.6,2101573
+PM-00076,TR-06,tractor-trailer,2025-03-31,alternator,6.4,3842827
+PM-00077,TR-07,tractor-trailer,2025-05-04,radiator,3.7,729869
+PM-00078,TR-07,tractor-trailer,2025-02-04,hydraulic hose,3.0,1785210
+PM-00079,TR-07,tractor-trailer,2025-05-11,wheel bearing,3.0,807104
+PM-00080,TR-07,tractor-trailer,2025-02-10,alternator,5.7,1334505
+PM-00081,TR-07,tractor-trailer,2025-05-14,radiator,6.4,3661035
+PM-00082,TR-07,tractor-trailer,2025-04-01,alternator,3.9,1676175
+PM-00083,TR-07,tractor-trailer,2025-01-04,brake shoe,2.0,605604
+PM-00084,TR-07,tractor-trailer,2025-04-01,injector pump,5.7,3334725
+PM-00085,TR-07,tractor-trailer,2025-04-29,alternator,4.5,2511882
+PM-00086,TR-07,tractor-trailer,2025-03-23,tyre carcass,21.8,9455141
+PM-00087,TR-07,tractor-trailer,2025-02-24,hydraulic hose,7.3,2184070
+PM-00088,TR-07,tractor-trailer,2025-01-27,tyre carcass,2.4,1377763
+PM-00089,TR-07,tractor-trailer,2025-05-16,hydraulic hose,6.0,2882844
+PM-00090,TR-08,tractor-trailer,2025-02-06,hydraulic hose,28.6,15026576
+PM-00091,TR-08,tractor-trailer,2025-01-29,alternator,13.1,5378725
+PM-00092,TR-08,tractor-trailer,2025-03-02,injector pump,4.9,1330077
+PM-00093,TR-08,tractor-trailer,2025-03-22,tyre carcass,1.5,382404
+PM-00094,TR-08,tractor-trailer,2025-05-22,clutch plate,7.7,3480379
+PM-00095,TR-08,tractor-trailer,2025-04-20,radiator,2.9,1675232
+PM-00096,TR-08,tractor-trailer,2025-03-25,alternator,4.6,1914737
+PM-00097,TR-08,tractor-trailer,2025-01-28,alternator,4.5,1804681
+PM-00098,TR-08,tractor-trailer,2025-02-24,alternator,5.5,1402617
+PM-00099,TR-08,tractor-trailer,2025-02-21,radiator,3.2,1170146
+PM-00100,TR-08,tractor-trailer,2025-01-05,hydraulic hose,12.4,5224790
+PM-00101,TR-08,tractor-trailer,2025-04-06,radiator,2.2,1335933
+PM-00102,TR-08,tractor-trailer,2025-03-02,radiator,6.7,2227214
+PM-00103,TR-08,tractor-trailer,2025-03-14,brake shoe,19.1,3905916
+PM-00104,TR-08,tractor-trailer,2025-05-11,brake shoe,4.8,2282011
+PM-00105,TR-08,tractor-trailer,2025-03-04,wheel bearing,7.8,3920918
+PM-00106,TR-08,tractor-trailer,2025-05-01,clutch plate,5.1,1114439
+PM-00107,TR-08,tractor-trailer,2025-05-16,hydraulic hose,2.7,804212
+PM-00108,TR-08,tractor-trailer,2025-05-13,wheel bearing,1.8,433363
+PM-00109,DU-01,dump-truck,2025-04-29,clutch plate,8.8,4947009
+PM-00110,DU-01,dump-truck,2025-04-18,tyre carcass,1.8,501335
+PM-00111,DU-01,dump-truck,2025-01-24,alternator,4.1,1419943
+PM-00112,DU-01,dump-truck,2025-04-02,wheel bearing,4.8,2702063
+PM-00113,DU-01,dump-truck,2025-03-05,injector pump,4.6,1859626
+PM-00114,DU-02,dump-truck,2025-02-24,clutch plate,15.5,2925887
+PM-00115,DU-02,dump-truck,2025-02-23,brake shoe,5.4,1702750
+PM-00116,DU-02,dump-truck,2025-04-26,brake shoe,6.6,3345497
+PM-00117,DU-02,dump-truck,2025-01-09,wheel bearing,2.0,1035576
+PM-00118,DU-02,dump-truck,2025-01-23,clutch plate,4.8,2254901
+PM-00119,DU-02,dump-truck,2025-04-28,wheel bearing,3.4,1950775
+PM-00120,DU-03,dump-truck,2025-01-05,injector pump,1.9,903857
+PM-00121,DU-03,dump-truck,2025-03-01,alternator,1.5,282901
+PM-00122,DU-03,dump-truck,2025-02-26,wheel bearing,10.1,1855453
+PM-00123,DU-03,dump-truck,2025-02-12,radiator,17.2,3253001
+PM-00124,DU-03,dump-truck,2025-03-04,hydraulic hose,3.6,806972
+PM-00125,DU-04,dump-truck,2025-02-15,tyre carcass,5.4,2030162
+PM-00126,DU-04,dump-truck,2025-01-18,wheel bearing,11.0,4056713
+PM-00127,DU-04,dump-truck,2025-01-28,injector pump,2.7,1323929
+PM-00128,DU-04,dump-truck,2025-04-25,radiator,4.6,1789039
+PM-00129,DU-05,dump-truck,2025-05-13,hydraulic hose,2.3,820300
+PM-00130,DU-05,dump-truck,2025-05-05,brake shoe,1.5,328298
+PM-00131,DU-05,dump-truck,2025-05-07,tyre carcass,2.0,955933
+PM-00132,DU-05,dump-truck,2025-04-07,clutch plate,9.3,3491432
+PM-00133,MI-01,mini-truck,2025-05-14,radiator,16.0,3810840
+PM-00134,MI-01,mini-truck,2025-01-21,hydraulic hose,5.3,2475840
+PM-00135,MI-01,mini-truck,2025-02-12,clutch plate,6.1,1876820
+PM-00136,MI-01,mini-truck,2025-05-12,radiator,5.0,2709418
+PM-00137,MI-01,mini-truck,2025-01-04,tyre carcass,5.4,2669706
+PM-00138,MI-01,mini-truck,2025-03-07,tyre carcass,5.8,2100555
+PM-00139,MI-01,mini-truck,2025-05-10,radiator,6.8,3622713
+PM-00140,MI-01,mini-truck,2025-02-02,injector pump,2.4,1024069
+PM-00141,MI-01,mini-truck,2025-05-22,radiator,16.4,7758735
+PM-00142,MI-02,mini-truck,2025-01-31,radiator,9.3,2436178
+PM-00143,MI-02,mini-truck,2025-03-11,clutch plate,4.2,1946681
+PM-00144,MI-02,mini-truck,2025-03-19,alternator,17.2,7937586
+PM-00145,MI-02,mini-truck,2025-01-30,brake shoe,9.0,1974484
+PM-00146,MI-02,mini-truck,2025-03-18,radiator,14.7,3800025
+PM-00147,MI-02,mini-truck,2025-03-10,alternator,1.8,1108041
+PM-00148,MI-02,mini-truck,2025-03-15,alternator,5.7,2845694
+PM-00149,MI-02,mini-truck,2025-04-27,wheel bearing,3.0,1852089
+PM-00150,MI-02,mini-truck,2025-02-18,clutch plate,5.6,2984918
+PM-00151,MI-02,mini-truck,2025-01-10,alternator,2.9,1429856
+PM-00152,MI-02,mini-truck,2025-02-25,alternator,5.7,1355038
+PM-00153,MI-02,mini-truck,2025-03-04,wheel bearing,9.2,3415260
+PM-00154,MI-03,mini-truck,2025-01-02,brake shoe,5.5,1511927
+PM-00155,MI-03,mini-truck,2025-04-01,radiator,2.3,1068451
+PM-00156,MI-03,mini-truck,2025-01-21,wheel bearing,10.7,2089009
+PM-00157,MI-03,mini-truck,2025-02-17,hydraulic hose,2.7,597429
+PM-00158,MI-03,mini-truck,2025-05-23,brake shoe,16.7,8834920
+PM-00159,MI-03,mini-truck,2025-04-09,radiator,8.6,5034726
+PM-00160,MI-03,mini-truck,2025-01-02,injector pump,3.5,2146260
+PM-00161,MI-03,mini-truck,2025-01-18,hydraulic hose,2.7,842925
+PM-00162,MI-03,mini-truck,2025-03-17,alternator,5.1,2744466
+PM-00163,MI-04,mini-truck,2025-05-08,wheel bearing,1.9,452171
+PM-00164,MI-04,mini-truck,2025-02-10,radiator,12.9,3755125
+PM-00165,MI-04,mini-truck,2025-03-21,brake shoe,7.1,3699608
+PM-00166,MI-04,mini-truck,2025-04-09,injector pump,8.9,2315903
+PM-00167,MI-04,mini-truck,2025-03-05,tyre carcass,4.9,2289335
+PM-00168,MI-04,mini-truck,2025-01-04,hydraulic hose,26.6,7611531
+PM-00169,MI-04,mini-truck,2025-01-28,injector pump,5.2,1841543
+PM-00170,MI-04,mini-truck,2025-01-31,injector pump,1.8,791999
+PM-00171,MI-04,mini-truck,2025-04-13,alternator,3.1,1636041
+PM-00172,MI-04,mini-truck,2025-05-18,alternator,1.5,624586
+PM-00173,MI-04,mini-truck,2025-05-08,injector pump,9.7,2666760

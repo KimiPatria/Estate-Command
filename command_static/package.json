@@ -1,0 +1,28 @@
+{
+  "name": "estate-command",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Estate Command: the GIS command centre for EPMS.",
+  "scripts": {
+    "dev": "vite",
+    "build": "node test/undefined.mjs && vite build",
+    "preview": "vite preview",
+    "test": "node test/smoke.mjs && node test/selection.mjs && node test/compare.mjs && node test/ops.mjs && node test/models.mjs && node test/stores.mjs && npm run test:features",
+    "test:features": "node test/loose_fruit.mjs && node test/herbicide.mjs && node test/ffa.mjs && node test/cutting_interval.mjs && node test/abw_trend.mjs && node test/pest_warning.mjs && node test/collection.mjs",
+    "smoke": "node test/smoke.mjs",
+    "selection": "node test/selection.mjs",
+    "blocks": "node test/blocks.mjs",
+    "shot": "node test/shot.mjs",
+    "lint": "node test/undefined.mjs",
+    "compare": "node test/compare.mjs",
+    "ops": "node test/ops.mjs"
+  },
+  "dependencies": {
+    "maplibre-gl": "4.7.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0",
+    "vite": "^6.0.0"
+  }
+}

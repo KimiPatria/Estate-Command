@@ -1,0 +1,113 @@
+{
+  "generated_for": "EC",
+  "seed": 20260910,
+  "blocks": 291,
+  "observed_months": [
+    "2025-01",
+    "2025-02",
+    "2025-03",
+    "2025-04",
+    "2025-05"
+  ],
+  "forward_months": [
+    "2025-06",
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11"
+  ],
+  "calibration": {
+    "target_t_ha_yr": 23.0,
+    "ffb_price_idr_kg": 2600,
+    "cost_idr_ha_yr": 30000000
+  },
+  "files": {
+    "abw": 291,
+    "costs": 3201,
+    "gangs": 28,
+    "vegetation": 3201,
+    "vendors": 6,
+    "orders": 11,
+    "labour": 77,
+    "upkeep": 1164,
+    "vehicles": 17,
+    "trips": 19844,
+    "pm_orders": 173,
+    "planted_anomalies": 26,
+    "pest_census": 873,
+    "pest_treatments": 227,
+    "fertiliser": 2328,
+    "fertiliser_stock": 4,
+    "roads": 291,
+    "harvester_days": 59176,
+    "workers": 552,
+    "harvest_history": 10476,
+    "history_observed": 1455,
+    "crews": 65,
+    "attendance": 9295,
+    "harvest_orders": 7699,
+    "upkeep_orders": 3480,
+    "pest_orders": 635,
+    "dispatch_orders": 7278,
+    "operations_checks": {
+      "harvest_reconciles": true,
+      "harvest_ledger_bunches": 8182591,
+      "real_bunches": 8182591,
+      "attendance_max_abs_error": 0.0001,
+      "harvest_adherence": 1.0874,
+      "upkeep_adherence": 0.744,
+      "pest_adherence": 0.7866,
+      "dispatch_adherence": 1.1289,
+      "carried_forward": 2863,
+      "upkeep_block_activities_overdue": 306,
+      "of_block_activities": 1164,
+      "rain_provenance": "real: Open-Meteo daily precipitation on the day"
+    },
+    "mm_materials": 17,
+    "mm_vendors": 8,
+    "mm_purchase_orders": 547,
+    "mm_movements": 12614,
+    "mm_reservations": 5820,
+    "materials_checks": {
+      "stock_reconciles": true,
+      "negative_stock_days": 0,
+      "fertiliser_reconciles": true,
+      "fertiliser_issued_kg_in_window": 8282302,
+      "fertiliser_late_rows_now_reserved": 20,
+      "fertiliser_late_kg_now_reserved": 84437,
+      "open_reservations": 1184,
+      "pm_orders_reconcile": true,
+      "spray_orders_reconcile": true,
+      "diesel_trips_reconcile": true,
+      "normal_pos_by_group": {
+        "FUEL": 127,
+        "SPARE": 171,
+        "AGCH": 50,
+        "FERT": 128
+      },
+      "rush_pos_by_group": {
+        "AGCH": 29,
+        "SPARE": 24,
+        "FERT": 18
+      },
+      "open_pos": 11,
+      "movements_by_type": {
+        "101": 541,
+        "201": 11866,
+        "261": 173,
+        "551": 16,
+        "701": 7,
+        "702": 11
+      },
+      "other_feeds_unchanged": true,
+      "drivers": {
+        "spray_ha_2025": 7425.5,
+        "ha_per_sprayable_day": 104.58,
+        "haul_diesel_l_2025": 129642,
+        "harvest_t_2025": 67684,
+        "haul_l_per_t": 1.915
+      }
+    }
+  }
+}

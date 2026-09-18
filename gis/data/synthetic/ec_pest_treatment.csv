@@ -1,0 +1,229 @@
+# SYNTHETIC. Treatment records and follow-up dates. Invented; nothing in EPMS records a pest treatment. followup_done and days_overdue are READ BACK from the pest work order ledger (ec_pest_orders.csv).
+treatment_id,division_code,block_code,pest,method,treated_date,palms_treated,interval_days,followup_due,days_overdue,followup_done
+TR-00001,1,2,ganoderma,soil mounding + trunk injection,2024-11-06,373,180,2025-05-05,0,
+TR-00002,1,3,ganoderma,soil mounding + trunk injection,2024-11-29,205,180,2025-05-28,0,
+TR-00003,1,4,ganoderma,soil mounding + trunk injection,2024-09-15,244,180,2025-03-14,0,
+TR-00004,1,5,ganoderma,soil mounding + trunk injection,2025-05-08,269,180,2025-11-04,0,
+TR-00005,1,6,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-30,23,90,2025-04-30,0,
+TR-00006,1,7,ganoderma,soil mounding + trunk injection,2025-02-12,127,180,2025-08-11,0,
+TR-00007,1,8,ganoderma,soil mounding + trunk injection,2025-04-18,430,180,2025-10-15,0,
+TR-00008,1,9,ganoderma,soil mounding + trunk injection,2024-07-11,336,180,2025-01-07,0,
+TR-00009,1,9,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-03,76,90,2025-03-03,0,2025-03-03
+TR-00010,1,10,ganoderma,soil mounding + trunk injection,2024-07-12,399,180,2025-01-08,135,
+TR-00011,1,11,ganoderma,soil mounding + trunk injection,2024-08-27,425,180,2025-02-23,0,2025-02-24
+TR-00012,1,12,ganoderma,soil mounding + trunk injection,2025-04-07,570,180,2025-10-04,0,
+TR-00013,1,13,ganoderma,soil mounding + trunk injection,2024-08-05,780,180,2025-02-01,0,
+TR-00014,1,15,ganoderma,soil mounding + trunk injection,2024-08-04,498,180,2025-01-31,0,
+TR-00015,1,16,ganoderma,soil mounding + trunk injection,2024-11-24,297,180,2025-05-23,0,
+TR-00016,1,16,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-04,156,90,2025-07-03,0,
+TR-00017,1,17,ganoderma,soil mounding + trunk injection,2024-08-05,158,180,2025-02-01,0,2025-02-01
+TR-00018,1,17,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-24,58,90,2025-04-24,29,
+TR-00019,1,18,ganoderma,soil mounding + trunk injection,2025-05-06,115,180,2025-11-02,0,
+TR-00020,1,18,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-12,65,90,2025-06-10,0,
+TR-00021,1,19,ganoderma,soil mounding + trunk injection,2025-04-12,81,180,2025-10-09,0,
+TR-00022,1,19,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-06,82,90,2025-07-05,0,
+TR-00023,1,20,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-20,61,90,2024-11-18,186,
+TR-00024,1,21,ganoderma,soil mounding + trunk injection,2025-04-21,82,180,2025-10-18,0,
+TR-00025,1,23,ganoderma,soil mounding + trunk injection,2024-08-22,279,180,2025-02-18,0,2025-02-27
+TR-00026,1,23,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-13,102,90,2024-12-12,162,
+TR-00027,1,24,ganoderma,soil mounding + trunk injection,2024-09-16,137,180,2025-03-15,0,2025-03-31
+TR-00028,1,26,ganoderma,soil mounding + trunk injection,2025-04-13,274,180,2025-10-10,0,
+TR-00029,1,27,ganoderma,soil mounding + trunk injection,2025-01-20,251,180,2025-07-19,0,
+TR-00030,1,27,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-05,111,90,2025-06-03,0,
+TR-00031,1,28,ganoderma,soil mounding + trunk injection,2025-04-12,141,180,2025-10-09,0,
+TR-00032,1,29,ganoderma,soil mounding + trunk injection,2024-07-15,202,180,2025-01-11,0,2025-01-20
+TR-00033,1,29,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-18,77,90,2025-02-16,0,2025-02-24
+TR-00034,1,32,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-18,67,90,2025-04-18,35,
+TR-00035,1,33,ganoderma,soil mounding + trunk injection,2024-08-26,67,180,2025-02-22,0,2025-03-11
+TR-00036,1,33,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-23,78,90,2025-03-23,0,
+TR-00037,1,35,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-07,164,90,2025-05-08,0,2025-05-15
+TR-00038,1,36,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-30,157,90,2025-04-30,0,
+TR-00039,1,37,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-11,87,90,2025-01-09,0,
+TR-00040,2,40,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-12,40,90,2025-03-12,0,2025-03-27
+TR-00041,2,41,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-04,63,90,2025-04-04,0,
+TR-00042,2,43,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-10,108,90,2025-07-09,0,
+TR-00043,2,54,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-26,116,90,2024-11-24,180,
+TR-00044,2,55,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-22,80,90,2025-01-20,0,
+TR-00045,2,56,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-03,146,90,2024-11-01,203,
+TR-00046,2,57,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-10,112,90,2025-07-09,0,
+TR-00047,2,59,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-12,67,90,2025-03-12,0,
+TR-00048,2,62,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-07,70,90,2025-08-05,0,
+TR-00049,2,64,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-08,100,90,2025-08-06,0,
+TR-00050,2,66,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-17,98,90,2025-01-15,0,2025-01-18
+TR-00051,2,68,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-30,86,90,2025-02-28,84,
+TR-00052,2,70,ganoderma,soil mounding + trunk injection,2024-12-28,73,180,2025-06-26,0,
+TR-00053,2,70,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-22,101,90,2025-03-22,0,2025-03-24
+TR-00054,2,71,ganoderma,soil mounding + trunk injection,2025-01-25,66,180,2025-07-24,0,
+TR-00055,2,72,ganoderma,soil mounding + trunk injection,2024-09-22,62,180,2025-03-21,63,
+TR-00056,2,72,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-03,124,90,2025-02-01,0,2025-02-01
+TR-00057,2,74,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-30,128,90,2025-06-28,0,
+TR-00058,3,75,ganoderma,soil mounding + trunk injection,2024-12-06,519,180,2025-06-04,0,
+TR-00059,3,75,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-13,146,90,2025-01-11,0,
+TR-00060,3,77,ganoderma,soil mounding + trunk injection,2024-12-16,320,180,2025-06-14,0,
+TR-00061,3,78,ganoderma,soil mounding + trunk injection,2024-07-29,427,180,2025-01-25,0,2025-01-25
+TR-00062,3,78,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-25,77,90,2024-11-23,181,
+TR-00063,3,79,rat,bait station rotation,2024-11-19,42,60,2025-01-18,125,
+TR-00064,3,80,ganoderma,soil mounding + trunk injection,2024-10-24,77,180,2025-04-22,0,
+TR-00065,3,81,ganoderma,soil mounding + trunk injection,2025-04-17,81,180,2025-10-14,0,
+TR-00066,3,82,ganoderma,soil mounding + trunk injection,2025-02-05,19,180,2025-08-04,0,
+TR-00067,3,82,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-31,6,90,2025-03-31,53,
+TR-00068,3,83,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-25,196,90,2025-04-25,0,2025-05-05
+TR-00069,3,84,ganoderma,soil mounding + trunk injection,2025-01-15,613,180,2025-07-14,0,
+TR-00070,3,84,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-03,98,90,2025-05-04,0,2025-05-07
+TR-00071,3,85,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-21,75,90,2025-02-19,0,2025-02-26
+TR-00072,3,86,ganoderma,soil mounding + trunk injection,2024-08-30,650,180,2025-02-26,0,2025-02-27
+TR-00073,3,86,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-02,234,90,2025-05-03,0,
+TR-00074,3,87,ganoderma,soil mounding + trunk injection,2025-03-20,450,180,2025-09-16,0,
+TR-00075,3,89,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-06,119,90,2024-12-05,169,
+TR-00076,3,91,rhinoceros_beetle,pheromone trap + prophylactic,2024-07-25,44,90,2024-10-23,212,
+TR-00077,3,92,ganoderma,soil mounding + trunk injection,2024-12-09,301,180,2025-06-07,0,
+TR-00078,3,94,ganoderma,soil mounding + trunk injection,2024-07-28,182,180,2025-01-24,0,
+TR-00079,3,95,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-25,106,90,2024-12-24,150,
+TR-00080,3,96,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-24,134,90,2025-07-23,0,
+TR-00081,3,97,ganoderma,soil mounding + trunk injection,2024-11-02,135,180,2025-05-01,0,2025-05-01
+TR-00082,3,97,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-17,70,90,2025-06-15,0,
+TR-00083,3,98,ganoderma,soil mounding + trunk injection,2024-12-04,244,180,2025-06-02,0,
+TR-00084,3,99,ganoderma,soil mounding + trunk injection,2025-04-25,123,180,2025-10-22,0,
+TR-00085,3,100,ganoderma,soil mounding + trunk injection,2025-01-23,158,180,2025-07-22,0,
+TR-00086,3,100,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-01,119,90,2025-03-01,83,
+TR-00087,3,101,ganoderma,soil mounding + trunk injection,2025-02-25,263,180,2025-08-24,0,
+TR-00088,3,101,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-20,105,90,2025-04-20,0,2025-04-21
+TR-00089,3,102,ganoderma,soil mounding + trunk injection,2025-02-09,173,180,2025-08-08,0,
+TR-00090,3,102,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-14,86,90,2025-03-14,0,
+TR-00091,3,103,ganoderma,soil mounding + trunk injection,2024-08-27,126,180,2025-02-23,0,
+TR-00092,3,104,ganoderma,soil mounding + trunk injection,2025-05-09,98,180,2025-11-05,0,
+TR-00093,3,105,ganoderma,soil mounding + trunk injection,2025-02-28,91,180,2025-08-27,0,
+TR-00094,3,105,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-12,89,90,2025-05-13,0,
+TR-00095,3,108,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-24,223,90,2025-07-23,0,
+TR-00096,3,110,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-14,61,90,2024-12-13,161,
+TR-00097,3,111,rhinoceros_beetle,pheromone trap + prophylactic,2024-07-17,117,90,2024-10-15,220,
+TR-00098,3,112,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-01,85,90,2025-04-01,0,2025-04-03
+TR-00099,3,113,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-26,162,90,2025-05-27,0,
+TR-00100,3,118,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-28,25,90,2025-02-26,86,
+TR-00101,3,120,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-08,50,90,2025-03-08,76,
+TR-00102,3,121,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-27,16,90,2025-03-27,0,2025-04-03
+TR-00103,3,370,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-18,8,90,2025-06-16,0,
+TR-00104,4,122,ganoderma,soil mounding + trunk injection,2024-11-22,219,180,2025-05-21,2,
+TR-00105,4,122,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-11,51,90,2025-01-09,0,
+TR-00106,4,123,ganoderma,soil mounding + trunk injection,2025-01-21,195,180,2025-07-20,0,
+TR-00107,4,124,ganoderma,soil mounding + trunk injection,2025-05-12,75,180,2025-11-08,0,
+TR-00108,4,124,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-12,33,90,2025-01-10,0,
+TR-00109,4,125,ganoderma,soil mounding + trunk injection,2024-11-11,41,180,2025-05-10,0,
+TR-00110,4,126,ganoderma,soil mounding + trunk injection,2024-08-22,24,180,2025-02-18,94,
+TR-00111,4,126,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-13,14,90,2025-06-11,0,
+TR-00112,4,127,ganoderma,soil mounding + trunk injection,2024-08-14,14,180,2025-02-10,0,
+TR-00113,4,128,ganoderma,soil mounding + trunk injection,2024-09-17,474,180,2025-03-16,68,
+TR-00114,4,129,ganoderma,soil mounding + trunk injection,2024-09-03,301,180,2025-03-02,0,2025-03-08
+TR-00115,4,130,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-10,126,90,2024-11-08,196,
+TR-00116,4,131,ganoderma,soil mounding + trunk injection,2024-08-30,285,180,2025-02-26,0,
+TR-00117,4,132,ganoderma,soil mounding + trunk injection,2024-09-16,319,180,2025-03-15,0,2025-04-01
+TR-00118,4,133,ganoderma,soil mounding + trunk injection,2024-08-16,246,180,2025-02-12,0,2025-02-21
+TR-00119,4,134,ganoderma,soil mounding + trunk injection,2024-11-04,424,180,2025-05-03,20,
+TR-00120,4,135,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-22,116,90,2025-03-22,0,2025-03-29
+TR-00121,4,136,ganoderma,soil mounding + trunk injection,2024-10-31,245,180,2025-04-29,0,2025-05-05
+TR-00122,4,137,ganoderma,soil mounding + trunk injection,2024-12-03,166,180,2025-06-01,0,
+TR-00123,4,137,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-02,104,90,2025-07-31,0,
+TR-00124,4,138,ganoderma,soil mounding + trunk injection,2025-02-08,485,180,2025-08-07,0,
+TR-00125,4,139,ganoderma,soil mounding + trunk injection,2025-04-06,235,180,2025-10-03,0,
+TR-00126,4,142,ganoderma,soil mounding + trunk injection,2025-03-26,66,180,2025-09-22,0,
+TR-00127,4,144,ganoderma,soil mounding + trunk injection,2024-11-18,166,180,2025-05-17,0,2025-05-17
+TR-00128,4,144,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-08,102,90,2024-12-07,167,
+TR-00129,4,145,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-20,173,90,2025-06-18,0,
+TR-00130,4,146,ganoderma,soil mounding + trunk injection,2024-10-23,236,180,2025-04-21,0,
+TR-00131,4,148,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-18,122,90,2024-12-17,157,
+TR-00132,4,151,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-06,117,90,2025-04-06,0,
+TR-00133,4,152,ganoderma,soil mounding + trunk injection,2024-10-01,143,180,2025-03-30,54,
+TR-00134,4,153,ganoderma,soil mounding + trunk injection,2025-01-31,132,180,2025-07-30,0,
+TR-00135,4,153,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-08,113,90,2025-01-06,137,
+TR-00136,4,158,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-27,106,90,2025-07-26,0,
+TR-00137,4,160,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-11,148,90,2025-07-10,0,
+TR-00138,4,163,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-27,35,90,2024-11-25,179,
+TR-00139,4,164,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-22,34,90,2025-07-21,0,
+TR-00140,5,168,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-20,152,90,2024-11-18,186,
+TR-00141,5,168,rat,bait station rotation,2024-07-08,134,60,2024-09-06,259,
+TR-00142,5,169,ganoderma,soil mounding + trunk injection,2024-10-27,280,180,2025-04-25,0,2025-04-25
+TR-00143,5,170,ganoderma,soil mounding + trunk injection,2025-04-08,375,180,2025-10-05,0,
+TR-00144,5,170,rat,bait station rotation,2024-10-13,99,60,2024-12-12,162,
+TR-00145,5,173,ganoderma,soil mounding + trunk injection,2025-02-11,384,180,2025-08-10,0,
+TR-00146,5,174,ganoderma,soil mounding + trunk injection,2024-11-25,162,180,2025-05-24,0,
+TR-00147,5,177,ganoderma,soil mounding + trunk injection,2024-12-22,295,180,2025-06-20,0,
+TR-00148,5,177,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-26,120,90,2025-04-26,0,
+TR-00149,5,179,ganoderma,soil mounding + trunk injection,2025-03-13,525,180,2025-09-09,0,
+TR-00150,5,179,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-12,67,90,2025-08-10,0,
+TR-00151,5,182,ganoderma,soil mounding + trunk injection,2025-02-12,472,180,2025-08-11,0,
+TR-00152,5,184,ganoderma,soil mounding + trunk injection,2024-12-14,132,180,2025-06-12,0,
+TR-00153,5,185,ganoderma,soil mounding + trunk injection,2025-02-05,127,180,2025-08-04,0,
+TR-00154,5,186,ganoderma,soil mounding + trunk injection,2024-12-01,243,180,2025-05-30,0,
+TR-00155,5,186,rhinoceros_beetle,pheromone trap + prophylactic,2024-08-21,97,90,2024-11-19,185,
+TR-00156,5,187,ganoderma,soil mounding + trunk injection,2025-02-25,235,180,2025-08-24,0,
+TR-00157,5,187,rhinoceros_beetle,pheromone trap + prophylactic,2024-07-11,136,90,2024-10-09,226,
+TR-00158,5,188,ganoderma,soil mounding + trunk injection,2025-01-06,343,180,2025-07-05,0,
+TR-00159,5,188,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-27,96,90,2024-12-26,148,
+TR-00160,5,189,ganoderma,soil mounding + trunk injection,2025-05-08,550,180,2025-11-04,0,
+TR-00161,5,189,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-21,207,90,2025-07-20,0,
+TR-00162,5,190,ganoderma,soil mounding + trunk injection,2025-03-19,344,180,2025-09-15,0,
+TR-00163,5,192,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-01,33,90,2024-11-30,174,
+TR-00164,5,193,ganoderma,soil mounding + trunk injection,2025-04-21,138,180,2025-10-18,0,
+TR-00165,5,195,ganoderma,soil mounding + trunk injection,2025-01-22,125,180,2025-07-21,0,
+TR-00166,5,196,ganoderma,soil mounding + trunk injection,2024-08-14,106,180,2025-02-10,0,
+TR-00167,5,200,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-26,51,90,2025-05-27,0,
+TR-00168,5,201,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-28,166,90,2025-02-26,0,
+TR-00169,5,373,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-19,12,90,2025-07-18,0,
+TR-00170,6,204,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-12,170,90,2025-06-10,0,
+TR-00171,6,207,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-01,89,90,2025-05-02,0,2025-05-12
+TR-00172,6,208,rhinoceros_beetle,pheromone trap + prophylactic,2024-07-07,67,90,2024-10-05,230,
+TR-00173,6,209,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-11,107,90,2025-08-09,0,
+TR-00174,6,214,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-21,89,90,2025-01-19,0,2025-01-27
+TR-00175,6,216,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-29,196,90,2025-01-27,0,
+TR-00176,6,222,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-26,66,90,2025-05-27,0,
+TR-00177,6,223,rhinoceros_beetle,pheromone trap + prophylactic,2024-07-31,90,90,2024-10-29,206,
+TR-00178,6,230,rat,bait station rotation,2024-09-19,141,60,2024-11-18,186,
+TR-00179,6,245,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-29,68,90,2025-07-28,0,
+TR-00180,6,248,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-11,128,90,2025-01-09,0,2025-01-27
+TR-00181,6,249,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-14,87,90,2025-02-12,0,
+TR-00182,6,252,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-24,87,90,2025-03-24,0,
+TR-00183,6,254,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-04,44,90,2025-08-02,0,
+TR-00184,6,255,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-09,54,90,2025-05-10,0,2025-05-14
+TR-00185,6,258,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-23,54,90,2024-12-22,152,
+TR-00186,6,259,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-28,100,90,2025-01-26,117,
+TR-00187,6,260,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-25,65,90,2025-05-26,0,
+TR-00188,6,263,rhinoceros_beetle,pheromone trap + prophylactic,2025-03-01,82,90,2025-05-30,0,
+TR-00189,6,267,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-12,47,90,2025-05-13,0,
+TR-00190,6,268,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-20,57,90,2025-07-19,0,
+TR-00191,6,269,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-19,46,90,2025-01-17,0,
+TR-00192,6,271,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-04,63,90,2025-03-04,0,2025-03-11
+TR-00193,6,272,rhinoceros_beetle,pheromone trap + prophylactic,2024-09-17,117,90,2024-12-16,158,
+TR-00194,6,379,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-24,165,90,2025-05-25,0,
+TR-00195,7,289,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-09,74,90,2025-04-09,0,
+TR-00196,7,293,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-23,78,90,2025-04-23,0,2025-05-05
+TR-00197,7,294,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-07,43,90,2025-01-05,0,2025-01-16
+TR-00198,7,297,rhinoceros_beetle,pheromone trap + prophylactic,2024-10-30,75,90,2025-01-28,115,
+TR-00199,7,302,ganoderma,soil mounding + trunk injection,2025-04-12,152,180,2025-10-09,0,
+TR-00200,7,303,ganoderma,soil mounding + trunk injection,2024-07-17,162,180,2025-01-13,0,2025-01-25
+TR-00201,7,304,rat,bait station rotation,2025-01-10,82,60,2025-03-11,0,2025-03-17
+TR-00202,7,307,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-25,43,90,2025-02-23,0,2025-02-24
+TR-00203,7,309,rhinoceros_beetle,pheromone trap + prophylactic,2025-01-30,107,90,2025-04-30,0,
+TR-00204,7,310,ganoderma,soil mounding + trunk injection,2024-11-06,66,180,2025-05-05,0,2025-05-05
+TR-00205,7,328,ganoderma,soil mounding + trunk injection,2024-08-13,71,180,2025-02-09,0,
+TR-00206,7,329,ganoderma,soil mounding + trunk injection,2025-02-21,108,180,2025-08-20,0,
+TR-00207,7,330,ganoderma,soil mounding + trunk injection,2024-10-29,79,180,2025-04-27,0,2025-04-28
+TR-00208,7,331,ganoderma,soil mounding + trunk injection,2025-02-27,278,180,2025-08-26,0,
+TR-00209,7,332,ganoderma,soil mounding + trunk injection,2025-02-19,145,180,2025-08-18,0,
+TR-00210,7,333,ganoderma,soil mounding + trunk injection,2024-12-04,275,180,2025-06-02,0,
+TR-00211,7,334,ganoderma,soil mounding + trunk injection,2024-12-23,213,180,2025-06-21,0,
+TR-00212,7,335,ganoderma,soil mounding + trunk injection,2024-09-26,237,180,2025-03-25,0,2025-04-14
+TR-00213,7,335,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-20,90,90,2025-05-21,2,
+TR-00214,7,336,ganoderma,soil mounding + trunk injection,2025-01-03,175,180,2025-07-02,0,
+TR-00215,7,338,rhinoceros_beetle,pheromone trap + prophylactic,2025-05-09,81,90,2025-08-07,0,
+TR-00216,7,339,ganoderma,soil mounding + trunk injection,2025-05-08,389,180,2025-11-04,0,
+TR-00217,7,340,ganoderma,soil mounding + trunk injection,2024-10-29,355,180,2025-04-27,0,2025-05-02
+TR-00218,7,340,rhinoceros_beetle,pheromone trap + prophylactic,2024-12-10,65,90,2025-03-10,0,
+TR-00219,7,341,ganoderma,soil mounding + trunk injection,2024-08-06,382,180,2025-02-02,0,2025-02-04
+TR-00220,7,342,ganoderma,soil mounding + trunk injection,2024-11-08,456,180,2025-05-07,0,2025-05-13
+TR-00221,7,344,rhinoceros_beetle,pheromone trap + prophylactic,2025-02-16,88,90,2025-05-17,0,
+TR-00222,7,345,ganoderma,soil mounding + trunk injection,2025-02-10,144,180,2025-08-09,0,
+TR-00223,7,345,rhinoceros_beetle,pheromone trap + prophylactic,2024-11-30,66,90,2025-02-28,0,
+TR-00224,7,346,ganoderma,soil mounding + trunk injection,2025-02-27,93,180,2025-08-26,0,
+TR-00225,7,347,rat,bait station rotation,2025-04-05,139,60,2025-06-04,0,
+TR-00226,7,348,ganoderma,soil mounding + trunk injection,2025-02-03,353,180,2025-08-02,0,
+TR-00227,7,348,rhinoceros_beetle,pheromone trap + prophylactic,2025-04-19,62,90,2025-07-18,0,

@@ -1,0 +1,6 @@
+# SYNTHETIC. Warehouse stock and supplier lead times. SAP MM holds these. Rewritten by build_materials.py: stock is ec_mm_stock.csv on 2025-05-23, lead time is the supplier's quote (MARC-PLIFZ).
+material,annual_programme_kg,issued_kg,stock_on_hand_kg,lead_time_days,supplier
+NPK 12-12-17-2,6573846,5758039,760284,30,PT Pupuk Kaltim
+Urea,1618178,1399744,132833,30,PT Pupuk Kaltim
+Kieserite,1213632,1075607,103654,28,PT Meroke Tetap Jaya
+Borate,151705,133349,14778,35,PT Petrokimia Gresik

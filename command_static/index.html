@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPMS · Estate Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Held over the app until boot resolves. Everything below it can load as
+     slowly as it needs to without the user watching it happen. -->
+<div class="intro" id="intro" role="status" aria-label="Loading Estate Command">
+  <div class="intro-bg" aria-hidden="true"></div>
+  <div class="intro-grid" aria-hidden="true"></div>
+  <div class="intro-stage">
+    <div class="intro-mark" aria-hidden="true">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="sweep"></div>
+      <svg viewBox="0 0 120 120">
+        <g class="plot">
+          <path class="p-outer" d="M22 34 L60 14 L98 34 L98 78 L60 106 L22 78 Z"/>
+          <path class="p-mid"   d="M60 14 L60 106"/>
+          <path class="p-mid2"  d="M22 56 L98 56"/>
+          <path class="p-in"    d="M41 24 L41 92"/>
+          <path class="p-in2"   d="M79 24 L79 92"/>
+        </g>
+        <circle class="p-dot" cx="60" cy="56" r="3.4"/>
+      </svg>
+    </div>
+    <div class="intro-word">
+      <div class="intro-eyebrow"><span>E</span><span>P</span><span>M</span><span>S</span></div>
+      <h1>Estate Command</h1>
+      <div class="intro-rule"></div>
+      <p class="intro-sub">Geospatial operations &middot; <span id="intro-status">Initialising</span></p>
+    </div>
+    <div class="intro-bar"><i id="intro-fill"></i></div>
+  </div>
+</div>
+
+<header class="app-header">
+  <div class="brand">EPMS <span>Estate Command</span></div>
+  <nav class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/report">Report</a>
+    <a href="/chat">Chat</a>
+    <a href="/forecast">Forecast</a>
+    <a href="/command" class="on">Command</a>
+  </nav>
+
+  <!-- Where and who. Both are global scope, set once and rarely changed, so
+       they belong up here rather than taking two accordions in the rail. -->
+  <div class="ctx">
+    <button class="ctx-btn" id="ctx-estate" aria-haspopup="true" aria-expanded="false">
+      <span class="k">Estate</span><span class="v" id="ctx-estate-v">—</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <button class="ctx-btn" id="ctx-role" aria-haspopup="true" aria-expanded="false">
+      <span class="k">View</span><span class="v" id="ctx-role-v">—</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+  </div>
+
+  <div class="hspace"></div>
+
+  <div class="provenance" id="provenance" title="What you are looking at, and where it came from">
+    <span class="dot"></span><span id="provenance-text">Loading</span>
+  </div>
+
+  <!-- The coverage headline. The second half is the data request, which had
+       no surface at all before: it is the ask, and the ask is the product. -->
+  <button class="coverage" id="coverage-btn" title="What this app runs on, and what it is waiting for">
+    <span id="coverage-live">—</span>
+    <span class="sep"></span>
+    <span class="want" id="coverage-want"></span>
+  </button>
+
+  <button class="hbtn" id="readiness-btn" title="Data readiness register">
+    Readiness <span class="counts" id="readiness-counts"></span>
+  </button>
+  <button class="hbtn" id="fit-btn">Fit to estate</button>
+</header>
+
+<div class="alerts" id="alerts"></div>
+
+<div class="shell">
+  <!-- The rail's one job is now navigating the catalogue. Perspective and
+       estates went to the context bar, the metric picker and legend went onto
+       the map, and readiness became a header button; what is left is six
+       domains, which is the only thing here an estate manager thinks in. -->
+  <nav class="rail" id="rail" aria-label="Domains">
+    <div class="rail-doms" id="rail-doms"></div>
+  </nav>
+
+  <div class="dom-fly" id="dom-fly" hidden>
+    <div class="dom-fly-h">
+      <h3 id="dom-fly-t"></h3>
+      <span class="cov" id="dom-fly-cov"></span>
+      <button class="x" id="dom-fly-x" aria-label="Close">&times;</button>
+    </div>
+    <p class="dom-fly-b" id="dom-fly-blurb"></p>
+    <div class="panels" id="panels"></div>
+  </div>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="scale-hud" id="scale-hud">
+      <span class="step" data-step="group">Group</span><span class="sep">›</span>
+      <span class="step" data-step="estate">Estate</span><span class="sep">›</span>
+      <span class="step" data-step="division">Division</span><span class="sep">›</span>
+      <span class="step" data-step="block">Block</span>
+    </div>
+    <div class="map-msg" id="map-msg" hidden></div>
+
+    <!-- Colour, and its key. A legend belongs on the thing it keys, not in a
+         sidebar two groups above it. -->
+    <div class="mapctl" id="mapctl">
+      <button class="mapctl-h" id="metric-btn" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+          <polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+        </svg>
+        <span class="lbl" id="metric-lbl">Loading</span>
+        <span class="prov" id="metric-prov"></span>
+      </button>
+      <div class="legend" id="legend-grp" hidden>
+        <div class="bar" id="legend-bar"></div>
+        <div class="ends"><span id="legend-lo"></span><span id="legend-hi"></span></div>
+        <div class="note" id="legend-note"></div>
+      </div>
+    </div>
+
+    <div class="metric-menu" id="metric-menu" hidden>
+      <div class="mm-h">Colour blocks by</div>
+      <div class="mm-list" id="metrics"></div>
+    </div>
+
+    <!-- The working set, and what can be done with it. Hidden until there is
+         a set, because an empty tray is a control with nothing to control. -->
+    <div class="tray" id="tray" hidden>
+      <div class="tray-what">
+        <span class="n" id="tray-n"></span>
+        <span class="dot"></span>
+        <span class="ha" id="tray-ha"></span>
+      </div>
+      <div class="tray-acts">
+        <button class="tray-btn" id="tray-brief">Brief</button>
+        <button class="tray-btn primary" id="tray-draft" aria-haspopup="true"
+                aria-expanded="false">Draft</button>
+        <button class="tray-btn ghost" id="tray-clear" aria-label="Clear selection">Clear</button>
+      </div>
+    </div>
+
+    <!-- Ask the map. The launcher sits where a manager's eye already goes when
+         they have a question the rail cannot answer. -->
+    <button class="ask-launch" id="ask-launch">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Ask the map <kbd>/</kbd>
+    </button>
+
+    <div class="ask" id="ask" hidden>
+      <div class="ask-h">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#a695e8" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+             style="width:15px;height:15px">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h3>Ask the map</h3>
+        <button class="ask-new" id="ask-new" title="New chat" aria-label="New chat">+</button>
+        <button class="x" id="ask-x" aria-label="Close">&times;</button>
+      </div>
+      <div class="ask-tabs" id="ask-tabs"></div>
+      <div class="ask-body" id="ask-body"></div>
+      <form class="ask-form" id="ask-form">
+        <input id="ask-input" autocomplete="off" placeholder="Which blocks are behind their cohort?">
+        <button id="ask-send" type="submit">Ask</button>
+      </form>
+    </div>
+  </div>
+
+  <aside class="drawer" id="drawer" aria-label="Details"></aside>
+
+  <!-- The workbench. Panels dock here beside a live map instead of covering
+       it, so a panel that names blocks can be read against the blocks. -->
+  <aside class="wb" id="wb" aria-label="Workbench" hidden>
+    <div class="wb-grip" id="wb-grip" role="separator" aria-orientation="vertical"
+         tabindex="0" aria-label="Resize workbench" title="Drag to resize"></div>
+    <div class="wb-tabs" id="wb-tabs" hidden></div>
+    <div class="wb-head">
+      <div class="wb-head-t">
+        <h3 id="wb-title"></h3>
+        <p id="wb-sub"></p>
+      </div>
+      <button class="x" id="wb-x" aria-label="Close workbench">&times;</button>
+    </div>
+    <div class="wb-body" id="wb-body"></div>
+  </aside>
+</div>
+
+<div class="scrub">
+  <span class="lbl">Window</span>
+  <div class="months" id="months"></div>
+  <span class="horizon" id="horizon"></span>
+</div>
+
+<div class="sheet-bg" id="sheet-bg" hidden>
+  <div class="sheet">
+    <div class="sheet-h">
+      <div>
+        <h2>Data readiness</h2>
+        <p>What each capability needs, whether it exists, and what it degrades to without it.
+           Measured against the two EPMS databases and the estate exports, not assumed.</p>
+      </div>
+      <button class="x" id="sheet-x" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

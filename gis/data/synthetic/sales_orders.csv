@@ -1,0 +1,13 @@
+# SYNTHETIC. FFB delivery commitments. ZEPMS_SD_SORD_OUT exists in EPMS but the EC export carries no orders.
+order_id,customer,month,committed_tonnes,price_idr_per_kg,incoterm
+SO-2025-0101,PT Nusantara Refinery,2025-01,12437,2542,EXW
+SO-2025-0102,PT Bintang Oleo,2025-02,12699,2614,FOB
+SO-2025-0103,PT Papua Mill Co,2025-03,12961,2668,EXW
+SO-2025-0104,PT Nusantara Refinery,2025-04,13223,2675,FOB
+SO-2025-0105,PT Bintang Oleo,2025-05,13484,2621,EXW
+SO-2025-0106,PT Papua Mill Co,2025-06,13746,2662,DAP
+SO-2025-0107,PT Nusantara Refinery,2025-07,14008,2520,FOB
+SO-2025-0108,PT Bintang Oleo,2025-08,14270,2536,EXW
+SO-2025-0109,PT Papua Mill Co,2025-09,14532,2607,FOB
+SO-2025-0110,PT Nusantara Refinery,2025-10,14794,2589,FOB
+SO-2025-0111,PT Bintang Oleo,2025-11,15055,2664,DAP

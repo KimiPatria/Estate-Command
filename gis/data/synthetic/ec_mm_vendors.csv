@@ -1,0 +1,10 @@
+# SYNTHETIC. Input suppliers: LFA1, with the route and quoted lead time. Pupuk Kaltim, Petrokimia Gresik and Meroke Tetap Jaya are the names already in the stock feed; the rest are invented.
+lifnr,name,city,route,quoted_days
+V101,PT Pupuk Kaltim,Bontang,sea,30
+V102,PT Petrokimia Gresik,Gresik,sea,35
+V103,PT Meroke Tetap Jaya,Surabaya,sea,28
+V201,PT Agro Sarana Timur,Surabaya,sea,21
+V301,CV Depot Minyak Merauke,Merauke,road,5
+V401,PT Suku Cadang Jayapura,Jayapura,sea,10
+V402,PT Teknik Mesin Surabaya,Surabaya,sea,21
+V900,"Local traders, Merauke (rush buys)",Merauke,road,2

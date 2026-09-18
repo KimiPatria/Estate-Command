@@ -40,6 +40,7 @@ from report_router import router as report_router
 from chat_router import router as chat_router
 from forecast_router import router as forecast_router, get_forecast
 from eval_router import router as eval_router
+from gis_router import router as gis_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +53,7 @@ STATIC_DIR          = Path(__file__).parent / "dashboard_static"
 REPORT_STATIC_DIR   = Path(__file__).parent / "report_static"
 CHAT_STATIC_DIR     = Path(__file__).parent / "chat_static"
 FORECAST_STATIC_DIR = Path(__file__).parent / "forecast_static"
+COMMAND_STATIC_DIR  = Path(__file__).parent / "command_static"
 
 app = FastAPI(
     title="EPMS AI Dashboard",
@@ -70,11 +72,17 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/report-static", StaticFiles(directory=str(REPORT_STATIC_DIR)), name="report-static")
 app.mount("/chat-static", StaticFiles(directory=str(CHAT_STATIC_DIR)), name="chat-static")
 app.mount("/forecast-static", StaticFiles(directory=str(FORECAST_STATIC_DIR)), name="forecast-static")
+# The built bundle when it exists, the source tree otherwise, matching the
+# same fallback the /command route takes.
+COMMAND_ASSET_DIR = (COMMAND_STATIC_DIR / "dist"
+                     if (COMMAND_STATIC_DIR / "dist").is_dir() else COMMAND_STATIC_DIR)
+app.mount("/command-static", StaticFiles(directory=str(COMMAND_ASSET_DIR)), name="command-static")
 
 app.include_router(report_router)
 app.include_router(chat_router)
 app.include_router(forecast_router)
 app.include_router(eval_router)
+app.include_router(gis_router)
 
 
 # ── startup ────────────────────────────────────────────────────────────────

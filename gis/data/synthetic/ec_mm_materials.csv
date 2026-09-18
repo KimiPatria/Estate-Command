@@ -1,0 +1,19 @@
+# SYNTHETIC. Material master for plant EC, one central store: MARA, MARC, MBEW. dismm VB is manual reorder point, PD is planned against the fertiliser programme. minbe, eisbe and plifz are SAP's settings as a store sets them - two weeks of average use as safety stock, the supplier's quote as lead time - and the history below was generated under them. opening_stock is the stock on 2023-06-01, before the first movement.
+matnr,maktx,matkl,meins,werks,lgort,dismm,minbe,eisbe,plifz,bstrf,bstfe,verpr,max_stock,primary_lifnr,opening_stock
+FE-001,NPK 12-12-17-2,FERT,KG,EC,CS01,PD,0.0,115700,30,50,250000,8500,,V101,115700
+FE-002,Urea,FERT,KG,EC,CS01,PD,0.0,28300,30,50,100000,7500,,V101,28300
+FE-003,Kieserite,FERT,KG,EC,CS01,PD,0.0,21400,28,50,100000,4500,,V103,21400
+FE-004,Borate,FERT,KG,EC,CS01,PD,0.0,2675,35,25,15000,22000,,V102,2675
+AC-001,Glyphosate 480 SL,AGCH,L,EC,CS01,VB,2540,1020,21,20,2900,70000,,V201,4000
+AC-002,Metsulfuron-methyl 20 WG,AGCH,KG,EC,CS01,VB,33,13,21,1,42,600000,,V201,54
+AC-003,Hexaconazole 5 SC,AGCH,L,EC,CS01,VB,85,35,21,5,100,90000,,V201,135
+AC-004,Rodenticide bait,AGCH,KG,EC,CS01,VB,10,5,21,5,5,45000,,V201,15
+FU-001,Diesel (B40),FUEL,L,EC,CS01,VB,28000,20000,5,1000,8000,13500,40000,V301,32000
+SP-001,Alternator,SPARE,EA,EC,CS01,VB,4,2,10,1,4,3500000,,V401,6
+SP-002,Injector pump,SPARE,EA,EC,CS01,VB,5,2,21,1,5,9000000,,V402,8
+SP-003,Radiator,SPARE,EA,EC,CS01,VB,5,3,10,1,5,4000000,,V401,8
+SP-004,Wheel bearing,SPARE,EA,EC,CS01,VB,5,2,21,1,4,650000,,V402,7
+SP-005,Hydraulic hose,SPARE,EA,EC,CS01,VB,4,2,10,1,4,450000,,V401,6
+SP-006,Clutch plate,SPARE,EA,EC,CS01,VB,5,2,21,1,4,1200000,,V402,7
+SP-007,Brake shoe,SPARE,EA,EC,CS01,VB,4,2,10,1,4,800000,,V401,6
+SP-008,Tyre,SPARE,EA,EC,CS01,VB,5,2,21,1,4,2800000,,V402,7
