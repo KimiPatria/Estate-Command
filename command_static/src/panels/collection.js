@@ -9,7 +9,7 @@
  * afternoon queue at the mill is, and how full the loads are on each route
  * and in each vehicle class. Those are the lists the map gets.
  */
-import { esc, idr } from '../lib/fmt.js';
+import { esc, firstSentence, idr } from '../lib/fmt.js';
 import { blockList } from './_shared.js';
 
 const nil = v => v === null || v === undefined;
@@ -69,8 +69,6 @@ export async function panelCollection() {
   const d = await r.json();
   if (!d.available) return `<div class="empty">${esc(d.reason)}</div>`;
   const c = d.coverage, t = d.totals, after = d.afternoon_label || d.afternoon_from;
-  const worstRoute = d.by_route[0];
-  const worstClass = d.by_class[0];
 
   const kpis = `<div class="kpis">
       <div class="kpi"><b>${p0(c.same_day_pct)}</b><span>collected same day${c.by_construction ? ' · by construction' : ''}</span></div>
@@ -81,23 +79,8 @@ export async function panelCollection() {
       <div class="kpi"><b>${n2(t.trips_per_cutting_day)}</b><span>trips per cutting day</span></div>
     </div>`;
 
-  const construction = c.by_construction ? `<div class="sheet-note">
-      <b>Why 100% is not a finding.</b> Every one of the ${idr(c.cutting_days)} block-cutting-days in the
-      ledger has a trip on that date, and the ${idr(c.bunches_cut)} bunches cut equal the
-      ${idr(c.bunches_hauled)} hauled on every one of them. The generated feeds place cutting days and
-      trip days with the same seeded function, so this join can only ever reconcile. The
-      ${idr(c.plan_only_days)} plan-only order days (rain-outs and no-shows) have no fruit and no
-      trip, which is correct. To measure fruit left at the collection point the estate needs
-      ${(d.needs || []).map(n => `<b>${esc(n.entity)}</b> (${esc(n.system)})`).join(' and ')}: both
-      are recorded today and neither was exported.</div>` : '';
-
   const hourChart = `<div class="sub-t">Mill queue by departure hour</div>
-    ${hourBars(d.by_hour, 'mean_queue_h', 'h')}
-    <div class="blk-cap">Mean hours queued at the weighbridge, by the hour the load left the platform.
-      Gold bars are departures from ${esc(d.afternoon_from)}: ${p0(t.afternoon_share_pct)} of the crop
-      (${t1(t.afternoon_t)}) leaves then and waits ${n2(t.queue_afternoon_h)} h against
-      ${n2(t.queue_morning_h)} h before. Fruit that sat at the platform through the morning then sits
-      again at the mill.</div>`;
+    ${hourBars(d.by_hour, 'mean_queue_h', 'h')}`;
 
   const monthTable = `<div class="sub-t">Coverage by month</div>
     <table class="tbl">
@@ -110,9 +93,7 @@ export async function panelCollection() {
         <td class="num">${p0(m.afternoon_share_pct)}</td>
         <td class="num">${p0(m.dispatch_adherence_pct)}</td>
       </tr>`).join('')}
-    </table>
-    <div class="blk-cap">Plan met is the dispatch orders' weighed tonnes over planned tonnes, so its gap is
-      harvest shortfall and shrinkage together, not a collection miss.</div>`;
+    </table>`;
 
   const divTable = `<div class="sub-t">By division</div>
     <table class="tbl">
@@ -139,10 +120,7 @@ export async function panelCollection() {
         <td class="num">${loadCell(x.load_factor_pct)}</td>
         <td class="num">${p1(x.loads_under_half_pct)}</td>
       </tr>`).join('')}
-    </table>
-    <div class="blk-cap">Load is net kg weighed over the capacity of the vehicle that carried it.
-      Under half is the share of loads carrying less than half that capacity: the wrong vehicle for
-      the block-day, or a block-day too small to send one for.</div>`;
+    </table>`;
 
   const classTable = `<div class="sub-t">Vehicle classes</div>
     <table class="tbl">
@@ -156,11 +134,7 @@ export async function panelCollection() {
         <td class="num">${p1(x.loads_under_half_pct)}</td>
         <td class="num">${n1(x.mean_loads_per_day)} <span style="color:var(--muted)">· ${n1(x.p80_loads_per_day)}</span></td>
       </tr>`).join('')}
-    </table>
-    <div class="blk-cap">${esc(worstClass.vehicle_class)}s run ${p0(worstClass.load_factor_pct)} full and
-      ${p1(worstClass.loads_under_half_pct)} of their loads are under half: the largest vehicle is
-      the emptiest. Loads per day is the mean per vehicle, then the 80th-percentile day from the
-      dispatch ledger.</div>`;
+    </table>`;
 
   const waitingList = `<div class="sub-t">Most fruit at the platform after ${esc(after)}</div>
     ${blockList(d.waiting, {
@@ -172,9 +146,6 @@ export async function panelCollection() {
         { key: 'last_load', label: 'Last load', num: true },
         { key: 'mean_queue_h', label: 'Queue h', num: true, fmt: n2 },
       ],
-      caption: c.by_construction
-        ? `Ranked by tonnes leaving after ${after}, since no block has fruit left overnight here. With the two timestamps above this list becomes tonnes still at the collection point the next morning.`
-        : 'Ranked by bunches left overnight, then by tonnes leaving in the afternoon.',
     })}`;
 
   const loadList = `<div class="sub-t">Emptiest loads, blocks with five or more trips</div>
@@ -186,12 +157,10 @@ export async function panelCollection() {
         { key: 'load_factor_pct', label: 'Load', num: true, fmt: p0 },
         { key: 'loads_under_half_pct', label: 'Under half', num: true, fmt: p0 },
       ],
-      caption: 'One trip a day carrying a quarter of a dump truck is a block-day for the mini-truck, or two blocks for one vehicle.',
     })}`;
 
-  return `<div class="sheet-note" style="color:var(--text)">${esc(d.summary)}</div>
+  return `<div class="sheet-note" style="color:var(--text)">${esc(firstSentence(d.summary))}</div>
     ${kpis}
-    ${construction}
     ${hourChart}
     ${monthTable}
     ${divTable}
@@ -199,9 +168,6 @@ export async function panelCollection() {
     ${classTable}
     ${waitingList}
     ${loadList}
-    <div class="sheet-note">Route ${esc(worstRoute.route_code)} at ${p0(worstRoute.load_factor_pct)} and the
-      afternoon queue are scheduling questions; tomorrow's vehicle plan is in the transport window.
-      <button class="btn ops-btn small" data-open-panel="ops_dispatch">Open the transport window</button></div>
-    <div class="sheet-note"><b>Caveat.</b> ${esc(d.caveat)}<br><br>
-      <b>Provenance.</b> ${esc(d.provenance)}<br><br>${esc(d.note)}</div>`;
+    <div class="fp-actbar">
+      <button class="btn ops-btn small" data-open-panel="ops_dispatch">Open the dispatch plan</button></div>`;
 }

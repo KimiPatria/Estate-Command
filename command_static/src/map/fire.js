@@ -1,6 +1,6 @@
 import { map } from './instance.js';
 import { esc, fmt, row } from '../lib/fmt.js';
-import { raiseAlerts } from '../shell/alerts.js';
+import { clearAlerts } from '../shell/alerts.js';
 import { openDrawer, wireDrawer } from '../shell/drawer.js';
 import { refreshRail } from '../shell/rail.js';
 import { S } from '../state/store.js';
@@ -220,7 +220,7 @@ export function renderFireStat() {
 
 export function renderFireAlert() {
   const f = S.fire, el = document.getElementById('alerts');
-  if (!f || !f.exposure.blocks) { raiseAlerts(); return; }
+  if (!f || !f.exposure.blocks) { clearAlerts(); return; }
   const e = f.exposure, mob = f.mobilisation, front = f.threatened_blocks[0];
   const synth = f.hotspots.provenance === 'synthetic';
   el.innerHTML = `<div class="alert">

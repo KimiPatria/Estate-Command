@@ -86,7 +86,7 @@ def _matrix(rows):
 
 
 def _fit(estate: str) -> dict | None:
-    rows = layers.block_rows(estate)
+    rows = layers.block_rows(estate, synthetic_world=True)
     if not rows:
         return None
     usable, X = _matrix(rows)

@@ -27,7 +27,6 @@ export async function panelShrinkage() {
     ${scoreRow('Isolation forest', v.isolation_forest)}
     ${scoreRow('Both agree', v.corroborated)}
   </table>
-  <div class="sheet-note">${esc(v.reading)}</div>
 
   ${v.ablation && v.ablation.available ? `
   <div class="sub-t">What the planted answers caught us doing wrong</div>
@@ -42,8 +41,7 @@ export async function panelShrinkage() {
       <td class="num">${v.ablation.wide.features.length}</td>
       <td class="num">${v.ablation.wide.precision}</td>
       <td class="num">${v.ablation.wide.recall}</td></tr>
-  </table>
-  <div class="sheet-note">${esc(v.ablation.reading)}</div>` : ''}
+  </table>` : ''}
 
   <div class="sub-t">Where the loss concentrates</div>
   <table class="tbl">
@@ -67,11 +65,6 @@ export async function panelShrinkage() {
       <td class="num">${pct(r.deviation_pct)}</td><td class="num">${r.robust_z}</td>
     </tr>`).join('')}
   </table>
-  <div class="sheet-note">
-    <b>Method.</b> ${esc(d.method.expected)}. ${esc(d.method.primary)};
-    ${esc(d.method.secondary)}. ${esc(d.method.note)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}
-  </div>
   <div class="acts" style="margin-top:14px;max-width:380px">
     <button class="accept" data-decide='${JSON.stringify({
       use_case: 'Transport, field-to-mill shrinkage',
@@ -122,11 +115,7 @@ export async function panelClusters() {
     </tr>`).join('')}
   </table>
   <div class="sheet-note">Blocks:
-    ${d.worst_group.block_labels.map(esc).join(', ')}</div>` : ''}
-  <div class="sheet-note"><b>Read this carefully.</b> ${esc(d.warning)}<br><br>
-    <b>Method.</b> ${esc(d.method.algorithm)}. ${esc(d.method.labelling)}.
-    ${esc(d.method.unclustered)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}</div>`;
+    ${d.worst_group.block_labels.map(esc).join(', ')}</div>` : ''}`;
 }
 
 export async function panelProductivity() {
@@ -142,8 +131,7 @@ export async function panelProductivity() {
     </div>
   <div class="sheet-note">A single estate-wide quota of ${d.flat_quota} bunches is
     ${d.flat_quota_error[0]} too high on the hardest blocks and
-    ${d.flat_quota_error[1]} too low on the easiest. That gap is why cutters leave
-    the difficult blocks half-collected.</div>
+    ${d.flat_quota_error[1]} too low on the easiest.</div>
   <div class="sub-t">What the model reads</div>
   <table class="tbl">
     <tr><th>Condition</th><th class="num">Coefficient</th><th>Source</th></tr>
@@ -160,8 +148,7 @@ export async function panelProductivity() {
       <td>${esc(c.label)}</td><td class="num">${c.generator_effect}</td>
       <td class="num">${c.fitted_coefficient}</td>
       <td class="num">×${c.overstated_by}</td></tr>`).join('')}
-  </table>
-  <div class="sheet-note">${esc(r.reading)}</div>` : ''}
+  </table>` : ''}
   <div class="sub-t">Hardest blocks to cut</div>
   <table class="tbl">
     <tr><th>Block</th><th class="num">Fair target</th><th class="num">Actual</th>
@@ -171,10 +158,7 @@ export async function panelProductivity() {
       <td class="num">${t.actual_mean}</td>
       <td class="num">${t.slope_deg}</td><td class="num">${t.palm_age_years}</td>
     </tr>`).join('')}
-  </table>
-  <div class="sheet-note"><b>${esc(d.warning)}</b><br><br>
-    <b>Method.</b> ${esc(m.note)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}</div>`;
+  </table>`;
 }
 
 export async function panelForecast() {
@@ -206,14 +190,7 @@ export async function panelForecast() {
   <div class="sheet-note"><b>${esc(q.statement)}</b></div>
   <div class="sub-t">Where the model looked, lag 1 to 24 months</div>
   ${bars}
-  <div class="sheet-note">
-    Green is the sex-determination window (${b.sex_determination_window.join('–')} months),
-    blue is the abortion window (${b.abortion_window.join('–')} months).
-    Only ${b.share_in_sex_window_pct}% of rainfall importance landed in the first
-    and ${b.share_in_abortion_window_pct}% in the second.<br><br>
-    ${esc(b.finding)}
-  </div>
-  <div class="sheet-note"><b>What this does and does not show.</b> ${esc(d.honesty)}
-    <br><br><b>Provenance.</b> ${esc(d.provenance)}</div>`;
+  <div class="blk-cap">Green: sex-determination window (${b.sex_determination_window.join('–')} months).
+    Blue: abortion window (${b.abortion_window.join('–')} months).</div>`;
 }
 

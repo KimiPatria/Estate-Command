@@ -7,8 +7,9 @@
  * that freed went to the imagery, which is what the user came to look at.
  */
 import { esc } from '../lib/fmt.js';
+import { ML_ICON } from '../lib/ml.js';
 import { S } from '../state/store.js';
-import { openPanel } from '../panels/registry.js';
+import { openPanel, panelOpensIn } from '../panels/registry.js';
 
 /* One glyph per domain. Keyed by the manifest's domain id, so a new domain in
    gis/features.py shows up with a fallback rather than breaking the rail. */
@@ -21,6 +22,24 @@ const DOMAIN_ICON = {
   governance: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>',
 };
 const FALLBACK_ICON = '<circle cx="12" cy="12" r="9"/>';
+
+/* Where each list entry opens. A side panel sits beside the map and keeps it
+   in view; a full-screen window covers it. The two are grouped and each entry
+   carries its glyph, so nobody is surprised by which one they get. The label
+   is for screen readers only; the glyph says it on screen. */
+const OPENS = {
+  side: {
+    label: 'Side panel',
+    icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/>',
+  },
+  window: {
+    label: 'Full screen',
+    icon: '<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>',
+  },
+};
+const opensIcon = kind => `<svg class="opens-ico" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true">${OPENS[kind].icon}</svg>`;
 
 let DOMAINS = [];
 let openDomain = null;
@@ -74,7 +93,6 @@ export function toggleDomain(key) {
   if (!d) return;
   openDomain = key;
   el('dom-fly-t').textContent = d.label;
-  el('dom-fly-blurb').textContent = d.blurb || '';
   const cov = el('dom-fly-cov');
   cov.textContent = `${d.on_real_data}/${d.count}`;
   cov.className = 'cov ' + (d.on_real_data === d.count ? 'all' : d.on_real_data ? 'part' : '');
@@ -103,19 +121,35 @@ export function renderPanels() {
   if (!d) { host.innerHTML = ''; return; }
 
   const seen = new Set();
-  host.innerHTML = d.features.filter(f => {
+  const feats = d.features.filter(f => {
     if (seen.has(f.panel)) return false;
     seen.add(f.panel);
     return true;
-  }).map(f => {
+  });
+
+  // A panel several features share is marked if any of them is a model.
+  const isMl = panel => d.features.some(x => x.panel === panel && x.ml);
+  const button = (f, opens) => {
     const hint = S.panelHint[f.panel] || (f.status === 'planned' ? 'needs data' : '');
-    const cls = ['panel-btn',
+    const cls = ['panel-btn', `opens-${opens}`,
                  S.panelHint[f.panel] ? 'alertish' : '',
                  f.status === 'planned' ? 'planned' : ''].filter(Boolean).join(' ');
-    return `<button class="${cls}" data-panel="${esc(f.panel)}" title="${esc(f.question)}">
-      <span>${esc(f.label)}</span>
+    return `<button class="${cls}" data-panel="${esc(f.panel)}" data-opens="${opens}"
+        title="${esc(f.question)}">
+      ${opensIcon(opens)}
+      <span class="lbl">${esc(f.label)}${isMl(f.panel) ? ML_ICON : ''}</span>
       <span class="hint">${esc(hint)}</span>
     </button>`;
+  };
+
+  // Side panels first: they are the quick looks that keep the map in view.
+  // Full-screen windows are the workspaces, and come after.
+  host.innerHTML = ['side', 'window'].map(opens => {
+    const group = feats.filter(f => panelOpensIn(f.panel) === opens);
+    if (!group.length) return '';
+    return `<div class="pgrp pgrp-${opens}" role="group" aria-label="${esc(OPENS[opens].label)}">
+      ${group.map(f => button(f, opens)).join('')}
+    </div>`;
   }).join('');
 
   host.querySelectorAll('[data-panel]').forEach(b => {

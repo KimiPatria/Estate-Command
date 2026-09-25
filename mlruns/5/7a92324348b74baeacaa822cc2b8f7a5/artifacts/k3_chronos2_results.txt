@@ -1,0 +1,66 @@
+==============================================================================
+Chronos-2 benchmark -- estate k3
+==============================================================================
+VERDICT (Apache-2.0, shippable): WIN -- Chronos2_monthly_cov sMAPE 8.74% / MASE 0.496
+         vs incumbent Ensemble_workdone 10.07% / 0.572  (delta -1.33 pp sMAPE, -0.077 MASE)
+LICENSE: Apache-2.0 (checkpoint amazon/chronos-2)
+
+-- headline scoreboard, all folds (sorted by MASE) --
+               model    MAE   RMSE sMAPE  MASE   Bias
+Chronos2_monthly_cov 10,104 12,203  8.7% 0.496  3,877
+    Chronos2_monthly 10,458 12,663  9.0% 0.513  3,472
+   Ensemble_workdone 11,664 15,106 10.1% 0.572  4,001
+            Ensemble 12,064 15,392 10.4% 0.592  3,897
+    Ensemble_weather 12,072 15,446 10.4% 0.592  3,911
+  Chronos2_daily_agg 13,425 18,628 11.8% 0.659 -4,171
+             SARIMAX 13,722 18,176 11.5% 0.673  3,625
+           Trailing3 14,479 17,409 12.4% 0.710  3,273
+   LightGBM_workdone 14,747 17,526 12.6% 0.723  5,105
+            LightGBM 15,135 18,341 12.9% 0.742  4,793
+    LightGBM_weather 15,203 18,479 13.0% 0.746  4,834
+       LightGBM_comp 15,320 18,644 13.1% 0.751  5,172
+       SeasonalNaive 20,387 27,152 17.6% 1.000 10,002
+
+-- paired fold-by-fold vs Ensemble_workdone (step 1) --
+   Chronos2_monthly           wins 13/30 folds | mean MAE gain +1,206 bunches | t=+1.04 | NOT significant
+   Chronos2_monthly_cov       wins 15/30 folds | mean MAE gain +1,560 bunches | t=+0.90 | NOT significant
+   Chronos2_daily_agg         wins 15/30 folds | mean MAE gain -1,761 bunches | t=-0.66 | NOT significant
+   A win on the aggregate with a non-significant paired test means the
+   models are indistinguishable on this much data -- not that one is better.
+
+-- Chronos2_monthly --
+   30 origins, 36.8s inference
+   context >= 24 subset (16 folds, NOT a documented Chronos-2 minimum -- robustness check only), incumbent re-scored on the same folds:
+     Chronos2_monthly             8.11% / 0.488
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_aci, coverage h1-3 0.968, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=9.0%  h2=9.9%  h3=10.3%  h4=10.3%  h5=10.3%  h6=10.3%
+
+-- Chronos2_monthly_cov --
+   30 origins, 10.5s inference
+   past_future ['month_sin', 'month_cos', 'temp_lag1m', 'humid_lag1m']
+   past_only   ['rain_mo', 'et0_mo', 'wb_mo', 'solar_mo', 'temp_mo', 'humid_mo', 'rain_lag1m', 'wb_lag1m', 'rain_lag2m', 'wb_lag2m', 'rain_lag3m', 'wb_lag3m', 'rain_flower_5_7m', 'wb_flower_5_7m']
+   context >= 24 subset (16 folds, NOT a documented Chronos-2 minimum -- robustness check only), incumbent re-scored on the same folds:
+     Chronos2_monthly_cov         8.85% / 0.541
+     Ensemble_workdone            9.22% / 0.553
+   conformal: method conformal_aci, coverage h1-3 0.905, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=8.7%  h2=8.8%  h3=9.0%  h4=9.0%  h5=9.0%  h6=9.0%
+
+-- Chronos2_daily_agg --
+   30 origins, 11.1s inference
+   context >= 24 subset (30 folds, NOT a documented Chronos-2 minimum -- robustness check only), incumbent re-scored on the same folds:
+     Chronos2_daily_agg           11.79% / 0.659
+     Ensemble_workdone            10.07% / 0.572
+   conformal: method conformal_split, coverage h1-3 0.952, n_residuals {1: 30, 2: 29, 3: 28, 4: 27, 5: 26, 6: 25, 7: 24, 8: 23, 9: 22, 10: 21, 11: 20, 12: 19}
+   per-step sMAPE: h1=11.8%  h2=12.5%  h3=12.5%  h4=13.6%  h5=14.7%  h6=14.7%
+
+-- why this could be wrong --
+  * Zero-shot: the model has no palm-agronomy signal. The incumbent uses
+    pruning man-days at lag 1, pruning qty at lag 5, fertiliser at lag 3
+    and rainfall at flowering 5-7 months prior.
+  * Single estate, ~30 folds. A 90% coverage estimate has ~7pp standard
+    error at this fold count; treat coverage claims loosely.
+  * AutoGluon's zero-shot Chronos2 wrapper is called once per track/
+    variant here, not cached across calls -- fine for an R&D sweep run a
+    handful of times, but not the pattern for a live serving path.
+==============================================================================

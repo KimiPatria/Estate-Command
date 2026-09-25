@@ -159,11 +159,6 @@ h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
 .dom-fly-h h3 { font-size:13.5px; flex:1; }
 .dom-fly-h .x { color: var(--muted); font-size:17px; line-height:1; padding:1px 6px; border-radius:4px; }
 .dom-fly-h .x:hover { background: var(--surface-2); color: var(--text); }
-.dom-fly-b {
-  padding:0 13px 11px; font-size:11.5px; color: var(--muted); line-height:1.5;
-  flex-shrink:0;
-}
-.dom-fly-b:empty { display:none; }
 .dom-fly .panels { overflow-y:auto; padding:0 10px 12px; }
 .dom-fly .panels::-webkit-scrollbar { width:8px; }
 .dom-fly .panels::-webkit-scrollbar-thumb { background: var(--border); border-radius:4px; }
@@ -300,8 +295,27 @@ h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
 .panel-btn.alertish .hint { color: var(--gold); font-weight:600; }
 /* Specified, not yet built. Still listed and still openable, because its
    requirements strip is the part the client is being shown. */
-.panel-btn.planned > span:first-child { color: var(--muted); }
+.panel-btn.planned .lbl { color: var(--muted); }
 .panel-btn.planned .hint { font-style:italic; }
+
+/* Where an entry opens. The domain list is split into side panels (beside
+   the map) and full-screen windows (over it), ruled apart, and each entry
+   carries its glyph, so the difference is visible before the click. */
+.pgrp { display:flex; flex-direction:column; gap:2px; }
+.pgrp + .pgrp { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+.panel-btn .opens-ico { width:14px; height:14px; flex-shrink:0; color: var(--muted); opacity:.75; }
+/* The machine-learning mark, in the violet the app already uses for anything
+   a model produced (the gen badge, Ask the map). */
+.ml-ico { display:inline-block; width:14px; height:14px; margin-left:6px; vertical-align:-2px;
+  color:#a695e8; flex-shrink:0; line-height:0; }
+.ml-ico svg { width:100%; height:100%; display:block; }
+h2 .ml-ico, h3 .ml-ico { width:16px; height:16px; }
+/* Windows are the workspaces: carded, and tinted with the accent their
+   group heading carries. */
+.pgrp-window { gap:5px; }
+.panel-btn.opens-window { border-color: rgba(63,176,196,.3); background: rgba(63,176,196,.06); }
+.panel-btn.opens-window:hover { background: rgba(63,176,196,.13); border-color: rgba(63,176,196,.55); }
+.panel-btn.opens-window .opens-ico { color: var(--accent); opacity:1; }
 
 /* Domain headings inside the decisions group. The rail used to list panels by
    use-case number, which is how a consultant indexes work and not how an
@@ -318,8 +332,8 @@ h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
 .dom-h .cov.all  { color: var(--ok); }
 
 /* The requirements strip: what this panel would need to run on the client's
-   own numbers. This is the entire point of the demo, so it sits at the top of
-   every sheet, not buried at the bottom. */
+   own numbers. In the dock it closes the panel, below the content, so the
+   panel's title and subtitle are what the eye lands on first. */
 .needs { border:1px solid var(--border); border-radius:8px; padding:12px 14px;
   margin-bottom:16px; background: var(--surface-2); }
 .needs-h { display:flex; align-items:baseline; gap:9px; margin-bottom:9px; }
@@ -338,8 +352,21 @@ h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
    its border through the requirement name beside it. */
 .needs li .src { color: var(--muted); border-top:none; margin-top:0; padding-top:0; }
 .needs li.have .ent { color: var(--muted); }
-.needs .foot { margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
-  font-size:11px; color: var(--muted); line-height:1.55; }
+/* In the dock the strip is a disclosure, closed when the panel opens. The
+   summary line keeps the satisfied count visible while closed. */
+details.needs { padding:0; margin:20px 0 0; }
+details.needs > summary.needs-h { list-style:none; cursor:pointer; user-select:none;
+  align-items:center; margin:0; padding:10px 14px; border-radius:8px; }
+details.needs > summary::-webkit-details-marker { display:none; }
+details.needs > summary:hover { background: rgba(255,255,255,.03); }
+details.needs > summary:hover b { color: var(--accent); }
+details.needs > summary:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+details.needs[open] > summary.needs-h { border-bottom:1px solid var(--border);
+  border-radius:8px 8px 0 0; }
+.needs-b { padding:10px 14px 12px; }
+.needs-chev { width:13px; height:13px; flex-shrink:0; align-self:center; color: var(--muted);
+  transition: transform .18s var(--ease-out); }
+details.needs[open] .needs-chev { transform: rotate(90deg); }
 
 .month.fcst { border-style:dashed; opacity:.85; }
 .month.fcst.on { opacity:1; }
@@ -575,7 +602,6 @@ h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
 }
 .sheet-h { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:14px; }
 .sheet-h h2 { font-size:16px; }
-.sheet-h p { font-size:12px; color: var(--muted); margin-top:3px; max-width:600px; line-height:1.55; }
 .sheet-h .x { margin-left:auto; color: var(--muted); font-size:19px; line-height:1; padding:2px 7px; border-radius:5px; }
 .sheet-h .x:hover { background: var(--surface-2); color: var(--text); }
 .sheet-body { overflow-y:auto; padding:6px 20px 20px; }
@@ -611,147 +637,76 @@ h1,h2,h3,h4 { font-weight: 600; line-height: 1.3; }
 }
 .intro.done { opacity:0; transform:scale(1.045); filter:blur(7px); pointer-events:none; }
 .intro[hidden] { display:none !important; }
-
-.intro-bg {
-  position:absolute; inset:0;
-  background:
-    radial-gradient(58% 48% at 50% 42%, rgba(63,176,196,.17), transparent 70%),
-    radial-gradient(42% 42% at 80% 84%, rgba(212,168,75,.07), transparent 70%);
-  animation: introGlow 5.5s ease-in-out infinite alternate;
+.intro::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(44% 34% at 50% 47%, rgba(63,176,196,.075), transparent 72%);
+  animation: introFade 1.6s ease .1s backwards;
 }
-@keyframes introGlow { from { opacity:.5; } to { opacity:1; } }
-
-/* A slow graticule drift, because this is a map product and a generic
-   particle field would belong to any product at all. */
-.intro-grid {
-  position:absolute; inset:0;
-  background-image:
-    linear-gradient(rgba(63,176,196,.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(63,176,196,.07) 1px, transparent 1px);
-  background-size: 46px 46px;
-  animation: introDrift 18s linear infinite;
-  -webkit-mask-image: radial-gradient(56% 56% at 50% 46%, #000, transparent 76%);
-          mask-image: radial-gradient(56% 56% at 50% 46%, #000, transparent 76%);
-}
-@keyframes introDrift { to { background-position: 46px 46px; } }
+@keyframes introFade { from { opacity:0; } }
 
 .intro-stage {
   position:relative; display:flex; flex-direction:column; align-items:center;
-  gap:24px; padding:24px;
+  gap:30px; padding:24px;
 }
 
-/* The mark is a parcel boundary being surveyed, drawn edge by edge under a
-   sweep. It says "estate" and "instrument" without a word of copy. */
-.intro-mark { position:relative; width:128px; height:128px; }
-.intro-mark svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
-.intro-mark .plot path {
-  fill:none; stroke: var(--accent); stroke-width:2;
-  stroke-linejoin:round; stroke-linecap:round;
-  stroke-dasharray:330; stroke-dashoffset:330;
-  animation: introDraw 1.2s var(--ease-out) forwards;
+/* One sequence, one line: a point of light opens into a hairline, the title
+   rises off it letter by letter from the middle out, and the line folds
+   back into the point it came from. */
+.intro-title { position:relative; }
+.intro-title h1 {
+  margin:0 -.3em; padding:.14em .3em 0; overflow:hidden;
+  font-size: clamp(30px, 6.4vw, 60px); font-weight:600; line-height:1.12;
+  letter-spacing:-.024em; color: var(--text); text-align:center;
 }
-.intro-mark .p-outer { animation-delay:.14s; filter: drop-shadow(0 0 8px rgba(63,176,196,.45)); }
-.intro-mark .p-mid   { stroke: rgba(63,176,196,.52); stroke-width:1.2; animation-delay:.54s; }
-.intro-mark .p-mid2  { stroke: rgba(63,176,196,.52); stroke-width:1.2; animation-delay:.63s; }
-.intro-mark .p-in    { stroke: rgba(63,176,196,.3);  stroke-width:1;   animation-delay:.72s; }
-.intro-mark .p-in2   { stroke: rgba(63,176,196,.3);  stroke-width:1;   animation-delay:.79s; }
-@keyframes introDraw { to { stroke-dashoffset:0; } }
-.intro-mark .p-dot {
-  fill: var(--gold); transform-box: fill-box; transform-origin: center;
-  filter: drop-shadow(0 0 8px rgba(212,168,75,.85));
-  animation: introDot .55s var(--ease-out) 1.08s backwards;
+.intro-title .w { display:inline-block; white-space:nowrap; }
+.intro-title .w > span {
+  display:inline-block;
+  animation: introRise .95s var(--ease-out) calc(.42s + var(--d) * 50ms) backwards;
 }
-@keyframes introDot { from { transform:scale(0); opacity:0; } to { transform:scale(1); opacity:1; } }
-
-.intro-mark .ring {
-  position:absolute; inset:0; border-radius:50%;
-  border:1px solid rgba(63,176,196,.34);
-  animation: introPing 3s ease-out infinite;
-}
-.intro-mark .ring.r2 { animation-delay:1.5s; }
-@keyframes introPing {
-  0%   { transform:scale(.44); opacity:0; }
-  20%  { opacity:.8; }
-  100% { transform:scale(1.55); opacity:0; }
-}
-.intro-mark .sweep {
-  position:absolute; inset:-8%; border-radius:50%; opacity:.7;
-  background: conic-gradient(from 0deg,
-    rgba(63,176,196,.34), rgba(63,176,196,0) 66deg, rgba(63,176,196,0) 360deg);
-  animation: introSweep 2.8s linear infinite;
-  -webkit-mask-image: radial-gradient(closest-side, transparent 36%, #000 42%, #000 97%, transparent);
-          mask-image: radial-gradient(closest-side, transparent 36%, #000 42%, #000 97%, transparent);
-}
-@keyframes introSweep { to { transform: rotate(360deg); } }
-
-.intro-word { text-align:center; }
-.intro-eyebrow {
-  font-size:11px; font-weight:700; letter-spacing:.54em;
-  color: var(--sage); margin-bottom:11px; padding-left:.54em;
-}
-.intro-eyebrow span { display:inline-block; animation: introEye .5s var(--ease-out) backwards; }
-.intro-eyebrow span:nth-child(1) { animation-delay:.30s; }
-.intro-eyebrow span:nth-child(2) { animation-delay:.37s; }
-.intro-eyebrow span:nth-child(3) { animation-delay:.44s; }
-.intro-eyebrow span:nth-child(4) { animation-delay:.51s; }
-@keyframes introEye { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-
-/* Tracking closes from wide to tight as the blur clears, then a single
-   specular pass crosses the letterforms. */
-.intro-word h1 {
-  font-size: clamp(30px, 6vw, 56px); font-weight:800; line-height:1.06;
-  letter-spacing:-.022em;
-  background: linear-gradient(100deg,
-    var(--text) 34%, #ffffff 45%, var(--accent) 53%, var(--text) 64%);
-  background-size: 300% 100%; background-position: 128% 0;
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent; -webkit-text-fill-color: transparent;
-  animation: introWord 1.15s var(--ease-out) .62s backwards,
-             introShine 1.7s ease 1.5s both;
-}
-@keyframes introWord {
-  from { opacity:0; letter-spacing:.3em; transform:translateY(13px); filter:blur(10px); }
-  to   { opacity:1; letter-spacing:-.022em; transform:none; filter:blur(0); }
-}
-@keyframes introShine { to { background-position:-34% 0; } }
-@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
-  .intro-word h1 { background:none; color: var(--text); -webkit-text-fill-color: currentColor; }
+@keyframes introRise {
+  from { transform:translateY(105%); opacity:0; filter:blur(6px); }
+  to   { transform:none; opacity:1; filter:blur(0); }
 }
 
-.intro-rule {
-  height:1px; width:0; max-width:340px; margin:17px auto 0;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  animation: introRule 1s var(--ease-out) 1.18s forwards;
+.intro-line {
+  position:absolute; left:-5%; right:-5%; bottom:0; height:1px;
+  background: linear-gradient(90deg, transparent, var(--accent) 24%, var(--accent) 76%, transparent);
+  transform:scaleX(0); opacity:0;
+  animation: introLine 1.75s .1s forwards;
 }
-@keyframes introRule { to { width:340px; } }
+@keyframes introLine {
+  0%   { transform:scaleX(0); opacity:0; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+  40%  { transform:scaleX(1); opacity:1; }
+  68%  { transform:scaleX(1); opacity:1; animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+  100% { transform:scaleX(0); opacity:0; }
+}
 
+/* Status and bar wait for the title to finish, so the first thing read is
+   the name and the second is how far along the load is. */
+.intro-meta { display:flex; flex-direction:column; align-items:center; gap:14px; }
 .intro-sub {
-  margin-top:14px; font-size:11px; font-weight:600; letter-spacing:.17em;
-  text-transform:uppercase; color: var(--muted);
-  animation: introUp .8s var(--ease-out) 1.42s backwards;
+  margin:0; font-size:11px; font-weight:600; letter-spacing:.17em;
+  text-transform:uppercase; color: var(--muted); text-align:center; line-height:1.6;
+  animation: introUp .7s var(--ease-out) 1.6s backwards;
 }
-.intro-sub span { color: var(--accent); }
-@keyframes introUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.intro-sub span { color: var(--accent); white-space:nowrap; }
+@keyframes introUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 
 /* Real progress, driven by the fetches in boot, not a fake timer. */
 .intro-bar {
-  width:220px; height:2px; border-radius:2px; overflow:hidden;
+  width:200px; height:2px; border-radius:2px; overflow:hidden;
   background: rgba(63,176,196,.14);
-  animation: introUp .8s var(--ease-out) 1.56s backwards;
+  animation: introUp .7s var(--ease-out) 1.7s backwards;
 }
 .intro-bar i {
   display:block; height:100%; width:4%; border-radius:2px;
   background: linear-gradient(90deg, var(--accent-deep), var(--accent));
-  box-shadow: 0 0 10px rgba(63,176,196,.65);
   transition: width .55s var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .intro-bg, .intro-grid, .intro-mark .ring, .intro-mark .sweep { display:none; }
-  .intro *, .intro *::before, .intro *::after { animation:none !important; }
-  .intro-mark .plot path { stroke-dashoffset:0; }
-  .intro-word h1 { background:none; color: var(--text); -webkit-text-fill-color: currentColor; }
-  .intro-rule { width:340px; }
+  .intro *, .intro::before { animation:none !important; }
+  .intro-line { display:none; }
 }
 
 /* ── ESTATE PINS ──────────────────────────────────────────────────── */
@@ -1252,11 +1207,6 @@ body.wb-dragging .wb { transition:none; }
   display:block; font-size:10.5px; color: var(--sage); margin-top:3px;
   font-family: ui-monospace, monospace;
 }
-.draft-note {
-  font-size:11px; color: var(--muted); line-height:1.5;
-  padding:9px 10px 4px; border-top:1px solid var(--border-s); margin-top:4px;
-}
-
 /* ── LEGEND AS A FILTER ───────────────────────────────────────────── */
 .mapctl .legend .bar { position:relative; cursor:ew-resize; }
 .mapctl .legend .bar::after {
@@ -1397,9 +1347,18 @@ body.fp-open .hover-chip { display:none; }
 .fp-main { flex:1; min-height:0; display:flex; }
 .fp-nav { width:232px; flex-shrink:0; overflow-y:auto; padding:12px 10px 18px;
   border-right:1px solid var(--border); background: rgba(0,0,0,.12); }
-.fp-nav-g + .fp-nav-g { margin-top:14px; }
-.fp-nav-l { font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
-  color: var(--muted); padding:0 10px 6px; }
+/* Each group is a bordered card under a title band, so a group title can
+   never be read as one more item: brighter, larger, heavier, on its own
+   tinted strip with an accent bar, and ruled off from the items below. */
+.fp-nav-g { border:1px solid var(--border); border-radius:9px; padding:0 4px 4px;
+  background: rgba(255,255,255,.012); }
+.fp-nav-g + .fp-nav-g { margin-top:12px; }
+.fp-nav-l { display:flex; align-items:center; gap:8px; margin:0 -4px 4px;
+  padding:9px 12px 8px; border-bottom:1px solid var(--border); border-radius:8px 8px 0 0;
+  background: var(--surface-2); color: var(--text);
+  font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.fp-nav-l::before { content:''; width:3px; height:13px; border-radius:2px; flex-shrink:0;
+  background: var(--accent); }
 .fp-nav-i { display:flex; align-items:center; gap:8px; width:100%; text-align:left;
   padding:7px 10px; border-radius:7px; font-size:12.5px; color: var(--text); }
 .fp-nav-i .t { flex:1; min-width:0; }
@@ -1416,7 +1375,6 @@ body.fp-open .hover-chip { display:none; }
 .fp-sec-h { display:flex; align-items:flex-start; gap:16px; margin-bottom:14px; }
 .fp-sec-t { flex:1; min-width:0; }
 .fp-sec-t h3 { font-size:15px; letter-spacing:-.01em; }
-.fp-sec-t p { font-size:12px; color: var(--muted); margin-top:3px; line-height:1.55; max-width:860px; }
 .fp-map-all { display:flex; align-items:center; gap:6px; flex-shrink:0; padding:7px 12px;
   border-radius:7px; font-size:12px; font-weight:600; color:#fff;
   background: var(--accent-deep); border:1px solid var(--accent); }

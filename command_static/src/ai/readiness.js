@@ -63,8 +63,6 @@ export function renderVerdict(cap, iv) {
       ${esc(iv.rationale || '')}
       ${iv.unlocks && iv.unlocks.length ? `<br><br><b>Unlocks.</b> ${iv.unlocks.map(esc).join('; ')}` : ''}
       ${iv.next_ask ? `<br><br><b>Next ask.</b> ${esc(iv.next_ask)}` : ''}
-      <br><br><span style="color:var(--muted)">The measured status is unchanged.
-      A proposal is a claim until someone verifies it.</span>
     </div>
   </div>`;
 }

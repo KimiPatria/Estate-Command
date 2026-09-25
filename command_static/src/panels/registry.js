@@ -104,8 +104,6 @@ async function metricPanel(metric) {
         : Number(d.median).toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><span>median</span></div>
       <div class="kpi"><b>${esc(d.provenance)}</b><span>provenance</span></div>
     </div>
-    <div class="sheet-note">The map is painted with this metric. Hover a row to find its block;
-      click to open it.</div>
     <div class="sub-t">Weakest twenty</div>
     ${blockList(rows.slice(0, 20), { cols })}
     <div class="sub-t">Strongest ten</div>
@@ -114,18 +112,19 @@ async function metricPanel(metric) {
 
 /* Features a person works in rather than glances at open in their own
    window instead of the dock: a section menu down the left, one section at a
-   time, and Show on map to hand blocks to the full map. The short title is
-   the window's; the manifest's question becomes its subtitle. */
+   time, and Show on map to hand blocks to the full map. The window is titled
+   with the same label the rail shows; the manifest's question is its
+   subtitle. */
 const POPUPS = {
-  ops_harvest:  { title: 'Harvesting', build: () => opsPopup('ops_harvest') },
-  ops_prune:    { title: 'Pruning', build: () => opsPopup('ops_prune') },
-  ops_weed:     { title: 'Weeding and spraying', build: () => opsPopup('ops_weed') },
-  ops_pest:     { title: 'Pest control', build: () => opsPopup('ops_pest') },
-  ops_dispatch: { title: 'Transport', build: () => opsPopup('ops_dispatch') },
-  assumptions:  { title: 'Assumption register', build: () => assumptionsPopup() },
-  outcomes:     { title: 'Did it work', build: () => outcomesPopup() },
-  forecasts:    { title: "Tomorrow's outlook", build: () => forecastsPopup() },
-  stores:       { title: 'Stores', build: () => storesPopup() },
+  ops_harvest:  () => opsPopup('ops_harvest'),
+  ops_prune:    () => opsPopup('ops_prune'),
+  ops_weed:     () => opsPopup('ops_weed'),
+  ops_pest:     () => opsPopup('ops_pest'),
+  ops_dispatch: () => opsPopup('ops_dispatch'),
+  assumptions:  () => assumptionsPopup(),
+  outcomes:     () => outcomesPopup(),
+  forecasts:    () => forecastsPopup(),
+  stores:       () => storesPopup(),
 };
 export const POPUP_PANELS = Object.keys(POPUPS);
 
@@ -219,8 +218,10 @@ export async function loadFeatures() {
       if (!PANELS[f.panel]) {
         PANELS[f.panel] = {
           label: f.label, domain: d.domain, domainLabel: d.label,
-          status: f.status, runsOn: f.runs_on, question: f.question,
+          status: f.status, runsOn: f.runs_on, question: f.question, ml: !!f.ml,
         };
+      } else if (f.ml) {
+        PANELS[f.panel].ml = true;
       }
     }
   }
@@ -233,8 +234,17 @@ export async function loadFeatures() {
 /* ── the requirements strip ──────────────────────────────────────────────
    What this panel would need to run on the client's own numbers. Rendered at
    the top of every sheet from the manifest, so the ask is attached to the
-   feature at the moment the client is looking at it. */
-export async function needsStrip(panel) {
+   feature at the moment the client is looking at it.
+
+   In the dock it is a disclosure, closed when the panel opens: the summary
+   line still says how many inputs are satisfied, and the panel's own content
+   is what the reader came for. A window gives it a section of its own, where
+   it is the whole page, so there it renders open (collapsible: false). */
+const CHEVRON = `<svg class="needs-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <polyline points="9 6 15 12 9 18"/></svg>`;
+
+export async function needsStrip(panel, { collapsible = true } = {}) {
   let v;
   try {
     const r = await fetch(`/gis/features/panel?panel=${encodeURIComponent(panel)}`);
@@ -252,34 +262,37 @@ export async function needsStrip(panel) {
         ${r.note ? `<br><span class="src">${esc(r.note)}</span>` : ''}</span>
     </li>`).join('');
 
-  const missing = tot - have;
-  const foot = missing
-    ? `This panel runs on generated data. Supplying ${missing === 1
-        ? 'that one extract' : `those ${missing} extracts`} swaps the file and
-       the panel keeps working on your own numbers.`
-    : `Every input here is already yours.`;
-
-  return `<div class="needs">
-    <div class="needs-h">
+  const head = `
       <b>What this needs</b>
       <span class="prov ${v.runs_on === 'real' ? 'real'
         : v.runs_on === 'mixed' ? 'derived' : 'synthetic'}">${esc(v.runs_on)}</span>
-      <span class="sum">${have} of ${tot} satisfied</span>
-    </div>
-    <ul>${items}</ul>
-    <div class="foot">${foot}</div>
-  </div>`;
+      <span class="sum">${have} of ${tot} satisfied</span>`;
+  const body = `<ul>${items}</ul>`;
+
+  if (!collapsible) {
+    return `<div class="needs"><div class="needs-h">${head}</div>${body}</div>`;
+  }
+  return `<details class="needs">
+    <summary class="needs-h">${CHEVRON}${head}</summary>
+    <div class="needs-b">${body}</div>
+  </details>`;
+}
+
+/* Where a panel opens: 'window' for a full-screen feature window, 'side' for
+   everything else (the workbench dock, or the drawer, both beside the map). */
+export function panelOpensIn(kind) {
+  return POPUPS[kind] ? 'window' : 'side';
 }
 
 export async function openPanel(kind) {
   const meta = PANELS[kind] || { label: kind, question: '' };
   if (POPUPS[kind]) {
-    const p = POPUPS[kind];
     const opening = openPopup({
-      ...p.build(),
-      title: p.title,
-      subtitle: meta.question || meta.label || '',
-      needs: () => needsStrip(kind),
+      ...POPUPS[kind](),
+      title: meta.label,
+      ml: !!meta.ml,
+      subtitle: meta.question || '',
+      needs: () => needsStrip(kind, { collapsible: false }),
     });
     markActivePanel();
     await opening;
@@ -292,11 +305,11 @@ export async function openPanel(kind) {
     return;
   }
   // The requirements strip and the panel body are independent: a panel with
-  // no renderer yet still shows what it would need, which is the whole point
-  // of the catalogue.
+  // no renderer yet still shows what it would need. The strip goes last so
+  // the panel's own title and subtitle are the first thing read.
   const body = await addTab({
     kind: 'panel', key: kind,
-    label: meta.label, question: meta.question || '',
+    label: meta.label, question: meta.question || '', ml: !!meta.ml,
     after: PANEL_AFTER[kind],
     render: async () => {
       const needs = await needsStrip(kind);
@@ -304,9 +317,8 @@ export async function openPanel(kind) {
         || (METRIC_PANELS[kind] ? () => metricPanel(METRIC_PANELS[kind]) : null);
       const main = render
         ? await render()
-        : `<div class="sheet-note">This feature is specified and not yet built.
-             The data it needs is listed above.</div>`;
-      return needs + main;
+        : `<div class="sheet-note">Not built yet.</div>`;
+      return main + needs;
     },
   });
   // A tab the user switched away from mid-fetch paints nothing and returns

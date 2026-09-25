@@ -1,0 +1,88 @@
+==============================================================================
+Chronos-2 fine-tune v2 (block-weekly LoRA) -- test estate k3
+==============================================================================
+trained on EC, EB: EC 291 blocks 2025-01-01..2026-07-22; EB 356 blocks 2025-06-02..2026-01-31
+LoRA r=4 lr=1e-05 batch=16 max_steps=20 eval every 10 patience 4 horizon 14w seeds [0]
+  seed 0: best validation loss 6.426632881164551 at step 20 (stopped at 20)
+cross-learning OFF for every forecast; 30 origins; step-1 folds: 14 clean (target month ends before 2025-01-01), 16 calendar-overlapping
+completeness-scaled actuals (block series are raw): 2024-01, 2025-12, 2026-02, 2026-04
+
+-- DECISION: fine-tuned vs zero-shot, same folds, step 1 --
+   all      ft_mean vs zero_shot [blocks]: wins 8/30, mean |err| gain -37, t=-1.91 not significant
+   clean    ft_mean vs zero_shot [blocks]: wins 3/14, mean |err| gain -49, t=-1.33 not significant
+   overlap  ft_mean vs zero_shot [blocks]: wins 5/16, mean |err| gain -27, t=-1.52 not significant
+   all      ft_mean vs zero_shot [estate]: wins 19/30, mean |err| gain +24, t=+1.47 not significant
+   clean    ft_mean vs zero_shot [estate]: wins 9/14, mean |err| gain +27, t=+0.82 not significant
+   overlap  ft_mean vs zero_shot [estate]: wins 10/16, mean |err| gain +21, t=+1.77 not significant
+   per-seed mean gain [blocks]: s0 -37  -> seeds agree on direction
+   Rule: ship only if ft_mean beats zero_shot here AND the seeds agree.
+
+-- step-1 scoreboard, all folds (sorted by MASE) --
+            model    MAE   RMSE sMAPE  MASE   Bias
+ zero_shot|blocks 11,271 15,530  9.8% 0.553 -6,724
+     ft_s0|blocks 11,309 15,576  9.9% 0.555 -6,825
+   ft_mean|blocks 11,309 15,576  9.9% 0.555 -6,825
+Ensemble_workdone 11,664 15,106 10.1% 0.572  4,001
+          SARIMAX 13,722 18,176 11.5% 0.673  3,625
+        Trailing3 14,479 17,409 12.4% 0.710  3,273
+     ft_s0|estate 14,854 22,540 13.8% 0.729   -770
+   ft_mean|estate 14,854 22,540 13.8% 0.729   -770
+ zero_shot|estate 14,878 22,557 13.8% 0.730   -700
+    SeasonalNaive 20,387 27,152 17.6% 1.000 10,002
+
+-- step-1 scoreboard, clean folds (sorted by MASE) --
+            model    MAE   RMSE sMAPE  MASE    Bias
+Ensemble_workdone 13,756 18,359 11.0% 0.589   3,820
+ zero_shot|blocks 14,745 19,908 12.2% 0.631 -11,394
+     ft_s0|blocks 14,795 19,975 12.2% 0.633 -11,528
+   ft_mean|blocks 14,795 19,975 12.2% 0.633 -11,528
+        Trailing3 17,127 20,614 13.6% 0.733   4,169
+          SARIMAX 18,741 23,248 14.7% 0.802   6,623
+     ft_s0|estate 21,394 30,209 20.1% 0.915  -7,161
+   ft_mean|estate 21,394 30,209 20.1% 0.915  -7,161
+ zero_shot|estate 21,421 30,223 20.1% 0.917  -7,062
+    SeasonalNaive 23,373 30,211 20.0% 1.000   7,070
+
+-- step-1 scoreboard, overlap folds (sorted by MASE) --
+            model    MAE   RMSE sMAPE  MASE   Bias
+ zero_shot|blocks  8,232 10,267  7.7% 0.463 -2,638
+     ft_s0|blocks  8,258 10,284  7.8% 0.465 -2,710
+   ft_mean|blocks  8,258 10,284  7.8% 0.465 -2,710
+     ft_s0|estate  9,132 12,414  8.3% 0.514  4,822
+   ft_mean|estate  9,132 12,414  8.3% 0.514  4,822
+ zero_shot|estate  9,153 12,442  8.3% 0.515  4,868
+          SARIMAX  9,330 12,104  8.7% 0.525  1,002
+Ensemble_workdone  9,834 11,529  9.2% 0.553  4,159
+        Trailing3 12,162 14,016 11.3% 0.684  2,489
+    SeasonalNaive 17,774 24,161 15.5% 1.000 12,567
+
+-- paired vs Ensemble_workdone, step 1, all folds --
+   ft_mean vs Ensemble_workdone [blocks]: wins 16/30, t=+0.14 not significant
+   ft_s0 vs Ensemble_workdone [blocks]: wins 16/30, t=+0.14 not significant
+   zero_shot vs Ensemble_workdone [blocks]: wins 16/30, t=+0.16 not significant
+
+-- by step (MAE / sMAPE) --
+   Ensemble_workdone(multih)          h1:    12,180 /  10.5%  h2:    16,159 /  13.7%  h3:    18,464 /  15.5%
+   ft_mean|blocks                     h1:    11,309 /   9.9%  h2:    12,055 /  10.8%  h3:    12,186 /  10.7%
+   ft_mean|estate                     h1:    14,854 /  13.8%  h2:    16,793 /  16.6%  h3:    15,001 /  13.9%
+   ft_s0|blocks                       h1:    11,309 /   9.9%  h2:    12,055 /  10.8%  h3:    12,186 /  10.7%
+   ft_s0|estate                       h1:    14,854 /  13.8%  h2:    16,793 /  16.6%  h3:    15,001 /  13.9%
+   zero_shot|blocks                   h1:    11,271 /   9.8%  h2:    12,040 /  10.8%  h3:    12,179 /  10.7%
+   zero_shot|estate                   h1:    14,878 /  13.8%  h2:    16,822 /  16.6%  h3:    15,027 /  13.9%
+
+-- in-domain: training estates' validation tails (checkpoint chosen here, so fine-tuned arms are optimistic) --
+   EC zero_shot  block WAPE 101.5%  estate-week sMAPE  14.9%  window total -11.3%
+   EB zero_shot  block WAPE  70.0%  estate-week sMAPE  43.8%  window total +52.3%
+   EC ft_s0      block WAPE 101.5%  estate-week sMAPE  15.0%  window total -11.4%
+   EB ft_s0      block WAPE  69.6%  estate-week sMAPE  43.5%  window total +51.8%
+
+-- how to read this --
+  * 'blocks' sums per-block forecasts (the grain the adapter trained on);
+    'estate' forecasts the estate's weekly total directly.
+  * ~30 folds: a paired t below ~2 means the arms are indistinguishable,
+    whatever the aggregate MASE says.
+  * EC/EB have a deep Sep-Dec trough that k3 does not; an adapter can learn
+    that shape and carry it to k3 where it does not belong. The clean vs
+    overlap split and the in-domain table separate 'learned nothing' from
+    'learned something that does not transfer'.
+==============================================================================

@@ -4,9 +4,9 @@ A new full-page map on the existing EPMS AI app. Serves GeoJSON from
 gis/ontology.py (files on disk, no PostGIS) plus the data readiness panel
 that turns the demo itself into the requirements conversation (UC-15).
 
-Nothing here writes to EPMS. The two databases are opened read-only by
-config.engine, and the only database-derived artefact is the estate
-footprint file, built offline by gis/build_footprints.py.
+Nothing here writes to EPMS, or reads it. The estates on the map are
+snapshots of their EPMS databases (block polygons and harvest), built offline
+by gis/build_estate_data.py into gis/data/estates/.
 
 Two kinds of endpoint live here and the difference matters:
 

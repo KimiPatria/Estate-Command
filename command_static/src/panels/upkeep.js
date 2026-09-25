@@ -12,11 +12,7 @@ export async function panelReplant() {
       <td class="num">${s.immature_until}</td>
     </tr>`).join('')}
   </table>
-  <div class="sheet-note">${d.finding}<br><br>
-    <b>Provenance.</b> ${d.provenance}. Replant age ${d.replant_age} years,
-    ${d.immature_years} immature years after. This is the one C-level card on this
-    estate that needs no invented data at all.
-  </div>`;
+  <div class="sheet-note">${d.finding}</div>`;
 }
 
 
@@ -51,10 +47,7 @@ export async function panelNutrition() {
       <td>${s.headline ? esc(s.headline) : '—'}</td>
     </tr>`).join('')}
   </table>
-  <div class="sheet-note">Days of cover divides the annual programme by 365, but fertiliser goes out in
-    rounds, so the old flag is wrong on both sides of a round. The store's column comes from the
-    reorder point: the programme on the books, and how long the supplier really takes.
-    <button class="ops-btn small" data-open-panel="stores">Open the store</button></div>
+  <div class="fp-actbar"><button class="ops-btn small" data-open-panel="stores">Open the store</button></div>
   <div class="sub-t">Blocks furthest below programme</div>
   <table class="tbl">
     <tr><th>Block</th><th>Div</th><th class="num">Short</th>
@@ -66,8 +59,7 @@ export async function panelNutrition() {
       <td class="num">${r.bunches_per_ha === null ? '—' : idr(r.bunches_per_ha)}</td>
     </tr>`).join('')}
   </table>
-  <div class="sheet-note"><b>Read this carefully.</b> ${esc(d.warning)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}</div>`;
+`;
 }
 
 export async function panelRoads() {
@@ -109,8 +101,7 @@ export async function panelRoads() {
     </tr>`).join('')}
   </table>
 
-  <div class="sheet-note"><b>Caveat.</b> ${esc(d.caveat)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)} ${esc(d.note)}</div>`;
+`;
 }
 
 /* ── the models ─────────────────────────────────────────────────────────── */

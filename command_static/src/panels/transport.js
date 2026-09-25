@@ -45,11 +45,9 @@ export async function panelTransport(view) {
   const body = view === 'fleet' ? fleetTable : slowTable + (view === 'fuel' ? '' : fleetTable);
   const lead = view === 'turnaround'
     ? `<div class="sheet-note">${t.queue_share_pct}% of the haulage cycle is spent
-       queueing at the mill rather than driving. That share is the part the estate
-       can change without buying a vehicle.</div>` : '';
+       queueing at the mill.</div>` : '';
 
-  return `<div class="kpis">${kpis}</div>${lead}${body}
-    <div class="sheet-note"><b>Provenance.</b> ${esc(d.provenance)}<br><br>${esc(d.note)}</div>`;
+  return `${lead}<div class="kpis">${kpis}</div>${body}`;
 }
 
 /* ── pest and disease ───────────────────────────────────────────────────── */

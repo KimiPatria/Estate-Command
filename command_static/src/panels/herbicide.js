@@ -6,7 +6,7 @@
  * is computed server-side in gis/herbicide.py, which joins the spraying work
  * orders to the SAP MM goods issues on the order number. Charts are inline SVG.
  */
-import { esc, fmt, idr } from '../lib/fmt.js';
+import { esc, firstSentence, fmt, idr } from '../lib/fmt.js';
 import { blockList } from './_shared.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -122,7 +122,7 @@ export async function panelHerbicide() {
   ];
 
   return `
-  <div class="sheet-note" style="font-size:12.5px;color:var(--text)">${esc(d.summary)}</div>
+  <div class="sheet-note" style="font-size:12.5px;color:var(--text)">${esc(firstSentence(d.summary))}</div>
 
   <div class="kpis">
     <div class="kpi ${pr.pct > 33 ? 'alert' : ''}"><b>${p0(pr.pct)}</b>
@@ -152,14 +152,6 @@ export async function panelHerbicide() {
       <td class="num">${n0(mi.rained_off_ha)}</td><td class="num">${n0(mi.other_short_ha)}</td>
       <td class="num">${n0(mi.rain_days_over_threshold)}</td><td class="num">${p0(t.cover_pct_of_due)}</td></tr>
   </table>
-  <div class="sheet-note">Due spreads every block's area over its ${ro.target_days}-day round.
-    On the days it did not rain, ${p0(mi.dry_day_adherence_pct)} of the plan was sprayed;
-    the rest of the gap is weather. ${pr.never_ordered} of the ${pr.blocks} blocks past their round
-    have had no spray order at all since ${esc(d.window.from)}; ${pr.last_attempt_rained_off}
-    were last planned on a day that rained out.
-    Where the ledger holds two completed rounds on a block (${ro.closed_intervals.blocks} blocks)
-    the median gap is ${n0(ro.closed_intervals.median_days)} days; the median block was last
-    sprayed ${n0(ro.median_days_since_sprayed)} days ago.</div>
 
   <div class="sub-t">Herbicide issued per hectare sprayed</div>
   ${rateChart}
@@ -174,19 +166,6 @@ export async function panelHerbicide() {
       <td class="num"><b>${n2(gly.per_ha)}</b></td><td class="num"><b>${xf(gly.factor)}</b></td>
       <td class="num"><b>${n1(met.per_ha)}</b></td><td class="num"><b>${xf(met.factor)}</b></td></tr>
   </table>
-  <div class="sheet-note">${idr(gly.issues)} glyphosate and ${idr(met.issues)} metsulfuron issues joined
-    to a spraying order; ${idr(gly.issued)} L and ${n1(met.issued)} kg went out against
-    ${idr(Math.round(gly.sprayed_ha))} and ${idr(Math.round(met.sprayed_ha))} ha sprayed.
-    Above the register dose that is ${idr(ra.excess.glyphosate.over_dose_qty)} L and
-    ${n1(ra.excess.metsulfuron.over_dose_qty)} kg, about IDR ${idr(ra.excess.idr_total)} at the
-    store's moving average. Across blocks the factor runs ${xf(d.dose_spread.p10)} to
-    ${xf(d.dose_spread.p90)} (10th to 90th); ${d.dose_spread.over_1_20} block${d.dose_spread.over_1_20 === 1 ? '' : 's'}
-    over 1.20x, ${d.dose_spread.under_1_00} under 1.00x.
-    ${ra.issued_with_no_hectares.glyphosate.rows || ra.issued_with_no_hectares.metsulfuron.rows
-      ? `<b>${ra.issued_with_no_hectares.glyphosate.rows + ra.issued_with_no_hectares.metsulfuron.rows}
-         issues were drawn against orders that recorded no hectares.</b>`
-      : 'No issue was drawn against an order that recorded no hectares.'}
-    <b>Check.</b> ${esc(h.reading)}</div>
 
   <div class="sub-t">Where the misses come from</div>
   <table class="tbl">
@@ -211,8 +190,7 @@ export async function panelHerbicide() {
   </table>
 
   <div class="sub-t">Blocks most past their round</div>
-  ${blockList(d.blocks_past_round, { cols: pastCols,
-      caption: `Days past the ${ro.target_days}-day round at ${esc(ro.anchor)}. Orders since is the count of spray orders in the window; a zero is a block nobody planned.` })
+  ${blockList(d.blocks_past_round, { cols: pastCols })
     || '<div class="empty">No block is past its round.</div>'}
 
   <div class="sub-t">Most over the dose</div>
@@ -220,15 +198,7 @@ export async function panelHerbicide() {
   <div class="sub-t">Most under the dose</div>
   ${blockList(d.blocks_under_dose, { cols: doseCols }) || '<div class="empty">No rated issues.</div>'}
 
-  <div class="sheet-note">
-    <button class="ops-btn small" data-open-panel="ops_weed">Open the weeding and spraying window</button>
-  </div>
-
-  <div class="sheet-note"><b>What you would learn from your own data.</b> ${esc(d.learn)}<br><br>
-    <b>Caveat.</b> ${esc(d.caveat)}<br><br>
-    <b>Method.</b> ${esc(d.note)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}
-    ${(d.assumptions_used || []).length ? `<br><br><b>Doses in force.</b> ${
-      d.assumptions_used.map(a => `${esc(a.label)} ${a.value} ${esc(a.unit)} (${esc(a.source)})`).join('; ')}.` : ''}
+  <div class="fp-actbar">
+    <button class="ops-btn small" data-open-panel="ops_weed">Open the weeding plan</button>
   </div>`;
 }

@@ -140,7 +140,9 @@ def _key(division, block) -> str:
 
 
 def _blocks(estate: str = "EC") -> dict:
-    geo = ontology.blocks_geojson(estate)
+    # The ledger lives in the synthetic world: its rates divide bunches by that
+    # window's length, so it reads the harvest cut at the window's end.
+    geo = ontology.blocks_geojson(estate, synthetic_world=True)
     out = {}
     for i, f in enumerate((geo or {}).get("features") or []):
         p = f["properties"]
@@ -970,7 +972,7 @@ def demand(operation: str, on: str | None = None) -> dict:
         done_follow = {(r["block_key"], r["date"]) for r in rows
                        if r["activity"] == "followup" and r["actual_qty"] > 0 and r["date"] < d.isoformat()}
         by_key = {}
-        for r in layers.block_rows("EC") or []:
+        for r in layers.block_rows("EC", synthetic_world=True) or []:
             by_key[_key(r["division_code"], r["block_code"])] = r
         treated_recent = set()
         for k, ts in st["treatments"].items():

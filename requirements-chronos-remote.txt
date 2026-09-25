@@ -1,0 +1,41 @@
+# Installed INSIDE the SageMaker training job container by the @remote
+# decorator's `dependencies=` argument (see chronos_finetune_sagemaker.py).
+#
+# Deliberately separate from requirements-chronos.txt (the LOCAL chronos-rd
+# env): the job only fits, saves and uploads a predictor -- it never touches
+# mm.py/statsmodels/lightgbm/mlflow, all of which are local-orchestration-only
+# concerns. Keeping this file minimal keeps job startup fast, since it is
+# reinstalled fresh on every job run (no warm pool caching is configured here).
+#
+# boto3 is NOT listed here -- every SageMaker training container ships it
+# already, for the SDK's own bootstrap.
+#
+# sagemaker IS listed here, pinned, even though the container already has it --
+# confirmed by a real failed job: the @remote decorator installs this file with
+# `pip install -r ... -U`, and without an explicit constraint, resolving
+# autogluon.timeseries' dependency tree let pip downgrade the container's own
+# pre-installed SageMaker SDK v3 to v2, which deletes the sagemaker.core
+# namespace the container's own invocation entrypoint
+# (sagemaker.core.remote_function.invoke_function) needs to call our function
+# at all -- job failed with ModuleNotFoundError, no user code ever ran.
+sagemaker>=3,<4
+
+# The @remote decorator's job image MUST be the PyTorch 2.10 DLC (see
+# chronos_finetune_sagemaker.py's launch_finetune_job docstring), which
+# already ships torch>=2.10 matched with its own torchvision/torchaudio --
+# NOT an older DLC that needs pip to upgrade torch here. Confirmed by two
+# real failed jobs on the 2.9 DLC: upgrading standalone torch left
+# torchvision, then torchaudio (transformers imports both unconditionally at
+# package-import time, unrelated to Chronos-2's own text-only usage) ABI-
+# mismatched against the new torch, and AutoGluon swallows the resulting
+# exception as "this model failed, skip it" rather than raising -- so `fit()`
+# silently trains nothing instead of erroring.
+autogluon.timeseries==1.6.3
+
+# chronos2_blocks_finetune.py (v2) calls chronos.chronos2.Chronos2Pipeline.fit
+# directly and saves a peft LoRA adapter that is loaded back LOCALLY for
+# evaluation. Both arrive via autogluon.timeseries anyway; pinned to the exact
+# versions in the local chronos-rd env so the adapter format written on the job
+# is the one the local loader reads.
+chronos-forecasting==2.3.2
+peft==0.19.1

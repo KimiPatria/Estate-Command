@@ -110,7 +110,11 @@ def build(raw_path: str, overlay_path: str) -> pd.DataFrame:
             "cv": round(cv, 3) if cv is not None else None,
             "confidence": confidence,
         })
-    return pd.DataFrame(rows).sort_values(["division_code", "block_code"])
+    # An estate whose every month is partial has nothing to forecast from; say
+    # so with an empty table rather than a KeyError on the sort.
+    cols = ["division_code", "block_code", "planted_area_ha", "forecast_bunches",
+            "n_months_used", "cv", "confidence"]
+    return pd.DataFrame(rows, columns=cols).sort_values(["division_code", "block_code"])
 
 
 def main():

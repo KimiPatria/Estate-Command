@@ -5,7 +5,7 @@
  * fit, and says beside every fitted figure that the slope was planted by the
  * generator: recovery is not discovery.
  */
-import { esc, idr, fmt } from '../lib/fmt.js';
+import { esc, firstSentence, idr, fmt } from '../lib/fmt.js';
 import { blockList } from './_shared.js';
 
 const num = (v, d = 2) => v === null || v === undefined ? '—' : fmt(v, d);
@@ -116,7 +116,7 @@ export async function panelFfa() {
     <div class="kpi"><b>${pc(rec.recovered_pct, 1)}</b><span>of the planted slope recovered</span></div>
   </div>`;
 
-  const lead = `<div class="sheet-note">${esc(d.summary)}</div>`;
+  const lead = `<div class="sheet-note">${esc(firstSentence(d.summary))}</div>`;
 
   const chart = scatter(d.scatter, thr, ft, d.planted || {});
 
@@ -162,8 +162,7 @@ export async function panelFfa() {
       <tr><td>FFA per hour of cut to mill (derived)</td><td class="num">none planted</td>
         <td class="num">${num(fc.slope_per_h, 4)}</td><td class="num">—</td>
         <td class="num">${num(fc.r2, 3)}</td></tr>
-    </table>
-    <div class="sheet-note">${esc(rec.verdict)} Rule: ${esc((d.planted || {}).rule)} — ${esc((d.planted || {}).source)}.</div>`;
+    </table>`;
 
   const blockCols = [
     { key: 'division_code', label: 'Div' },
@@ -174,8 +173,7 @@ export async function panelFfa() {
     { key: 'km_to_mill', label: 'km', num: true, fmt: v => num(v, 1) },
   ];
   const worst = (d.worst_ffa_blocks || []).length ? `<div class="sub-t">Highest FFA at the gate</div>
-    ${blockList(d.worst_ffa_blocks, { cols: blockCols,
-      caption: 'Block means over every trip in the ledger; the spread between blocks is the spread in distance and queue.' })}` : '';
+    ${blockList(d.worst_ffa_blocks, { cols: blockCols })}` : '';
   const longest = (d.longest_delay_blocks || []).length ? `<div class="sub-t">Longest cut to mill</div>
     ${blockList(d.longest_delay_blocks, { cols: blockCols })}` : '';
 
@@ -193,22 +191,15 @@ export async function panelFfa() {
     </table>` : '';
 
   const pr = d.pricing || {};
-  const priced = pr.idr_per_kg_point ? `<div class="sheet-note"><b>Priced, on a placeholder tariff.</b>
-    At IDR ${idr(pr.idr_per_kg_point)}/kg per FFA point, the mill queue adds
-    ${num(pr.queue_ffa_points, 3)} points to every tonne, IDR ${idr(pr.queue_cost_idr)} over
-    ${idr(Math.round(t.hauled_t))} t; afternoon departures add ${num(pr.afternoon_extra_points, 3)} points,
-    IDR ${idr(pr.afternoon_cost_idr)}; the over-line penalty is IDR ${idr(pr.over_threshold_penalty_idr)}.
-    ${esc(pr.note)}</div>` : '';
+  const priced = pr.idr_per_kg_point ? `<div class="sub-t">What the delay costs · placeholder tariff</div>
+    <table class="tbl">
+      <tr><td>Mill queue</td><td class="num">IDR ${idr(pr.queue_cost_idr)}</td></tr>
+      <tr><td>Afternoon departures</td><td class="num">IDR ${idr(pr.afternoon_cost_idr)}</td></tr>
+      <tr><td>Over-line penalty</td><td class="num">IDR ${idr(pr.over_threshold_penalty_idr)}</td></tr>
+    </table>` : '';
 
-  const badges = d.badges ? Object.entries(d.badges)
-    .map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(' · ') : '';
-
-  return `${kpis}${lead}${chart}
+  return `${lead}${kpis}${chart}
     ${bucketTable('FFA by hours from cut to mill', d.buckets, 'Cut to mill')}
-    <div class="sheet-note"><b>Assumption.</b> ${esc(d.assumption)}</div>
     ${bucketTable('FFA by turnaround on the ticket', d.turnaround_buckets, 'Turnaround')}
-    ${split}${hours}${recovery}${worst}${longest}${routes}${priced}
-    <div class="sheet-note"><b>Caveat.</b> ${esc(d.caveat)}<br><br>
-      <b>Threshold.</b> ${esc((d.threshold || {}).note)}<br><br>
-      <b>Provenance.</b> ${esc(d.provenance)} ${badges ? `(${badges}.)` : ''}<br><br>${esc(d.note)}</div>`;
+    ${split}${hours}${recovery}${worst}${longest}${routes}${priced}`;
 }

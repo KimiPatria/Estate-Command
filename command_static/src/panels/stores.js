@@ -257,7 +257,6 @@ function secOverview(O) {
   const rop = O.reorder_point_stock || {};
   return {
     title: `The store at a glance: ${O.date_label}`,
-    lead: 'What needs ordering, where stock is heading, and how far to trust the reorder points behind it. Click any material for the detail.',
     html: `
       <div class="fc-summary-box"><div class="fp-card-t">In short</div>
         <ul>${O.summary.map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>
@@ -276,15 +275,12 @@ function secOverview(O) {
           <div class="fc-card-h"><span>${esc(g.label)}</span>${g.to_order ? `<span class="st-status this_week">${g.to_order} to order</span>` : ''}</div>
           <div class="fc-card-big">${rp(g.value_idr)}</div>
           <div class="fc-card-sub">held across ${g.materials} material${g.materials === 1 ? '' : 's'}, service level ${g.service_level_pct}%</div>
-          ${r.label ? `<p class="fp-dim">Last twelve months: SAP's settings needed ${r.old_rush_orders} rush buys and kept ${r.old_service_pct}% of cycles clear;
-            the learned reorder points needed ${r.new_rush_orders} and kept ${r.new_service_pct}%. ${r.materials_better} of ${r.materials} use them.</p>` : ''}
           <span class="fc-more">Every material →</span></div>`;
       }).join('')}</div>
       <div class="sub-t">How far to trust it</div>
       <div class="fc-trustrow">${O.trust.map(t => `<div class="fc-trustcard">
           <div class="fc-card-h"><span>${esc(t.title)}</span>${trustPill(t.grade)}</div>
-          <p>${esc(t.headline)}</p>${trainedOn(t.trained_on)}</div>`).join('')}</div>
-      <div class="sheet-note">${esc(O.note)}</div>`,
+          <p>${esc(t.headline)}</p>${trainedOn(t.trained_on)}</div>`).join('')}</div>`,
   };
 }
 
@@ -293,11 +289,9 @@ function secOrder(O) {
   const soon = O.materials.filter(m => m.status === 'covered' && m.order_by_days !== null && m.order_by_days <= 30);
   return {
     title: 'To order',
-    lead: 'Materials whose stock on hand plus stock on order reaches the reorder point this week. Open one to raise the requisition from the same figures.',
     html: `
       ${rows.length ? materialRows(rows) : '<div class="fp-callout">Nothing reaches its reorder point this week.</div>'}
       ${soon.length ? `<div class="sub-t">Due in the next 30 days</div>${materialRows(soon)}` : ''}
-      <p class="fp-dim">"Order by" is the last day stock on hand plus stock on order stays above the reorder point, on today's forecast of use. The quantity brings stock up to the reorder point plus the cover in the assumption register, rounded to the bag, can or tanker.</p>
       <div class="fp-actbar"><button class="ops-btn" data-open-panel="assumptions">Open the assumption register</button></div>`,
   };
 }
@@ -309,14 +303,10 @@ function secGroup(O, key) {
   const r = (g && g.replay) || {};
   return {
     title: label,
-    lead: key === 'FERT'
-      ? 'Ordered against the programme: the reorder point is the programme coming inside the supplier\'s lead time, so it rises as a round approaches.'
-      : 'Reordered when stock on hand plus stock on order reaches the reorder point.',
     html: `
       ${materialRows(rows, { showSupplier: true })}
       ${r.label ? `<div class="fp-grid3">
-        <div class="fp-card"><div class="fp-card-t">Service level</div><div class="fp-big">${r.target_service_pct}%</div>
-          <p class="fp-dim">of replenishment cycles should end without a rush buy. Set in the assumption register.</p></div>
+        <div class="fp-card"><div class="fp-card-t">Service level</div><div class="fp-big">${r.target_service_pct}%</div></div>
         <div class="fp-card"><div class="fp-card-t">SAP's settings, last 12 months</div>
           <div class="fp-big">${r.old_service_pct}%</div><p class="fp-dim">cycles clear, ${r.old_rush_orders} rush buys, ${rp(r.old_cost_idr)}</p></div>
         <div class="fp-card"><div class="fp-card-t">Learned reorder points, same months</div>
@@ -343,15 +333,14 @@ function secMaterial(V) {
        <tr><td>Safety stock</td><td class="num">${esc(qty(V.sap.eisbe, u))} <span class="fp-dim">EISBE</span></td><td class="num"><b>${esc(qty(V.safety_stock, u))}</b></td></tr>`;
   return {
     title: `${V.maktx} (${V.matnr})`,
-    lead: `${V.group_label}. From ${sup.name}, by ${sup.route}. ${V.policy_in_force === 'learned' ? 'The learned reorder point is in force.' : 'SAP\'s own settings stay in force.'}`,
     html: `
       ${hero(esc(big), `${status(V.status)} ${policy(V.policy_in_force)}`, esc(V.plain.headline),
         `<p class="fp-dim">${esc(V.plain.risk)}</p>`)}
       <div class="fp-card"><div class="fp-card-t">Where stock goes if nothing more is ordered</div>
         ${projectionChart(V.projection, u, V.order_by_days, V.order_by ? dateWords(V.order_by) : '')}
         <p class="fp-dim">On hand ${esc(qty(V.on_hand, u))}${V.on_order ? `, ${esc(qty(V.on_order, u))} on order` : ''}.
-          ${V.round ? `The next round is due ${esc(dateWords(V.round.date))}: a programme of ${esc(qty(V.round.programme, u))}, of which about ${esc(qty(V.round.expected, u))} is expected to go out. The reorder point rises as the round comes inside the supplier's lead time.`
-            : `Use over the next 30 days: ${esc(qty(V.use_30d, u))}${V.days_of_cover !== null ? `, so ${n0(V.days_of_cover)} days of cover at that pace` : ''}.`}</p>
+          ${V.round ? `Next round ${esc(dateWords(V.round.date))}: about ${esc(qty(V.round.expected, u))} of a ${esc(qty(V.round.programme, u))} programme.`
+            : `Use over the next 30 days: ${esc(qty(V.use_30d, u))}${V.days_of_cover !== null ? `, ${n0(V.days_of_cover)} days of cover` : ''}.`}</p>
       </div>
       ${actions(V)}
       <div class="fp-grid3">
@@ -360,13 +349,11 @@ function secMaterial(V) {
           ${V.safety_stock > 0 && !V.round ? `<div class="st-split" role="img" aria-label="${split}% of the safety stock is there because deliveries vary">
             <i class="sup" style="width:${split}%"></i><i class="use" style="width:${100 - split}%"></i></div>
             <div class="st-legend"><span><i class="lg-sup"></i>deliveries vary ${split}%</span><span><i class="lg-use"></i>use varies ${100 - split}%</span></div>` : ''}
-          <p class="fp-dim">Service level ${V.service_level_pct}%: the reorder point covers that share of the ways the lead time and the use could turn out.</p>
         </div>
         <div class="fp-card"><div class="fp-card-t">The supplier</div>
           <p>${esc(V.plain.supplier)}</p>
           <div class="fc-band">${leadBar(sup.median, sup.p90, sup.quoted, Math.max(sup.p97, sup.quoted) * 1.1)}</div>
-          <p class="fp-dim">For an order placed on the order-by day: the band runs from the most likely time to the one-in-ten time, the dot is what ${esc(sup.name)} quotes.
-            ${sup.very_late_chance >= 0.05 ? `A ${Math.round(100 * sup.very_late_chance)}% chance of an order arriving very late.` : ''}</p>
+          ${sup.very_late_chance >= 0.05 ? `<p class="fp-dim">${Math.round(100 * sup.very_late_chance)}% chance of arriving very late.</p>` : ''}
           <div class="fp-actbar"><button class="ops-btn small" data-go="leadtimes">Every supplier</button></div>
         </div>
         <div class="fp-card"><div class="fp-card-t">SAP's settings against the learned ones</div>
@@ -391,7 +378,6 @@ function secMaterial(V) {
           <td class="num">${rp(r.holding_idr)}</td><td class="num">${rp(r.rush_idr)}</td><td class="num"><b>${rp(r.total_idr)}</b></td>
           <td>${r.service_pct === cc.cheapest_pct ? '<span class="chip pos">cheapest</span>' : ''}
             ${Math.abs(r.service_pct - cc.chosen_pct) < 1 ? '<span class="chip">the register</span>' : ''}</td></tr>`).join('')}`)}
-      <p class="fp-dim">Approximate yearly figures: stock held at ${esc(String(V.storage_loss.rate_per_month > 0 ? `the holding rate plus ${(100 * V.storage_loss.rate_per_month).toFixed(2)}% storage loss a month` : 'the holding rate'))}, against rush buys at the recorded ${V.rush_premium_pct}% premium.</p>
       ${V.consumption ? `<div class="sub-t">Use: how well it is forecast</div>
         <p>${esc(V.consumption.plain)} ${trustPill(V.consumption.grade)}</p>` : ''}
       ${V.use_per_unit ? `<p class="fp-dim">${esc(V.use_per_unit.plain)}</p>` : ''}
@@ -414,8 +400,7 @@ function secLeadTimes(T) {
   const bt = T.backtest;
   const max = Math.max(...T.suppliers.map(s => Math.max(s.p90_now, s.quoted_days))) * 1.1;
   return {
-    title: 'Supplier lead times against their quotes',
-    lead: 'What SAP plans on (the quote) beside what each supplier\'s orders actually took, learned from purchase-order history.',
+    title: 'Lead times against quotes',
     html: `
       ${tbl(`<tr><th>Supplier</th><th>Route</th><th>Supplies</th><th class="num">Quotes</th><th class="num">Usually</th>
           <th>Quote against an order placed today</th><th class="num">Very late</th><th class="num">Orders</th><th>Slow months</th></tr>
@@ -426,15 +411,11 @@ function secLeadTimes(T) {
           <td class="num ${s.very_late_chance >= 0.1 ? 'neg' : ''}">${Math.round(100 * s.very_late_chance)}%</td>
           <td class="num">${s.orders}${s.open ? `<br><span class="fp-dim">${s.open} open</span>` : ''}</td>
           <td>${esc(s.slow_months.join(' ') || '—')}</td></tr>`).join('')}`)}
-      <p class="fp-dim">For an order placed today, the band runs from the most likely time to the time 1 order in 10 exceeds, and the dot is the quote. "Usually" is the time in a typical month. "Very late" is more than 18 days past the usual time.</p>
       <ul class="fc-read">${T.suppliers.map(s => `<li>${esc(s.plain)}</li>`).join('')}</ul>
       <div class="sub-t">How accurate is it? ${trustPill(bt.grade)} ${trainedOn('synthetic')}</div>
       <ul class="fc-read"><li>${esc(bt.plain.headline)}</li><li>${esc(bt.plain.coverage)}</li><li>${esc(bt.plain.open)}</li></ul>
       <div class="sub-t">Does it find what is really there?</div>
-      <p class="fp-dim">The purchase orders are generated with known rules, so the learning can be checked against them: it should find each supplier's real time, the wet season and the missed sailings, and invent nothing else.</p>
-      ${checksList(T.recovery.rows)}
-      <div class="sub-t">About lead times</div>
-      ${explainBlock(T.explain)}`,
+      ${checksList(T.recovery.rows)}`,
   };
 }
 
@@ -451,12 +432,10 @@ function secSeason(T) {
   }));
   return {
     title: 'Slow months',
-    lead: 'How much slower an order due in each month runs than in a typical month, learned per route without being told which months are wet.',
     html: `
       ${tbl(`<tr><th>Route</th>${months.map(m => `<th class="num">${esc(m)}</th>`).join('')}</tr>
         ${routes.map(r => `<tr><td><b>By ${esc(r.route)}</b><br><span class="fp-dim">${esc(r.names.join(', '))}</span></td>
           ${r.months.map(m => `<td class="num"><span class="st-month" style="${shade(m.factor)}" title="${esc(m.label)}: ×${fmt(m.factor, 2)}">${fmt(m.factor, 2)}</span></td>`).join('')}</tr>`).join('')}`)}
-      <p class="fp-dim">1.00 is a typical month. 1.25 means an order due that month takes a quarter longer. The factor belongs to the route, so every supplier on it shares it.</p>
       <div class="fp-callout">A quote is planned the same all year. Where a route is slow for a season, the reorder point for an order placed ahead of it rises with it, so the store orders earlier before the wet months instead of rush-buying in them.</div>`,
   };
 }
@@ -464,7 +443,6 @@ function secSeason(T) {
 function secMovements(M, F) {
   return {
     title: 'Movements',
-    lead: 'The material documents, newest first, as MB51 lists them: receipts against purchase orders, issues to cost centres and PM orders, and what the counts found.',
     html: `
       ${chips('mvtype', MOVE_FILTERS, F.moveType)}
       ${F.matnr ? chips('mvmine', [['0', 'Every material'], ['1', `Only ${F.matnr}`]], F.moveMine ? '1' : '0') : ''}
@@ -473,16 +451,13 @@ function secMovements(M, F) {
           <td title="${esc(M.movement_types[m.bwart] || '')}">${esc(m.bwart)}</td><td>${esc(m.maktx)}</td>
           <td class="num ${m.shkzg === 'S' ? 'pos' : ''}">${m.shkzg === 'S' ? '+' : '−'}${esc(qty(m.menge, m.meins))}</td>
           <td>${esc(m.kostl)}</td><td>${esc(m.aufnr)}</td><td>${esc(m.block_code)}</td><td>${esc(m.ebeln)}</td></tr>`).join('')}`)}
-      <p class="fp-dim">Showing ${M.rows.length} of ${n0(M.total)}. ${Object.entries(M.movement_types).map(([k, v]) => `${k} ${v}`).join(' · ')}. From 2025 every issue carries the work order, trip day or PM order it came from; earlier issues were generated from the same drivers and carry none.</p>`,
+      <p class="fp-dim">Showing ${M.rows.length} of ${n0(M.total)}. ${Object.entries(M.movement_types).map(([k, v]) => `${k} ${v}`).join(' · ')}.</p>`,
   };
 }
 
 function secPOs(P, rush) {
   return {
     title: rush ? 'Rush buys' : 'Purchase orders',
-    lead: rush
-      ? 'Local buys made because the store could not meet an issue. The premium over the normal price is what running out cost.'
-      : 'Every normal purchase order, with what it actually took against the supplier\'s quote.',
     html: `
       ${rush ? `<div class="kpis"><div class="kpi warn"><b>${P.total}</b><span>rush buys in 24 months</span></div>
         <div class="kpi"><b>${rp(P.rows.reduce((a, r) => a + r.menge * r.netpr * r.premium_pct / (100 + r.premium_pct), 0))}</b><span>paid over the normal price, on those shown</span></div></div>` : ''}
@@ -494,7 +469,7 @@ function secPOs(P, rush) {
             : `<td class="num">${p.quoted_days} d</td><td class="num">${p.lead_days === null ? '<span class="fp-dim">at sea</span>' : `${p.lead_days} d`}</td>
                <td class="num ${p.late_days > 14 ? 'neg' : ''}">${p.late_days === null ? '—' : `${p.late_days > 0 ? '+' : ''}${p.late_days} d`}</td>
                <td>${esc(p.status)}</td>`}</tr>`).join('')}`)}
-      <p class="fp-dim">Showing ${P.rows.length} of ${n0(P.total)}. A lead time runs from the day the order was placed to the delivery that completed 95% of it.</p>`,
+      <p class="fp-dim">Showing ${P.rows.length} of ${n0(P.total)}.</p>`,
   };
 }
 
@@ -503,8 +478,7 @@ function secReplay(A) {
   if (!R.available) return { title: 'The replay', html: `<div class="empty">${esc(R.reason)}</div>` };
   const mats = Object.values(R.materials);
   return {
-    title: 'The replay: SAP\'s settings against the learned reorder points',
-    lead: `Twelve months, ${R.from} to ${R.to}, replayed twice against the use the store actually recorded. A replayed order arrives when the recorded order on the same lane nearest in date did.`,
+    title: 'The replay',
     html: `
       ${hero(`${R.improvement_pct === null ? '—' : `${fmt(R.improvement_pct, 1)}%`}`, 'less, where the learned points are used',
         esc(R.plain.headline), `<p class="fp-dim">${esc(R.plain.check)} ${trustPill(R.grade)}</p>`)}
@@ -524,8 +498,7 @@ function secReplay(A) {
           <td class="num">${m.old.service_pct}%</td><td class="num">${m.new.service_pct}%</td>
           <td class="num">${rp(m.old.total_cost_idr)}</td><td class="num">${rp(m.new.total_cost_idr)}</td>
           <td>${m.better ? '<span class="chip pos">learned used</span>' : '<span class="chip">SAP settings stay</span>'}</td></tr>`).join('')}`)}
-      <ul class="fc-read">${mats.map(m => `<li>${esc(m.plain)}</li>`).join('')}</ul>
-      <p class="fp-dim">Cost is stock held at ${R.settings.holding_pct_yr}% a year, storage loss learned from the counts, and the recorded premium on every rush buy. A cycle runs from one delivery to the next; it is clear if no rush buy fell inside it.</p>`,
+      <ul class="fc-read">${mats.map(m => `<li>${esc(m.plain)}</li>`).join('')}</ul>`,
   };
 }
 
@@ -533,7 +506,6 @@ function secChecks(A) {
   const lb = A.leadtime.backtest, cb = A.consumption.backtest;
   return {
     title: 'Backtests and checks',
-    lead: 'Each model checked on months and weeks it had not seen, against the method it would replace, and against the rules the generated records were made with.',
     html: `
       <div class="fc-trustrow">${A.trust.map(t => `<div class="fc-trustcard wide">
           <div class="fc-card-h"><span>${esc(t.title)}</span>${trustPill(t.grade)}</div>
@@ -546,7 +518,7 @@ function secChecks(A) {
         ${Object.values(cb.materials).map(m => `<tr><td><b>${esc(m.maktx)}</b></td><td>${esc(m.kind)}</td><td class="num">${m.horizon_days} d</td>
           <td class="num"><b>${m.model_error_pct}%</b>${m.croston_error_pct !== undefined ? `<br><span class="fp-dim">Croston ${m.croston_error_pct}%</span>` : ''}</td>
           <td class="num">${m.old_error_pct}%</td><td>${trustPill(m.grade)}</td></tr>`).join('')}`)}
-      <p class="fp-dim">${esc(cb.plain.by_kind)} Materials not better than SAP's average are reported as such; the reorder point still reads the forecast, and the replay is what decides whether it is used.</p>
+      <p class="fp-dim">${esc(cb.plain.by_kind)}</p>
       <div class="sub-t">Does the record add up?</div>
       ${A.ledger && A.ledger.available ? `<ul class="fc-checks">${Object.entries(A.ledger.checks).map(([k, ok]) => `<li>${ok ? '<span class="fc-mark ok">✓</span>' : '<span class="fc-mark no">✗</span>'}<span>${esc(k.replace(/_/g, ' '))}</span></li>`).join('')}</ul>
         <p class="fp-dim">${esc(A.ledger.plain)}</p>` : ''}
@@ -561,7 +533,6 @@ function secChecks(A) {
 function secHow(A, O) {
   return {
     title: 'How it works',
-    lead: 'In plain words: what each part tells you, how it is worked out, how to read it, and the SAP reports that would make every figure the estate\'s own.',
     html: `
       ${['leadtime', 'consumption', 'safety_stock'].map(k => `<div class="fc-howblock"><h4>${esc(A.explain[k].title)} <span class="fp-dim">${esc(A.explain[k].question)}</span></h4>
         ${explainBlock(A.explain[k])}</div>`).join('')}

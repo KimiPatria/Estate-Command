@@ -6,7 +6,7 @@
  * and how it drifted from January to May. The intervals are real; the target
  * and the gang are synthetic, and the screen says which is which.
  */
-import { esc, fmt } from '../lib/fmt.js';
+import { esc, firstSentence, fmt } from '../lib/fmt.js';
 import { blockList } from './_shared.js';
 
 // Inline-block: `.kpi span` is display:block, which would turn the badge into a bar.
@@ -89,7 +89,7 @@ export async function panelCuttingInterval() {
   const monthKeys = s.map(m => m.month);
 
   return `<div class="sheet-note" style="margin:0 0 12px;padding:0;border:none;color:var(--text);font-size:12.5px">
-    ${esc(d.summary)}</div>
+    ${esc(firstSentence(d.summary))}</div>
 
   <div class="kpis">
     <div class="kpi"><b>${days(t.early_round)}</b><span>round, Jan–Feb ${REAL}</span></div>
@@ -115,8 +115,6 @@ export async function panelCuttingInterval() {
       <td class="num" style="color:var(--gold)">${pc(m.beyond_target_pct)}</td>
     </tr>`).join('')}
   </table>
-  <div class="blk-cap">Each round is filed under the month the return cut fell in. ${REAL} throughout;
-    the target column is the only synthetic figure.</div>
 
   <div class="sub-t">By division</div>
   <table class="tbl">
@@ -141,8 +139,6 @@ export async function panelCuttingInterval() {
       { key: 'target', label: 'Target', num: true, fmt: days },
       { key: 'beyond_target_pct', label: 'Beyond target', num: true, fmt: pc },
     ],
-    caption: 'Stretch is the block\'s April–May round over its own January–February round: real against real. '
-      + 'Target and beyond-target are against the synthetic round.',
   })}
 
   <div class="sub-t">Longest without a cut at ${esc(anchor)}</div>
@@ -155,8 +151,6 @@ export async function panelCuttingInterval() {
       { key: 'target', label: 'Target', num: true, fmt: days },
       { key: 'synthetic_days_since', label: 'Rotation panel says', num: true, fmt: days },
     ],
-    caption: `Days uncut is the export's last day less the block's last real cutting day. `
-      + `The rotation panel's figure follows the synthetic ledger and disagrees on ${tg.last_cut_disagrees_blocks} of ${t.blocks} blocks.`,
   })}
 
   ${(d.by_gang || []).length ? `<div class="sub-t">By gang ${SYN}</div>
@@ -166,15 +160,5 @@ export async function panelCuttingInterval() {
       <td>${esc(g.gang_code)}</td><td class="num">${g.blocks}</td>
       <td class="num">${days(g.early_round)}</td><td class="num">${days(g.late_round)}</td>
       <td class="num"><b>${x(g.stretch)}</b></td></tr>`).join('')}
-  </table>
-  <div class="blk-cap">The rounds are real; the gang on each block is invented, so this attribution is illustrative only.</div>` : ''}
-
-  <div class="sheet-note">
-    ${d.closure ? `<b>Lebaran.</b> ${esc(d.closure.note)}<br><br>` : ''}
-    <b>The target.</b> ${esc(tg.note || '')}<br><br>
-    <b>Caveat.</b> ${esc(d.caveat)}<br><br>
-    <b>What the client learns on their own data.</b> ${(d.learns && d.learns.on_own_data || []).map(esc).join(' ')}<br>
-    <b>What the synthetic layer adds.</b> ${(d.learns && d.learns.synthetic_adds || []).map(esc).join(' ')}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}. ${esc(d.note)}
-  </div>`;
+  </table>` : ''}`;
 }

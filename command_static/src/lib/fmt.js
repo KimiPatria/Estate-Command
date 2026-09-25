@@ -25,3 +25,12 @@ export const esc = s => String(s === null || s === undefined ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
+
+/* The first sentence of a server summary: the finding, without the working.
+   A full stop only ends a sentence when a space and a capital or digit
+   follow, so "1.59" and "3.0%" stay whole. */
+export const firstSentence = s => {
+  const t = String(s === null || s === undefined ? '' : s).trim();
+  const m = t.match(/^.*?[.!?](?=\s+[A-Z0-9]|$)/);
+  return m ? m[0] : t;
+};

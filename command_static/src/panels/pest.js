@@ -14,10 +14,7 @@ export async function panelPest(view) {
   </div>`;
 
   if (view === 'pest_spread') {
-    return head + `<div class="sheet-note">Not where the disease is, but where it
-      goes next. A clean block surrounded by infected ones is the one to protect;
-      a block already infected is a treatment problem, not a containment one.</div>
-    <table class="tbl">
+    return head + `<table class="tbl">
       <tr><th>Block</th><th>Div</th><th class="num">Own %</th>
           <th class="num">Neighbours %</th><th class="num">Exposure</th></tr>
       ${d.spread_risk.map(r => `<tr class="${r.exposure > 2 ? 'hi' : ''}">
@@ -27,7 +24,7 @@ export async function panelPest(view) {
         <td class="num"><b>+${r.exposure}</b></td>
       </tr>`).join('')}
     </table>
-    <div class="sheet-note"><b>Provenance.</b> ${esc(d.provenance)}. ${esc(d.note)}</div>`;
+`;
   }
 
   if (view === 'pest_treatment') {
@@ -39,7 +36,7 @@ export async function panelPest(view) {
       </tr>`).join('')}
     </table>
     <div class="sheet-note">${d.blocks_untreated} blocks have no treatment recorded
-      at all. <b>Provenance.</b> ${esc(d.provenance)}</div>`;
+      at all.</div>`;
   }
 
   const rows = view === 'pest_damage' ? d.fastest_rising : d.worst_blocks;
@@ -56,7 +53,7 @@ export async function panelPest(view) {
         ? '—' : '+' + r.ganoderma_trend_pct}</td>
     </tr>`).join('')}
   </table>
-  <div class="sheet-note"><b>Provenance.</b> ${esc(d.provenance)}.<br><br>${esc(d.note)}</div>`;
+`;
 }
 
 /* ── nutrition, roads ───────────────────────────────────────────────────── */

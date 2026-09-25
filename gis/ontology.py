@@ -1,21 +1,30 @@
 """Estate Command ontology - estates, divisions, blocks, and their metrics.
 
 Pure file reads. No database access and no model, so this imports cheaply and
-serves fast, exactly like forecast/blocks.py. The database-derived artefact
-(estate footprints) is precomputed by gis/build_footprints.py.
+serves fast, exactly like forecast/blocks.py. The estates on the map are the
+snapshots gis/build_estate_data.py writes out of each estate's EPMS database
+into gis/data/estates/<CODE>/: block polygons from m_overlay, harvest from
+t_oph. An estate is on the map when its snapshot directory exists.
 
 Provenance is a first-class property on every feature, because the whole
 pitch depends on the client being able to tell what is theirs from what we
 invented:
 
-    real:arcgis     EC block polygons, exported from the client's own GIS
-    real:gps-hull   K3 / BA estate outlines, hulled from harvester GPS
+    real:arcgis     block polygons, the client's GIS export held in m_overlay
     real:epms       metrics computed from recorded harvest
     synthetic       anything the source systems do not record
 
-Estates with no shapefile return None for their blocks rather than a
-fabricated tessellation, so the UI renders an honest "no geometry yet" state.
-That gap is the client ask, and instrumenting it is the point (UC-15).
+Two views of the synthetic estate
+---------------------------------
+The synthetic feeds (gis/build_synthetic.py) were generated for EC around a
+harvest export that ended on build_synthetic.WINDOW_END. EC's database now
+runs well past that day. The map shows all of it, but the operations world
+built on the synthetic feeds - the ledger, the rates it divides by the
+window's length - has to keep seeing the harvest it was generated from, or
+its numbers stop meaning anything. So SYNTHETIC_ESTATE is also built a second
+time with its harvest cut at WINDOW_END, and callers inside that world ask for
+it with synthetic_world=True. Moving WINDOW_END and regenerating the feeds is
+the re-anchor; nothing else in here needs to change for it.
 """
 
 import csv
@@ -26,21 +35,20 @@ from collections import defaultdict
 from pathlib import Path
 from threading import Lock
 
+from gis.build_synthetic import WINDOW_END as SYNTHETIC_WINDOW_END
+
 log = logging.getLogger("estate-command.ontology")
 
 csv.field_size_limit(10 ** 9)
 
 _DIR = Path(__file__).parent
-_FORECAST_DIR = _DIR.parent / "forecast"
-_FOOTPRINTS = _DIR / "data" / "estate_footprints.geojson"
+_ESTATES_DIR = _DIR / "data" / "estates"
 
 _CACHE: dict = {}
 _LOCK = Lock()
 
-# Estates whose block geometry came from the client's ArcGIS export. Keyed by
-# the estate code used on the map; the value is the forecast/ subdirectory the
-# overlay and harvest CSVs live in.
-_SHAPEFILE_ESTATES = {"EC": "EC"}
+# The one estate the synthetic feeds were generated for.
+SYNTHETIC_ESTATE = "EC"
 
 # Palm age is quoted against this year rather than date.today() so a card
 # rendered in a demo reads the same next January.
@@ -110,11 +118,19 @@ def _i(v):
         return None
 
 
-# -- EC: real polygons from the client's ArcGIS export ----------------------
+# -- block polygons and harvest, from gis/build_estate_data.py snapshots ----
+
+def _estate_codes() -> list[str]:
+    """Every estate with a snapshot on disk, in code order."""
+    if not _ESTATES_DIR.exists():
+        return []
+    return sorted(p.name for p in _ESTATES_DIR.iterdir()
+                  if (p / "overlay.csv").exists())
+
 
 def _load_overlay(code: str):
     """Block polygons keyed by _key(). Returns {} when the estate has none."""
-    path = _FORECAST_DIR / code / f"{code}_overlay.csv"
+    path = _ESTATES_DIR / code / "overlay.csv"
     if not path.exists():
         return {}
     out = {}
@@ -152,70 +168,107 @@ _DEDUCTION_COLS = (
 )
 
 
-def _load_harvest(code: str):
-    """Per-block harvest aggregates from the EPMS OPH export."""
-    path = _FORECAST_DIR / code / f"{code}_oph.csv"
-    if not path.exists():
-        return {}, None
+def _n(v) -> int:
+    """Count cell to int. The snapshot writes bare integers or '' for null, so
+    int() is the fast path; _i() covers anything hand-edited."""
+    try:
+        return int(v) if v else 0
+    except ValueError:
+        return _i(v) or 0
 
-    agg = defaultdict(lambda: {"bunches": 0, "ripe": 0, "deducted": 0,
-                               "loose": 0, "loose_records": 0,
-                               "days": set(), "records": 0,
-                               "by_month": defaultdict(int),
-                               "loose_by_month": defaultdict(int),
-                               "days_by_month": defaultdict(set)})
-    lo = hi = None
-    months = set()
+
+def _new_agg():
+    return defaultdict(lambda: {"bunches": 0, "ripe": 0, "deducted": 0,
+                                "loose": 0, "loose_records": 0,
+                                "days": set(), "records": 0,
+                                "by_month": defaultdict(int),
+                                "loose_by_month": defaultdict(int),
+                                "days_by_month": defaultdict(set)})
+
+
+def _load_harvest(code: str, cutoffs: dict[str, str | None]) -> dict:
+    """Per-block harvest aggregates, one set per named cutoff.
+
+    `cutoffs` maps a view name to the last ISO date it includes (None: all).
+    EC's file is close to a million rows, so every view is folded in the same
+    single pass rather than re-reading it per view.
+    """
+    path = _ESTATES_DIR / code / "oph.csv"
+    if not path.exists():
+        return {name: ({}, None) for name in cutoffs}
+
+    aggs = {name: _new_agg() for name in cutoffs}
+    bounds = {name: [None, None, set()] for name in cutoffs}   # lo, hi, months
     with path.open(encoding="utf-8-sig", newline="") as fh:
-        for row in csv.DictReader(fh):
-            # EPMS spells this column 'divison_code' in the export. Kept as-is.
-            k = _key(row["divison_code"], row["block_code"])
-            d = row["harvest_date"]
-            if lo is None or d < lo:
-                lo = d
-            if hi is None or d > hi:
-                hi = d
+        rd = csv.reader(fh)
+        head = next(rd)
+        # EPMS spells this column 'divison_code' in the export. Kept as-is.
+        i_date, i_div, i_blk = (head.index(c) for c in
+                                ("harvest_date", "divison_code", "block_code"))
+        i_tot, i_ripe, i_loose = (head.index(c) for c in
+                                  ("bunches_total", "bunches_ripe", "loose_fruits"))
+        i_ded = [head.index(c) for c in _DEDUCTION_COLS]
+        keys: dict = {}   # a few hundred blocks over ~a million rows
+        for row in rd:
+            raw = (row[i_div], row[i_blk])
+            k = keys.get(raw)
+            if k is None:
+                k = keys[raw] = _key(*raw)
+            d = row[i_date]
             month = d[:7]
-            months.add(month)
-            bunches = _i(row.get("bunches_total")) or 0
-            a = agg[k]
-            a["records"] += 1
-            a["days"].add(d)
-            a["bunches"] += bunches
-            a["ripe"] += _i(row.get("bunches_ripe")) or 0
-            a["deducted"] += sum(_i(row.get(c)) or 0 for c in _DEDUCTION_COLS)
+            bunches = _n(row[i_tot])
+            ripe = _n(row[i_ripe])
+            deducted = sum(_n(row[i]) for i in i_ded)
             # Loose fruit is the one harvesting loss the export actually
             # counts: detached fruitlets picked up at the palm, per record.
             # A zero may mean none collected or none written down, so the
             # number of records carrying a count travels with the total.
-            loose = _i(row.get("loose_fruits")) or 0
-            a["loose"] += loose
-            if loose:
-                a["loose_records"] += 1
-            a["by_month"][month] += bunches
-            a["loose_by_month"][month] += loose
-            a["days_by_month"][month].add(d)
+            loose = _n(row[i_loose])
+            for name, through in cutoffs.items():
+                if through is not None and d > through:
+                    continue
+                b = bounds[name]
+                if b[0] is None or d < b[0]:
+                    b[0] = d
+                if b[1] is None or d > b[1]:
+                    b[1] = d
+                b[2].add(month)
+                a = aggs[name][k]
+                a["records"] += 1
+                a["days"].add(d)
+                a["bunches"] += bunches
+                a["ripe"] += ripe
+                a["deducted"] += deducted
+                a["loose"] += loose
+                if loose:
+                    a["loose_records"] += 1
+                a["by_month"][month] += bunches
+                a["loose_by_month"][month] += loose
+                a["days_by_month"][month].add(d)
 
-    out = {
-        k: {
-            "bunches": v["bunches"],
-            "ripe": v["ripe"],
-            "deducted": v["deducted"],
-            "harvest_days": len(v["days"]),
-            "records": v["records"],
-            "by_month": dict(v["by_month"]),
-            "harvest_days_by_month": {m: len(s) for m, s in v["days_by_month"].items()},
-            "loose_fruits": v["loose"],
-            "loose_records": v["loose_records"],
-            "loose_by_month": dict(v["loose_by_month"]),
-        }
-        for k, v in agg.items()
-    }
-    return out, {"from": lo, "to": hi, "months": sorted(months)}
+    out = {}
+    for name, agg in aggs.items():
+        lo, hi, months = bounds[name]
+        out[name] = ({
+            k: {
+                "bunches": v["bunches"],
+                "ripe": v["ripe"],
+                "deducted": v["deducted"],
+                "harvest_days": len(v["days"]),
+                "records": v["records"],
+                "by_month": dict(v["by_month"]),
+                "harvest_days_by_month": {m: len(s) for m, s in v["days_by_month"].items()},
+                "loose_fruits": v["loose"],
+                "loose_records": v["loose_records"],
+                "loose_by_month": dict(v["loose_by_month"]),
+            }
+            for k, v in agg.items()
+        }, {"from": lo, "to": hi, "months": sorted(months)} if lo else None)
+    return out
 
 
 def _load_block_forecast(code: str):
-    path = _FORECAST_DIR / code / "block_forecast.csv"
+    path = _ESTATES_DIR / code / "block_forecast.csv"
     if not path.exists():
         return {}
     out = {}
@@ -237,11 +290,8 @@ def _sort_key(k: str):
     return (int(div), int(blk))
 
 
-def _build_estate(code: str, subdir: str) -> dict:
-    overlay = _load_overlay(subdir)
-    harvest, window = _load_harvest(subdir)
-    fcast = _load_block_forecast(subdir)
-
+def _build_estate(code: str, overlay: dict, harvest: dict, window: dict | None,
+                  fcast: dict) -> dict:
     features = []
     divisions = defaultdict(list)
     matched = 0
@@ -286,8 +336,8 @@ def _build_estate(code: str, subdir: str) -> dict:
                 "deduction_rate": (round(h["deducted"] / bunches, 4)
                                    if h and bunches else None),
                 "metrics_provenance": "real:epms" if h else None,
-                # Monthly series drives the time scrubber. Five months on this
-                # export, so it rides inline rather than costing a second fetch.
+                # Monthly series drives the time scrubber. Under two years per
+                # estate, so it rides inline rather than costing a second fetch.
                 "bunches_by_month": h["by_month"] if h else {},
                 "harvest_days_by_month": h["harvest_days_by_month"] if h else {},
                 # Loose fruit, real: the export counts it on every record.
@@ -346,23 +396,45 @@ def _dissolve_divisions(code: str, rings_by_division) -> dict:
 
 # -- public API -------------------------------------------------------------
 
+def _manifest(code: str) -> dict:
+    path = _ESTATES_DIR / code / "manifest.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
 def _state() -> dict:
     with _LOCK:
         if "state" in _CACHE:
             return _CACHE["state"]
 
-        estates = {code: _build_estate(code, subdir)
-                   for code, subdir in _SHAPEFILE_ESTATES.items()}
+        estates, synthetic = {}, {}
+        for code in _estate_codes():
+            overlay = _load_overlay(code)
+            fcast = _load_block_forecast(code)
+            cutoffs = {"full": None}
+            if code == SYNTHETIC_ESTATE:
+                cutoffs["synthetic"] = SYNTHETIC_WINDOW_END.isoformat()
+            views = _load_harvest(code, cutoffs)
+            estates[code] = _build_estate(code, overlay, *views["full"], fcast)
+            if "synthetic" in views:
+                synthetic[code] = _build_estate(code, overlay, *views["synthetic"], fcast)
+            estates[code]["manifest"] = _manifest(code)
+        if not estates:
+            log.warning("[ontology] no estate snapshots in %s - run "
+                        "gis/build_estate_data.py", _ESTATES_DIR)
 
-        footprints = {"type": "FeatureCollection", "features": []}
-        if _FOOTPRINTS.exists():
-            footprints = json.loads(_FOOTPRINTS.read_text(encoding="utf-8"))
-        else:
-            log.warning("[ontology] %s missing - run gis/build_footprints.py",
-                        _FOOTPRINTS)
-
-        _CACHE["state"] = {"estates": estates, "footprints": footprints}
+        _CACHE["state"] = {"estates": estates, "synthetic": synthetic}
         return _CACHE["state"]
+
+
+def _estate(code: str | None, synthetic_world: bool = False) -> dict | None:
+    code = (code or "").upper()
+    st = _state()
+    if synthetic_world and code in st["synthetic"]:
+        return st["synthetic"][code]
+    return st["estates"].get(code)
 
 
 def reload_ontology() -> None:
@@ -371,13 +443,18 @@ def reload_ontology() -> None:
         _CACHE.clear()
 
 
-def estate_index() -> list[dict]:
-    """One row per estate on the map, saying exactly what it has."""
-    st = _state()
+def estate_index(synthetic_world: bool = False) -> list[dict]:
+    """One row per estate on the map, saying exactly what it has.
+
+    synthetic_world=True gives the synthetic estate's row as the synthetic
+    feeds see it, harvest window cut at SYNTHETIC_WINDOW_END.
+    """
     out = []
-    for code, e in st["estates"].items():
+    for code in _state()["estates"]:
+        e = _estate(code, synthetic_world)
         blocks = e["blocks"]["features"]
         ha = sum(b["properties"]["planted_ha"] or 0 for b in blocks)
+        man = _estate(code).get("manifest") or {}
         out.append({
             "estate_code": code,
             "label": f"Estate {code}",
@@ -388,29 +465,18 @@ def estate_index() -> list[dict]:
             "planted_ha": round(ha, 1),
             "blocks_with_harvest": e["matched"],
             "harvest_window": e["harvest_window"],
+            "source_database": man.get("database"),
+            "snapshot_built": man.get("built"),
+            "has_synthetic_feeds": code == SYNTHETIC_ESTATE,
             "caveat": None,
         })
-    for f in st["footprints"]["features"]:
-        p = f["properties"]
-        out.append({
-            "estate_code": p["estate_code"],
-            "label": f"Estate {p['estate_code']}",
-            "geometry_provenance": p["provenance"],
-            "has_block_geometry": False,
-            "blocks": 0,
-            "divisions": p.get("divisions"),
-            "planted_ha": p.get("hull_area_ha"),
-            "blocks_with_harvest": 0,
-            "harvest_window": None,
-            "caveat": p.get("caveat"),
-        })
-    return sorted(out, key=lambda r: r["estate_code"])
+    return out
 
 
 def estates_geojson() -> dict:
-    """Estate outlines: ArcGIS-derived where blocks exist, GPS hulls otherwise."""
+    """Estate outlines, dissolved from each estate's block polygons."""
     st = _state()
-    feats = list(st["footprints"]["features"])
+    feats = []
     for code, e in st["estates"].items():
         pts = [(round(x, 7), round(y, 7))
                for f in e["blocks"]["features"]
@@ -426,7 +492,7 @@ def estates_geojson() -> dict:
                 "entity": "estate",
                 "estate_code": code,
                 "provenance": "real:arcgis",
-                "source": f"{code}_overlay.csv block polygons, dissolved",
+                "source": f"m_overlay block polygons ({(e.get('manifest') or {}).get('database', code)}), dissolved",
                 "blocks": len(e["blocks"]["features"]),
                 "divisions": len(e["divisions"]["features"]),
                 "hull_area_ha": round(_ring_area_ha(hull), 1),
@@ -435,9 +501,14 @@ def estates_geojson() -> dict:
     return {"type": "FeatureCollection", "features": feats}
 
 
-def blocks_geojson(estate: str):
-    """Block polygons for one estate, or None when it has no shapefile."""
-    e = _state()["estates"].get((estate or "").upper())
+def blocks_geojson(estate: str, synthetic_world: bool = False):
+    """Block polygons for one estate, or None when it has none.
+
+    synthetic_world=True returns the synthetic estate's blocks with harvest
+    aggregated only up to SYNTHETIC_WINDOW_END - the harvest the synthetic
+    feeds were generated from. Any other estate is the same either way.
+    """
+    e = _estate(estate, synthetic_world)
     return e["blocks"] if e else None
 
 
@@ -464,7 +535,7 @@ def block_metrics(estate: str, metric: str = "bunches_per_ha",
     why, and it controls for age only because age is the one covariate this
     export actually carries.
     """
-    e = _state()["estates"].get((estate or "").upper())
+    e = _estate(estate)
     if e is None:
         return None
     if metric not in METRICS:
@@ -529,5 +600,5 @@ def block_metrics(estate: str, metric: str = "bunches_per_ha",
 
 
 def divisions_geojson(estate: str):
-    e = _state()["estates"].get((estate or "").upper())
+    e = _estate(estate)
     return e["divisions"] if e else None

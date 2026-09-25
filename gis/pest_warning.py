@@ -81,7 +81,7 @@ def _planted_foci() -> int | None:
 
 
 def _compute(est: str) -> dict:
-    rows = layers.block_rows(est)
+    rows = layers.block_rows(est, synthetic_world=True)
     if rows is None:
         return {"available": False, "estate": est,
                 "reason": f"No block polygons for estate {est}."}

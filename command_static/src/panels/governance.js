@@ -3,9 +3,7 @@ import { esc } from '../lib/fmt.js';
 export async function panelAudit() {
   const d = await (await fetch('/gis/decisions?limit=100')).json();
   if (!d.total) return `<div class="empty">No decisions recorded yet.
-    Accept, reject or defer a recommendation and it lands here.</div>
-    <div class="sheet-note">The shift handover reads this log, so it has nothing
-    to write until something is decided.</div>`;
+    Accept, reject or defer a recommendation and it lands here.</div>`;
   return `<table class="tbl">
     <tr><th>When</th><th>Action</th><th>Use case</th><th>Subject</th>
         <th>Artifact</th><th>Would route to</th></tr>
@@ -18,9 +16,6 @@ export async function panelAudit() {
   </table>
   <div class="sheet-note">
     ${d.total} recorded: ${Object.entries(d.by_action).map(([k, v]) => `${v} ${k}`).join(', ')}.
-    Every proposal the system made and what a person did with it is written down.
-    Nothing was written to EPMS; the artifacts name the approval queue they would
-    enter and stop there.
   </div>
   <div style="margin-top:16px">
     <button class="gen-btn" id="handover-btn">Write the shift handover</button>
@@ -64,18 +59,8 @@ export async function panelCanopy() {
     </table>
 
     ${(d.clouded_blocks || []).length
-      ? `<div class="blk-cap">${d.clouded_blocks.length} block(s) fell under cloud in this
-         scene and carry no reading. They are absent above rather than scored zero.</div>`
+      ? `<div class="blk-cap">${d.clouded_blocks.length} block(s) under cloud, no reading.</div>`
       : ''}
 
-    <div class="sub-t">Why the red edge</div>
-    <div class="sheet-note" style="margin:0;border:none;padding:0">${esc(d.index_choice)}</div>
-
-    <div class="sheet-note">
-      <b>Provenance: real.</b> Scene <code>${esc(s.id)}</code>, ${esc(s.platform)},
-      captured ${esc(s.date)} at ${s.cloud_cover_pct}% cloud over tile ${esc(s.mgrs_tile)}.
-      ${esc(d.method.index)} at ${d.method.resolution_m} m, cloud-masked with
-      ${esc(d.method.cloud_mask)}.<br><br>
-      This is free public imagery over Merauke. The client supplies nothing for
-      it, which is what makes it the cheapest real layer in the catalogue.</div>`;
+    <div class="blk-cap">${esc(s.platform)} · ${esc(s.date)} · ${s.cloud_cover_pct}% cloud</div>`;
 }

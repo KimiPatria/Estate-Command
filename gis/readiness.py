@@ -40,39 +40,26 @@ _READINESS = [
         "id": "block_map",
         "capability": "Block-level map (UC-01, 02, 03, 10, 11)",
         "needs": "Block boundary polygons",
-        "status": "partial",
-        "evidence": "291 real polygons for estate EC, exported from the client's "
-                    "ArcGIS (Shape_Leng / Shape_Area attributes present). No "
-                    "polygons for any other estate.",
+        "status": "ready",
+        "evidence": "844 real block polygons across all three estates on the "
+                    "map - EC 291, EA 196, EB 357 - held in EPMS m_overlay as "
+                    "the client's ArcGIS export (Shape_Leng / Shape_Area "
+                    "attributes present). Every harvested block joins to one.",
         "degrades_to": "Estate outline only, no block layer.",
-        "ask": "Shapefiles for the remaining estates. EC proves the survey "
-               "department already holds them in the right format.",
-    },
-    {
-        "id": "gps_boundaries",
-        "capability": "Boundary reconstruction without shapefiles",
-        "needs": "Per-harvest GPS with block-level precision",
-        "status": "unavailable",
-        "evidence": "t_oph GPS coverage is excellent (94% on K3, 100% on BA) but "
-                    "carries no block signal: block centroids sit a median 54 m "
-                    "apart while each block's own fixes spread 879 m. m_tph is "
-                    "worse - all 840 populated rows read latitude '1', "
-                    "longitude '1'.",
-        "degrades_to": "Estate outline only. The GPS locates the estate "
-                       "correctly (K3 spans 6.8 x 4.7 km) and nothing finer.",
-        "ask": "Confirm whether the harvest app records position at the point "
-               "of cut or at the point of sync. If it can record at cut, this "
-               "becomes a real capability with no new hardware.",
+        "ask": "Nothing for these three. Any further estate needs its "
+               "m_overlay rows, which EPMS already carries company-wide.",
     },
     {
         "id": "yield_choropleth",
         "capability": "Yield and forecast choropleth (UC-08)",
         "needs": "Per-block harvest history",
         "status": "partial",
-        "evidence": "291 of 291 EC blocks join to recorded harvest, but the "
-                    "export covers 2025-01-01 to 2025-05-23 only - under five "
-                    "months, against the multi-year history the age-curve and "
-                    "replanting work assume.",
+        "evidence": "Every harvested block joins to recorded harvest (EC 291, "
+                    "EA 196, EB 356 of 357), but the databases hold 19 months "
+                    "for EC (2025-01-01 to 2026-07-22), eight for EB "
+                    "(2025-06-02 to 2026-01-31) and seven weeks for EA "
+                    "(2025-06-02 to 2025-07-20) - against the multi-year "
+                    "history the age-curve and replanting work assume.",
         "degrades_to": "Trailing-mean per block, not a fitted model.",
         "ask": "Full harvest history for the blocks we have geometry for.",
     },
@@ -131,12 +118,14 @@ _READINESS = [
         "status": "unavailable",
         "evidence": "Oil palm sets its bunch load 20-24 months before the cut, "
                     "so the lag structure needs at least three years of target "
-                    "series to identify. The EC export carries 2025-01-01 to "
-                    "2025-05-23: under five months. EPMS itself holds the rest.",
+                    "series to identify. EC's database carries 2025-01-01 to "
+                    "2026-07-22: 19 months, the longest of the three. The "
+                    "synthetic forward months are still built on the first "
+                    "five of them.",
         "degrades_to": "A trailing mean, which is what the forward months "
                        "currently show.",
         "ask": "t_oph for the EC blocks back to 2022. The geometry and the "
-               "join key are already proven on the five months we have.",
+               "join key are already proven on the 19 months we have.",
     },
     {
         "id": "weighbridge",
@@ -244,11 +233,11 @@ _READINESS = [
         "needs": "Loose fruit collected per block",
         "status": "partial",
         "evidence": "t_oph carries a loose_fruits count on every harvest "
-                    "record: 11,571,395 fruits against 8,182,591 bunches over "
-                    "183,850 records, 2025-01-01 to 2025-05-23, all 291 EC "
-                    "blocks. Block ratios run 0.51 to 2.63 per bunch (median "
-                    "1.40); Division 3 collects 1.08 against Division 1's "
-                    "1.98. The count is non-zero on 52% of records, and the "
+                    "record: 38,067,571 fruits against 23,891,875 bunches over "
+                    "892,869 records, 2025-01-01 to 2026-07-22, all 291 EC "
+                    "blocks. Block ratios run 0.58 to 2.53 per bunch (median "
+                    "1.57); Division 3 collects 1.31 against Division 1's "
+                    "2.13. The count is non-zero on 57% of records, and the "
                     "low-ratio blocks are also the ones recording it least. "
                     "Counts, not kilograms: nothing in the export weighs "
                     "loose fruit.",

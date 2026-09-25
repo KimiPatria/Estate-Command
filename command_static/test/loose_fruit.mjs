@@ -53,9 +53,17 @@ check(t.bunches > 1e6, `bunches ${t.bunches}`);
 check(t.records > 100000, `records ${t.records}`);
 check(t.records_with_count_pct > 0 && t.records_with_count_pct < 100, `records_with_count_pct ${t.records_with_count_pct}`);
 
+// The window is EC's recording window in its database snapshot: contiguous
+// calendar months from January 2025, however far the snapshot now reaches.
 const months = (d.by_month || []).map(m => m.month);
-check(JSON.stringify(months) === JSON.stringify(['2025-01', '2025-02', '2025-03', '2025-04', '2025-05']),
+const contiguous = months.every((m, i) => i === 0 || (() => {
+  const [y, mo] = months[i - 1].split('-').map(Number);
+  return m === `${y + (mo === 12 ? 1 : 0)}-${String(mo % 12 + 1).padStart(2, '0')}`;
+})());
+check(months[0] === '2025-01' && months.length >= 5 && contiguous,
   `months ${JSON.stringify(months)}`);
+check(JSON.stringify(months) === JSON.stringify((d.window || {}).months || []),
+  'by_month does not cover the window');
 for (const m of d.by_month || []) {
   check(m.loose_per_bunch > 0.5 && m.loose_per_bunch < 5, `${m.month}: ratio ${m.loose_per_bunch}`);
   check(m.blocks > 250, `${m.month}: only ${m.blocks} blocks`);

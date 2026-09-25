@@ -13,31 +13,17 @@
 <!-- Held over the app until boot resolves. Everything below it can load as
      slowly as it needs to without the user watching it happen. -->
 <div class="intro" id="intro" role="status" aria-label="Loading Estate Command">
-  <div class="intro-bg" aria-hidden="true"></div>
-  <div class="intro-grid" aria-hidden="true"></div>
   <div class="intro-stage">
-    <div class="intro-mark" aria-hidden="true">
-      <div class="ring r1"></div>
-      <div class="ring r2"></div>
-      <div class="sweep"></div>
-      <svg viewBox="0 0 120 120">
-        <g class="plot">
-          <path class="p-outer" d="M22 34 L60 14 L98 34 L98 78 L60 106 L22 78 Z"/>
-          <path class="p-mid"   d="M60 14 L60 106"/>
-          <path class="p-mid2"  d="M22 56 L98 56"/>
-          <path class="p-in"    d="M41 24 L41 92"/>
-          <path class="p-in2"   d="M79 24 L79 92"/>
-        </g>
-        <circle class="p-dot" cx="60" cy="56" r="3.4"/>
-      </svg>
+    <!-- --d is each letter's distance from the gap between the words, so the
+         title builds outward from the point the line grows from. -->
+    <div class="intro-title">
+      <h1 aria-label="Estate Command"><span class="w" aria-hidden="true"><span style="--d:5">E</span><span style="--d:4">s</span><span style="--d:3">t</span><span style="--d:2">a</span><span style="--d:1">t</span><span style="--d:0">e</span></span> <span class="w" aria-hidden="true"><span style="--d:0">C</span><span style="--d:1">o</span><span style="--d:2">m</span><span style="--d:3">m</span><span style="--d:4">a</span><span style="--d:5">n</span><span style="--d:6">d</span></span></h1>
+      <div class="intro-line" aria-hidden="true"></div>
     </div>
-    <div class="intro-word">
-      <div class="intro-eyebrow"><span>E</span><span>P</span><span>M</span><span>S</span></div>
-      <h1>Estate Command</h1>
-      <div class="intro-rule"></div>
+    <div class="intro-meta">
       <p class="intro-sub">Geospatial operations &middot; <span id="intro-status">Initialising</span></p>
+      <div class="intro-bar"><i id="intro-fill"></i></div>
     </div>
-    <div class="intro-bar"><i id="intro-fill"></i></div>
   </div>
 </div>
 
@@ -103,7 +89,6 @@
       <span class="cov" id="dom-fly-cov"></span>
       <button class="x" id="dom-fly-x" aria-label="Close">&times;</button>
     </div>
-    <p class="dom-fly-b" id="dom-fly-blurb"></p>
     <div class="panels" id="panels"></div>
   </div>
 
@@ -217,8 +202,6 @@
     <div class="sheet-h">
       <div>
         <h2>Data readiness</h2>
-        <p>What each capability needs, whether it exists, and what it degrades to without it.
-           Measured against the two EPMS databases and the estate exports, not assumed.</p>
       </div>
       <button class="x" id="sheet-x" aria-label="Close">&times;</button>
     </div>

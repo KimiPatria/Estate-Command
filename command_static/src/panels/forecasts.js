@@ -122,8 +122,7 @@ function sprayCallout(call) {
   if (!call) return '';
   return `<div class="fc-call ${call.go ? 'go' : 'hold'}">
     <div class="fc-call-v">${esc(call.verdict)}</div>
-    <div><p>${esc(call.reason || call.plain)}</p>
-      <p class="fp-dim">${esc(call.labour_note || '')} Break-even: spray when the chance of wash-off is below ${call.breakeven_pct}%.</p></div>
+    <div><p>${esc(call.reason || call.plain)}</p></div>
   </div>`;
 }
 
@@ -173,7 +172,6 @@ export function opsForecastSection(P) {
       <p class="fc-lead">${esc(r.headline)}</p>
       <div class="fc-chances">${['washoff', 'heavy', 'stop'].map(k => chanceRow(r.chances[k])).join('')}</div>
       <p class="fp-dim">${esc(r.amount.plain || '')} ${esc(r.forecast_plain || '')} ${esc(r.recorded_plain || '')}</p>
-      <details class="fc-tech"><summary>How this chance is worked out</summary><p>${esc(r.how)}</p></details>
     </div>`);
   } else if (f.rain) {
     parts.push(`<div class="fp-card fc-block"><div class="fp-card-t">Rain</div><p class="fp-dim">${esc(f.rain.source || 'Not forecast.')}</p></div>`);
@@ -212,7 +210,6 @@ export function opsForecastSection(P) {
           <td class="num">${Math.round(100 * r.p_carried)}%</td><td class="num">${Math.round(100 * r.expected_share)}%</td>
           <td class="fc-why">${esc(((blocks[r.block_label] || {}).risk_drivers || []).join(' '))}</td>
           <td><button class="fp-map-btn" data-map="${esc(r.block_label)}" data-map-caption="${esc(r.block_label)}" title="Show on map">${MAP_ICON}</button></td></tr>`).join('')}`) : ''}
-      ${w.discounted ? `<p class="fp-dim">The plan already allows for this: a block's value is discounted by the chance its work does not get done, so on a wet day crews go to the blocks most likely to get finished.</p>` : ''}
     </div>`);
   } else if (f.work_done) {
     parts.push(`<div class="fp-card fc-block"><div class="fp-card-t">How much gets done</div>
@@ -234,7 +231,6 @@ export function opsForecastSection(P) {
       ${(f.inputs || []).map(i => `<tr><td><b>${esc(i.input)}</b></td>
         <td>${i.used === 'forecast' || i.used === 'learned' ? predictedBadge() : `<span class="chip">${esc(i.used)}</span>`}</td>
         <td class="fc-why">${esc(i.plain)}</td></tr>`).join('')}`)}
-    <p class="fp-dim">${esc(f.note || '')} Switch any forecast off in the assumption register and the plan goes back to the simple method.</p>
     <div class="fp-actbar"><button class="ops-btn" data-open-panel="forecasts">Open tomorrow's outlook</button>
       <button class="ops-btn" data-open-panel="assumptions">Open the assumption register</button></div>
   </div>`);
@@ -242,9 +238,6 @@ export function opsForecastSection(P) {
   const blockLabels = ((f.work_done && f.work_done.at_risk) || []).map(r => r.block_label);
   return {
     title: P.is_tomorrow ? `What the forecasts say for ${P.date_label}` : `What the forecasts said for ${P.date_label}`,
-    lead: P.is_tomorrow
-      ? `Rain, turnout, work done and crew speeds behind this ${unit} plan, in plain words.`
-      : 'A replay is planned on what was knowable the evening before. Where the day is in the ledger, what actually happened is shown beside the forecast.',
     blocks: blockLabels,
     blocksCaption: 'Blocks likely to need another day',
     html: parts.join(''),
@@ -388,7 +381,6 @@ function secOverview(O) {
             o.stops ? '<span class="chip neg">called off</span>' : '<span class="fp-dim">not forecast</span>'}</td>
           <td class="num">${o.in_use ? `<b>${o.expected_pct}%</b> <span class="fp-dim">${o.low_pct}–${o.high_pct}</span>` : ''}</td>
         </tr>`).join('')}</table>
-      <p class="fp-dim">The share of each operation's plan expected to get done; the bar is the range 8 days in 10 land in.</p>
       <span class="fc-more" data-go="work" role="button" tabindex="0">Blocks at risk →</span>
     </div>`;
 
@@ -405,9 +397,6 @@ function secOverview(O) {
 
   return {
     title: O.is_tomorrow ? `Tomorrow at a glance: ${O.date_label}` : `At a glance: ${O.date_label}`,
-    lead: O.is_tomorrow
-      ? 'What the four forecasts say about tomorrow, and how far to trust each one. Click any card for the detail.'
-      : 'A past day, forecast from what was known the evening before. Where the ledger has the day, what actually happened is shown beside it.',
     html: `
       <div class="fc-summary-box">
         <div class="fp-card-t">In short</div>
@@ -418,11 +407,9 @@ function secOverview(O) {
       <div class="sub-t">How far to trust them</div>
       <div class="fc-trustrow">${O.trust.map(t => `<div class="fc-trustcard">
           <div class="fc-card-h"><span>${esc(t.title)}</span>${trustPill(t.grade)}</div>
-          <p>${esc(t.grade.meaning)}</p>${trainedOn(t.trained_on)}
+          ${trainedOn(t.trained_on)}
           ${t.in_use ? '' : '<span class="chip">not used in the plan</span>'}
-        </div>`).join('')}</div>
-      <div class="fc-glossary">${O.glossary.map(g => `<span><b>${esc(g.term)}</b> ${esc(g.plain)}</span>`).join('')}</div>
-      <div class="sheet-note">${esc(O.note)}</div>`,
+        </div>`).join('')}</div>`,
   };
 }
 
@@ -434,17 +421,15 @@ function secRain(V, O) {
   const spray = ((O.cards.work_done.operations || []).find(o => o.operation === 'spray') || {}).spray_call;
   return {
     title: `Rain: ${V.date_label}`,
-    lead: 'The chance of rain reaching the amounts that change the day. Learned from real forecasts against real rainfall.',
     html: `
       ${hero(`${fc.chances.washoff.pct}%`, `${esc(fc.chances.washoff.words)}`, esc(fc.chances.washoff.meaning),
         `<p class="fp-dim">${esc(fc.amount.plain || '')}</p>`)}
       ${spray ? sprayCallout(spray) : ''}
       <div class="fc-chances wide">${['washoff', 'heavy', 'stop'].map(k => chanceRow(fc.chances[k])).join('')}</div>
       <div class="fp-grid3">
-        <div class="fp-card"><div class="fp-card-t">What last night's forecast said</div><p>${esc(fc.forecast_plain || 'No archived forecast for this day.')}</p>
-          <p class="fp-dim">Taken literally it is a weak guide here, which is why the chance above is worked out from how similar forecasts turned out.</p></div>
-        <div class="fp-card"><div class="fp-card-t">How this chance was worked out</div><p>${esc(fc.how)}</p>
-          <p class="fp-dim">The usual chance for this month: ${fc.month_average_pct.washoff}% for 15 mm, ${fc.month_average_pct.heavy}% for 25 mm.</p></div>
+        <div class="fp-card"><div class="fp-card-t">What last night's forecast said</div><p>${esc(fc.forecast_plain || 'No archived forecast for this day.')}</p></div>
+        <div class="fp-card"><div class="fp-card-t">Usual for this month</div>
+          <p>${fc.month_average_pct.washoff}% for 15 mm, ${fc.month_average_pct.heavy}% for 25 mm</p></div>
         ${fc.recorded_plain ? `<div class="fp-card"><div class="fp-card-t">What happened</div><p class="fc-lead">${esc(fc.recorded_plain)}</p></div>` : ''}
       </div>
       ${V.recent.length ? `<div class="sub-t">The days before: what it said, what fell</div>
@@ -458,10 +443,7 @@ function secRain(V, O) {
       </ul>
       ${tbl(`<tr><th>When it said</th><th class="num">Days</th><th class="num">It happened on</th><th>In words</th></tr>
         ${w.reliability.map(x => `<tr><td>about ${x.said_pct}%</td><td class="num">${n0(x.days)}</td>
-          <td class="num">${x.happened_pct}%</td><td class="fc-why">${esc(x.plain)}</td></tr>`).join('')}`)}
-      <p class="fp-dim">A trustworthy chance is one where "about 30%" comes true on about 30% of days. Checked on ${n0(bt.scored_days)} days from ${esc(bt.from)} to ${esc(bt.to)}, each forecast only from the days before it.</p>
-      <div class="sub-t">About this forecast</div>
-      ${explainBlock(V.explain)}`,
+          <td class="num">${x.happened_pct}%</td><td class="fc-why">${esc(x.plain)}</td></tr>`).join('')}`)}`,
   };
 }
 
@@ -472,7 +454,6 @@ function secHeadcount(V, F) {
     <td class="num">${n1(s.old_error)}</td><td class="num">${s.improvement_pct > 0 ? `<span class="pos">${n0(s.improvement_pct)}% better</span>` : `<span class="neg">${n0(-s.improvement_pct)}% worse</span>`}</td></tr>` : '';
   return {
     title: `Who turns up: ${V.date_label}`,
-    lead: 'How many people on each crew\'s roll are likely to come, as a range. The plan uses the most likely figure and shows the range beside it.',
     html: `
       ${chips('crewtype', Object.entries(TYPE_LABEL), F.crewType)}
       ${hero(`${n0(e.low)}–${n0(e.high)}`, `of ${n0(e.on_roll)} on the roll`, esc(e.plain),
@@ -488,7 +469,6 @@ function secHeadcount(V, F) {
           <td class="num">${c.recent_pct === null ? '—' : `${n0(c.recent_pct)}%`}</td>
           ${V.crews.some(x => x.recorded !== null) ? `<td class="num">${c.recorded === null ? '—' : c.recorded}</td>` : ''}
           <td class="fc-why">${esc(c.drivers.slice(1).join(' ') || 'An ordinary day for this crew.')}</td></tr>`).join('')}`)}
-      <p class="fp-dim">The bar runs from nobody to the full roll. The shaded part is the likely range, the line the most likely figure${V.crews.some(c => c.recorded !== null) ? ', and the dot what actually happened' : ''}.</p>
       ${V.recent.length ? `<div class="sub-t">The days before: expected against who came</div>
         ${tbl(`<tr><th>Day</th><th>Expected</th><th class="num">Came</th><th>Inside the range?</th></tr>
           ${V.recent.map(d => `<tr><td>${esc(d.label)}</td><td>${n0(d.low)} to ${n0(d.high)} <span class="fp-dim">(most likely ${n0(d.most_likely)})</span></td>
@@ -498,12 +478,8 @@ function secHeadcount(V, F) {
       ${tbl(`<tr><th>Days</th><th class="num">Off by, this forecast</th><th class="num">Off by, the old average</th><th class="num">Result</th></tr>
         ${segRow('Every day', seg.all)}${segRow('Sundays', seg.sundays)}${segRow('Lebaran leave', seg.lebaran)}
         ${segRow('The week after Lebaran', seg.after_lebaran)}${segRow('Ordinary days', seg.ordinary)}`)}
-      <p class="fp-dim">"Off by" is the average gap, in people per crew per day, between the forecast and who actually came, on weeks the forecast had not seen.</p>
       <div class="sub-t">Does it find what is really there?</div>
-      <p class="fp-dim">Generated data has known rules, so the forecast can be checked against them: it should find the effects that are there, and invent none that are not.</p>
-      ${checksList(V.recovery.rows)}
-      <div class="sub-t">About this forecast</div>
-      ${explainBlock(V.explain)}`,
+      ${checksList(V.recovery.rows)}`,
   };
 }
 
@@ -542,7 +518,6 @@ function secWork(V, F) {
   }
   return {
     title: `How much gets done: ${OP_LABEL[F.op]}, ${V.date_label}`,
-    lead: 'The share of the plan likely to get done once rain, roads, turnout and each block\'s record are allowed for.',
     blocks: V.at_risk.map(r => r.block_label),
     blocksCaption: 'Blocks likely to need another day',
     html: `${opChips}${body}
@@ -558,11 +533,8 @@ function secWork(V, F) {
           <td class="num">${six.daily_improvement_pct > 0 ? `<span class="pos">${n0(six.daily_improvement_pct)}% better</span>` : `<span class="neg">${n0(-six.daily_improvement_pct)}% worse</span>`}</td></tr>
         ${know ? `<tr><td>Knowing the rain that fell, per order</td><td class="num"><b>${n1(know.order_error_pts)} pts</b></td><td class="num">${n1(know.old_order_error_pts)} pts</td>
           <td class="num">${know.order_improvement_pct > 0 ? `<span class="pos">${n0(know.order_improvement_pct)}% better</span>` : `<span class="neg">${n0(-know.order_improvement_pct)}% worse</span>`}</td></tr>` : ''}`) : ''}
-      <p class="fp-dim">"Off by" per order is the average gap, in percentage points, between the share expected and the share done. Most of what the forecast still misses is not knowing the weather in advance.</p>
       <div class="sub-t">Does it find what is really there?</div>
-      ${checksList(V.recovery.rows)}
-      <div class="sub-t">About this forecast</div>
-      ${explainBlock(V.explain)}`,
+      ${checksList(V.recovery.rows)}`,
   };
 }
 
@@ -574,15 +546,11 @@ function secSpeeds(V, F) {
   const unitWord = harvest ? 'block' : V.unit;
   return {
     title: harvest ? 'Harvest pace by block' : `Crew speeds: ${OP_LABEL[V.operation]}`,
-    lead: harvest
-      ? 'How many bunches a man-day each block really yields against the productivity target, learned from its records. A faster block needs fewer man-days.'
-      : 'How much ground each crew really covers in a man-day against the textbook rate, learned from its records. A faster crew is given more work.',
     blocks: harvest ? V.rows.filter(r => Math.abs(r.factor - 1) >= 0.1).map(r => r.label) : [],
     blocksCaption: 'Blocks at least 10% off their target',
     html: `${opChips}
       ${hero(`${V.faster} <span class="fc-slash">/</span> ${V.slower}`, `faster / slower of ${V.total} ${esc(unitWord)}s`,
-        `${V.faster} ${esc(unitWord)}s ${harvest ? 'yield' : 'work'} at least 3% faster than average and ${V.slower} at least 3% slower.
-         ${V.in_use ? 'The plan uses these speeds.' : 'The plan is not using these speeds: they are switched off, or did not beat the textbook rate.'}`)}
+        V.in_use ? 'Used in the plan.' : 'Not used in the plan.')}
       ${tbl(`<tr><th>${harvest ? 'Block' : 'Crew'}</th><th>Against average</th><th class="num">Learned rate</th><th class="num">Book rate</th>
           <th class="num">Records</th><th>Last 4 weeks</th><th>In words</th></tr>
         ${V.rows.map(r => `<tr${harvest ? ` data-map="${esc(r.label)}" data-map-caption="${esc(`Block ${r.label}`)}"` : ''}>
@@ -592,17 +560,11 @@ function secSpeeds(V, F) {
           <td class="num">${n0(r.man_days)} md</td>
           <td class="fp-dim">${r.history.map(h => `${h >= 1 ? '+' : ''}${Math.round(100 * (h - 1))}%`).join(' → ')}</td>
           <td class="fc-why">${esc(r.plain)}</td></tr>`).join('')}`)}
-      <p class="fp-dim">A speed moves toward a crew's own record as its man-days build up: with ${n0(V.settings.prior_man_days)} man-days of records it sits halfway, and it never moves more than ${n0(V.settings.max_weekly_change_pct)}% in a week. Both are set in the assumption register.</p>
       <div class="sub-t">How accurate is it? ${trustPill(bt.grade)} ${trainedOn('synthetic')}</div>
-      ${bt.plain ? `<ul class="fc-read"><li>${esc(bt.plain)}</li>
-        ${bt.excluded_completed ? `<li>${n0(bt.excluded_completed)} finished orders were left out: a crew that finished early stopped because the work ran out, not the day.</li>` : ''}
-        ${bt.rain_divided_out ? '<li>Rain slows this work, so each day\'s rate was adjusted for the weather before learning the crew\'s pace.</li>' : ''}
-        ${bt.best_prior_man_days && bt.best_prior_man_days !== bt.prior_man_days ? `<li>On past weeks, ${bt.best_prior_man_days} man-days of evidence before moving would have done slightly better than the register's ${bt.prior_man_days}.</li>` : ''}</ul>` : ''}
+      ${bt.plain ? `<ul class="fc-read"><li>${esc(bt.plain)}</li></ul>` : ''}
       <div class="sub-t">Does it find what is really there?</div>
       ${checksList(V.recovery)}
-      <div class="fp-actbar"><button class="ops-btn" data-open-panel="assumptions">Open the assumption register</button></div>
-      <div class="sub-t">About this forecast</div>
-      ${explainBlock(V.explain)}`,
+      <div class="fp-actbar"><button class="ops-btn" data-open-panel="assumptions">Open the assumption register</button></div>`,
   };
 }
 
@@ -615,24 +577,13 @@ function secAccuracy(A) {
   ];
   return {
     title: 'How accurate the forecasts are',
-    lead: 'Each forecast was checked on past days it had not seen, using only what was known the evening before, against the simple method it replaces.',
     html: `
       <div class="fc-trustrow">${rows.map(t => `<div class="fc-trustcard wide">
           <div class="fc-card-h"><span>${esc(t.title)}</span>${trustPill(t.grade)}</div>
           <p class="fc-lead">${esc(t.headline)}</p><p>${esc(t.detail)}</p>
-          <p class="fp-dim">${esc(t.grade.meaning)}</p>
           ${trainedOn(t.trained_on)} ${t.in_use ? '<span class="chip pos">used in the plan</span>' : '<span class="chip">not used in the plan</span>'}
         </div>`).join('')}</div>
-      <div class="sub-t">The rules every forecast is held to</div>
-      <ol class="fc-steps">${A.rules.map(r => `<li>${esc(r)}</li>`).join('')}</ol>
-      <div class="sub-t">The grades</div>
-      ${tbl(`<tr><th>Grade</th><th>Means</th></tr>
-        <tr><td>${trustPill({ label: 'Reliable', tone: 'ok' })}</td><td>At least a quarter more accurate than the old method on past days.</td></tr>
-        <tr><td>${trustPill({ label: 'Fairly reliable', tone: 'ok' })}</td><td>Clearly more accurate (10% to 25%), though it still misses on some days.</td></tr>
-        <tr><td>${trustPill({ label: 'Rough guide', tone: 'mid' })}</td><td>A little more accurate (up to 10%). Use it as a guide.</td></tr>
-        <tr><td>${trustPill({ label: 'Not better than the old way', tone: 'low' })}</td><td>Not used: the plan keeps the old method.</td></tr>`)}
       <div class="sub-t">Do they find what is really there?</div>
-      <p class="fp-dim">Three forecasts learn from generated data whose rules are known. Passing these checks shows the method works: it finds what is there and invents nothing that is not. It is not yet a finding about this estate's crews.</p>
       ${all.map(([t, r]) => `<div class="fc-checkgroup"><div class="fp-card-t">${esc(t)}</div>${checksList(r)}</div>`).join('')}`,
   };
 }
@@ -641,7 +592,6 @@ function secHow(A, O) {
   const order = ['rain', 'headcount', 'work_done', 'speeds'];
   return {
     title: 'How the forecasts work',
-    lead: 'In plain words: what each forecast tells you, how it is worked out, how to read it, and what would make it real.',
     html: `
       <div class="fc-glossary">${O.glossary.map(g => `<span><b>${esc(g.term)}</b> ${esc(g.plain)}</span>`).join('')}</div>
       ${order.map(k => `<div class="fc-howblock"><h4>${esc(A.explain[k].title)} <span class="fp-dim">${esc(A.explain[k].question)}</span></h4>

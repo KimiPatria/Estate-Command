@@ -133,7 +133,6 @@ check(!/Backend module not yet in place/i.test(body.text), 'stub still in place'
 check(body.refs > 0, `no [data-block] rows in the panel (got ${body.refs})`);
 check(body.svgs >= 3, `expected the trend chart and sparklines, got ${body.svgs} svg`);
 check(/calibration/i.test(body.text), 'calibration caveat not on screen');
-check(/Back-solved/i.test(body.text), 'CSV header wording not on screen');
 check(/weighbridge ticket/i.test(body.text), 'the ask to the client is not on screen');
 note(`  panel "${body.title}": ${body.text.trim().length} chars, ${body.refs} block rows, ${body.svgs} svg, ${body.tables} tables`);
 note(`  on screen: ${body.text.replace(/\s+/g, ' ').trim().slice(0, 160)}…`);

@@ -17,13 +17,14 @@
  *
  *   {
  *     key, title, subtitle,
+ *     ml:       true to mark the title as machine learning (optional)
  *     initial:  section id to open on
  *     load():   fetch what the window needs; may throw
  *     loadingText: what to say while load() runs (optional)
  *     header(): html for the strip beside the title (optional)
  *     wireHeader(el, api)
  *     menu():   [{ label, items: [{ id, label, count, alert }] }]
- *     section(id): { title, lead, html, blocks: [labels], blocksCaption }; may be async
+ *     section(id): { title, html, blocks: [labels], blocksCaption }; may be async
  *     wire(contentEl, api, sectionId)
  *     onSection(id)
  *     needs():  html for the "What this needs" section (optional)
@@ -33,6 +34,7 @@
  * Every figure still comes from the server; the shell never computes one.
  */
 import { esc } from '../lib/fmt.js';
+import { ML_ICON } from '../lib/ml.js';
 import { blockFeature, blockIdsFor } from '../map/blocks.js';
 import { currentRightPad } from '../map/camera.js';
 import { clearPanelHighlight, highlightPanel } from '../map/highlight.js';
@@ -323,7 +325,8 @@ function sectionLabel() {
 function renderHeader() {
   const def = P.def;
   if (!def) return;
-  el('fp-title').textContent = typeof def.title === 'function' ? def.title() : (def.title || '');
+  el('fp-title').innerHTML = esc(typeof def.title === 'function' ? def.title() : (def.title || ''))
+    + (def.ml ? ML_ICON : '');
   el('fp-sub').textContent = typeof def.subtitle === 'function' ? def.subtitle() : (def.subtitle || '');
   const extra = el('fp-extra');
   let html = '';
@@ -370,13 +373,11 @@ async function renderSection({ keepScroll = false } = {}) {
   try {
     sec = id === '__needs'
       ? { title: 'What this needs',
-          lead: 'The data this feature would need to run on your own numbers, and which of it you already supply.',
           html: await def.needs() || '<div class="empty">Every input here is already yours.</div>' }
       : await def.section(id);
   } catch (err) {
     console.error('popup section failed', def.key, id, err);
-    sec = { title: sectionLabel(), html: `<div class="sheet-note">This section failed to render.
-      Every other section is unaffected.</div>` };
+    sec = { title: sectionLabel(), html: `<div class="sheet-note">This section failed to render.</div>` };
   }
   clearTimeout(slow);
   if (token !== P.token || P.def !== def || P.section !== id) return;
@@ -386,7 +387,6 @@ async function renderSection({ keepScroll = false } = {}) {
     <div class="fp-sec-h">
       <div class="fp-sec-t">
         <h3>${esc(sec.title || sectionLabel())}</h3>
-        ${sec.lead ? `<p>${sec.leadHtml ? sec.lead : esc(sec.lead)}</p>` : ''}
       </div>
       ${blocks.length ? `<button class="fp-map-all" data-map="${esc(blocks.join(','))}"
           data-map-caption="${esc(sec.blocksCaption || sec.title || '')}">

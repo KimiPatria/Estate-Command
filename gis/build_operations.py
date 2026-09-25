@@ -1009,7 +1009,7 @@ def gen_dispatch_orders(info, blocks, latent, harvest_orders) -> list:
 
 def build() -> dict:
     from gis import ontology
-    blocks = ontology.blocks_geojson("EC")["features"]
+    blocks = ontology.blocks_geojson("EC", synthetic_world=True)["features"]
     # The same latent field every other feed was drawn against: it is the
     # first thing build_synthetic.build() draws from the seeded generator.
     latent = _latent_field(blocks, random.Random(SEED))

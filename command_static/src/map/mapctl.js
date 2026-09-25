@@ -36,12 +36,20 @@ export function renderMetricButton() {
    reads better as a block than as a list you scroll past one row at a time. */
 export function renderMetrics() {
   const on = !!S.blocks;
-  el('metrics').innerHTML = (S.catalogue || []).map(m => `
+  // Synthetic and derived layers exist only for the estate the synthetic
+  // feeds were generated for. Elsewhere they would paint an empty map.
+  const row = (S.estates || []).find(e => e.estate_code === S.estate);
+  const synth = !row || row.has_synthetic_feeds;
+  el('metrics').innerHTML = (S.catalogue || []).map(m => {
+    const noFeed = !synth && m.provenance !== 'real';
+    return `
     <button class="metric ${m.key === S.metric ? 'on' : ''}" data-metric="${esc(m.key)}"
-            ${on ? '' : 'disabled'}>
+            ${on && !noFeed ? '' : 'disabled'}
+            ${noFeed ? `title="No synthetic feeds for ${esc(S.estate)}: real metrics only"` : ''}>
       <span>${esc(m.label)}</span>
       <span class="prov ${m.provenance}">${PROV_LABEL[m.provenance] || m.provenance}</span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
   el('metrics').querySelectorAll('[data-metric]').forEach(b => {
     b.onclick = e => {
       closeMetricMenu();

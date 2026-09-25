@@ -16,7 +16,6 @@ export async function panelRotation() {
       <td class="num">${b.planted_ha}</td>
     </tr>`).join('')}
   </table>
-  <div class="sheet-note"><b>Provenance.</b> ${d.provenance}. ${d.note}</div>
   <div class="acts" style="margin-top:14px;max-width:340px">
     <button class="accept" data-decide='${JSON.stringify({
       use_case: 'UC-01 harvest rotation',
@@ -44,8 +43,7 @@ export async function panelLabour() {
   </table>
   <div class="sheet-note">
     Worst month <b>${d.worst_month}</b> at <b>${d.worst_deficit}</b> harvesters short
-    across ${d.gangs} gangs. ${d.note}<br><br>
-    <b>Provenance.</b> ${d.provenance}.
+    across ${d.gangs} gangs.
   </div>`;
 }
 

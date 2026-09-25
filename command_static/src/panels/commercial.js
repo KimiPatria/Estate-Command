@@ -20,9 +20,6 @@ export async function panelContract() {
     ${d.months_in_p50_deficit} of 6 forecast months are short at P50, and
     ${d.months_in_p10_deficit} are short at P10. Worst is <b>${w.month}</b> at
     ${idr(Math.round(w.gap_t))} t.
-    A P50 surplus with a P10 deficit is still a purchasing decision, which is why
-    the band matters more than the point.<br><br>
-    <b>Provenance.</b> ${d.provenance}. ${d.note}
   </div>
   <div class="acts" style="margin-top:14px;max-width:340px">
     <button class="accept" data-decide='${JSON.stringify({
@@ -59,16 +56,9 @@ export async function panelVendors() {
     </tr>`).join('')}
   </table>
   <div class="sheet-note">
-    All figures IDR per kg. ${d.formula}.<br><br>
-    The cheapest headline price is <b>${d.cheapest_headline}</b>, but the best buy is
-    <b>${d.best_landed}</b>. ${d.cheapest_is_best
-      ? 'On this data they happen to be the same vendor.'
-      : 'Ranking on the sticker price would pick the wrong one.'}<br><br>
+    Cheapest price: <b>${d.cheapest_headline}</b>. Best buy: <b>${d.best_landed}</b>.<br>
     Allocation for a ${idr(Math.round(gap))} t shortfall:
     ${d.allocation.map(a => `${a.name} ${idr(a.tonnes)} t`).join(', ') || 'none needed'}.
-    Capacity is discounted by each vendor's fill rate, so a vendor that delivers
-    80% of what it promises is credited with 80% of its stated capacity.<br><br>
-    <b>Provenance.</b> ${d.provenance}.
   </div>`;
 }
 

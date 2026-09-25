@@ -3,8 +3,10 @@ import { pct } from '../lib/fmt.js';
 /* ── intro curtain ──────────────────────────────────────────────────── */
 /* Two clocks race each other: the real one (map style, estate index,
    readiness scan, fire feed) and a floor of INTRO_MIN, so a warm cache
-   cannot flash the sequence and blink out mid-word. The later one lifts it. */
-export const INTRO_MIN = 2700;
+   cannot flash the sequence and blink out mid-word. The title settles by
+   ~1.6s and the status and bar are in by ~2.4s; the floor leaves the bar
+   on screen long enough to read. The later clock lifts it. */
+export const INTRO_MIN = 3000;
 export const INTRO_MAX = 9000;
 export const introStart = performance.now();
 export let introLifted = false;

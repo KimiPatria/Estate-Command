@@ -139,6 +139,9 @@ await page.evaluate(() => document.querySelector('.dom-ico[data-domain="commerci
 await page.waitForTimeout(400);
 const listed = await page.$$eval('#panels [data-panel]', els => els.map(e => e.dataset.panel));
 expect(listed.includes('stores'), 'the commercial domain lists the store');
+// Rail hints land after boot, the store's last in its chain; wait for it.
+await page.waitForFunction(() => /to order|nothing due/.test(
+  (document.querySelector('#panels [data-panel="stores"]') || {}).textContent || ''), null, { timeout: 20000 }).catch(() => {});
 const hint = await text('#panels [data-panel="stores"]');
 expect(/to order|nothing due/.test(hint), `the rail hint says what is due ("${hint.replace(/\s+/g, ' ').trim()}")`);
 await page.evaluate(() => document.querySelector('#panels [data-panel="stores"]').click());

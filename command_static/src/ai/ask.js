@@ -58,13 +58,7 @@ export function renderAsk() {
   const chat = activeChat();
   const body = document.getElementById('ask-body');
   if (!chat || !chat.history.length) {
-    const models = AI.status ? `${esc(AI.status.models.reasoning)} over ${esc(AI.status.provider)}` : 'the configured model';
     body.innerHTML = `
-      <div class="sheet-note" style="margin:0 0 11px">
-        Ask about this estate in plain language. Answers are computed from the
-        same layers the map is painted from, by ${models}, and every figure is
-        checked back against them. The map follows the answer.
-      </div>
       <div class="eg">${AI.examples.map(q =>
         `<button data-eg="${esc(q)}">${esc(q)}</button>`).join('')}</div>`;
     body.querySelectorAll('[data-eg]').forEach(b => {

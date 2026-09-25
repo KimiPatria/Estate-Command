@@ -11,10 +11,6 @@ export const sheetBg = document.getElementById('sheet-bg');
 document.getElementById('readiness-btn').onclick = async () => {
   const body = document.getElementById('sheet-body');
   document.querySelector('.sheet-h h2').textContent = 'Data readiness';
-  document.querySelector('.sheet-h p').textContent =
-    'What each capability needs, whether it exists, and what it degrades to without it. ' +
-    'Measured against the two EPMS databases and the estate exports, not assumed. ' +
-    'Each row can be turned into the questions worth asking the client, and their answer scored back against the measurement.';
   body.dataset.view = 'readiness';
   sheetBg.hidden = false;
   renderReadinessSheet();

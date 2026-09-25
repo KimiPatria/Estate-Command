@@ -28,8 +28,6 @@ export function renderMonths() {
     };
   });
   const forecasting = S.month && fwd.includes(S.month);
-  hz.innerHTML = forecasting
-    ? `<span style="color:var(--gold)">Forecast month.</span> The recorded export ends 2025-05-23; everything past the divider is generated.`
-    : `${S.months.length} months recorded, ${fwd.length} forecast. Solid is the client's data, dashed is projection.`;
+  hz.innerHTML = forecasting ? `<span style="color:var(--gold)">Forecast</span>` : '';
 }
 

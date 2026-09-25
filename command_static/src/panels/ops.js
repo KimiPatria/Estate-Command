@@ -259,13 +259,9 @@ function secPlan(op, P) {
              min="${esc(P.window.from)}" max="${esc(P.window.tomorrow)}"></label>
     <label>Rain on the day
       <span class="inl"><input type="number" min="0" max="200" step="1" data-rain value="${esc(rainVal)}" placeholder="mm"> mm</span></label>
-    <div class="fp-dim">${wx.forecast
-        ? `${esc(wx.forecast.headline)} Type an amount to plan for that rain instead.`
-        : esc(wx.source)}${wx.stops_work ? ` · <b class="neg">${esc(wx.reason)}</b>` : ''}<br>
-      Expected done ${pc(wx.expected_adherence_pct)}: ${esc(wx.basis)}.
-      ${P.is_tomorrow ? '' : (wx.recorded_mm !== null && wx.recorded_mm !== undefined
-        ? ` A replay decides on what was knowable the evening before; ${fmt(wx.recorded_mm, 0)} mm actually fell.`
-        : ' A date inside the ledger replays the plan against what happened that day.')}</div>
+    <div class="fp-dim">${wx.forecast ? esc(wx.forecast.headline) : esc(wx.source)}${wx.stops_work
+        ? ` · <b class="neg">${esc(wx.reason)}</b>` : ''}${!P.is_tomorrow && wx.recorded_mm !== null && wx.recorded_mm !== undefined
+        ? ` ${fmt(wx.recorded_mm, 0)} mm actually fell.` : ''}</div>
   </div>`;
 
   const rows = P.crews.map(c => {
@@ -336,17 +332,14 @@ function secPlan(op, P) {
 
   return {
     title: P.is_tomorrow ? `Tomorrow, ${P.date_label}` : `Replay, ${P.date_label}`,
-    lead: P.headline,
     blocks: P.crews.flatMap(c => c.block_labels),
     blocksCaption: `${P.label} plan for ${P.date}`,
     html: `${kpis}${controls}${crewTable}${actions}
       ${P.not_reached.blocks ? `<div class="fp-callout">
         <b>${n0(P.not_reached.blocks)} blocks due are not reached</b>, deferring costs
         ${mIdr(P.not_reached.deferral_cost_idr_per_week)} IDR this week.
-        ${esc(P.why.binding_constraint.text)}
         <button class="ops-btn" data-go="unreached">See what is left</button>
-        <button class="ops-btn" data-go="ranking">See the ranking</button></div>` : ''}
-      <div class="sheet-note"><span class="prov scheduled">scheduled</span> ${esc(P.provenance)}<br><br>${esc(P.note)}</div>`,
+        <button class="ops-btn" data-go="ranking">See the ranking</button></div>` : ''}`,
   };
 }
 
@@ -354,8 +347,7 @@ function secUnreached(op, P) {
   const nr = P.not_reached, unit = P.unit;
   const qty = v => unit === 'ha' || unit === 'tonnes' ? n1(v) : n0(v);
   return {
-    title: 'Due, and not reached',
-    lead: `What the ${P.crew_label}s cannot get to on ${P.date}, and what waiting costs. The table shows the costliest ${nr.top.length}; the map button outlines all ${nr.blocks}.`,
+    title: 'Not reached',
     blocks: nr.block_labels || nr.top.map(b => b.block_label),
     blocksCaption: 'Not reached',
     html: `<div class="kpis">
@@ -373,9 +365,7 @@ function secUnreached(op, P) {
           <td class="num">${n2(b.urgency)}</td><td class="num">${over(b.days_over_round)}</td>
           <td class="num">${qty(b.qty)}</td><td class="num">${n1(b.man_days)}</td>
           <td class="num">${idr(b.deferral_cost_idr_per_day)}</td></tr>`).join('')}`)
-        : '<div class="empty">Everything due is reached.</div>'}
-      <div class="blk-cap">Click a row to see the block on the map. Urgency is days since the last round over the target round.</div>
-      <div class="sheet-note">${esc(P.why.binding_constraint.text)}</div>`,
+        : '<div class="empty">Everything due is reached.</div>'}`,
   };
 }
 
@@ -383,8 +373,7 @@ function secBlocks(op, P) {
   const unit = P.unit;
   const blocks = P.crews.flatMap(c => c.blocks.map(b => ({ ...b, crew: c.crew_code })));
   return {
-    title: 'Every block on the plan',
-    lead: 'In the order each crew is meant to work them. A share marks a block the crew starts but does not finish; the remainder carries to the next order.',
+    title: 'Every block',
     blocks: blocks.map(b => b.block_label),
     blocksCaption: `All ${blocks.length} planned blocks`,
     html: blocks.length ? tbl(`
@@ -435,8 +424,7 @@ function filterBar(op, L) {
 function secSummary(op, L) {
   const t = L.totals, rd = L.slippage.round;
   return {
-    title: `${L.label} ledger`,
-    lead: `What was worked, when, by whom, planned against actual. Stands in for ${L.stands_in_for}.`,
+    title: `${L.label} ledger summary`,
     html: `<div class="kpis">
         <div class="kpi"><b>${n0(t.days)}</b><span>days</span></div>
         <div class="kpi"><b>${n0(t.orders)}</b><span>orders</span></div>
@@ -462,8 +450,7 @@ function secSummary(op, L) {
         ${L.by_activity.map(a => `<tr><td>${esc(words(a.activity))}</td><td class="num">${n0(a.orders)}</td>
           <td class="num">${n1(a.planned_qty)}</td><td class="num">${n1(a.actual_qty)}</td>
           <td class="num">${bar(a.adherence_pct)}</td><td class="num">${n0(a.carried_forward)}</td>
-          <td class="num">${n0(a.weathered_off)}</td></tr>`).join('')}`)}` : ''}
-      <div class="sheet-note"><b>Provenance.</b> ${esc(L.provenance)}<br><br>${esc(L.note)}</div>`,
+          <td class="num">${n0(a.weathered_off)}</td></tr>`).join('')}`)}` : ''}`,
   };
 }
 
@@ -480,15 +467,13 @@ function secDrivers(op, L) {
   }).join('');
   return {
     title: 'What drove the misses',
-    lead: 'Adherence grouped by the thing that drove the miss. If it were flat across all three, a plan could ignore them.',
-    html: `<div class="fp-grid3">${tables}</div><div class="sheet-note">${esc(L.drivers.note)}</div>`,
+    html: `<div class="fp-grid3">${tables}</div>`,
   };
 }
 
 function secWeeks(op, L) {
   return {
     title: 'Week by week',
-    lead: 'Planned against actual per week, beside the real rainfall that fell in it.',
     html: tbl(`
       <tr><th>Week of</th><th class="num">Orders</th><th class="num">Planned</th><th class="num">Actual</th>
           <th class="num">Adherence</th><th class="num">Rain mm</th><th class="num">Rained off</th><th class="num">Carried</th></tr>
@@ -505,7 +490,6 @@ function secSlippage(op, L) {
   const chains = sl.longest || [];
   return {
     title: 'Slippage',
-    lead: sl.note,
     blocks: chains.map(c => c.block_label),
     blocksCaption: 'Longest carry-forward chains',
     html: `<div class="kpis">
@@ -535,7 +519,6 @@ function secSlippage(op, L) {
 function secCrews(op, L) {
   return {
     title: 'By crew',
-    lead: 'Worst adherence first. Pick a crew in the filter above to see its orders.',
     html: tbl(`
       <tr><th>Crew</th><th>Div</th><th class="num">Days</th><th class="num">Blocks</th><th class="num">Orders</th>
           <th class="num">Adherence</th><th class="num">${esc(L.unit)} per man-day</th><th class="num">Carried</th>
@@ -555,7 +538,6 @@ function secOrders(op, L) {
   const multi = L.by_activity.length > 0;
   return {
     title: 'Orders',
-    lead: `${L.matched > L.rows.length ? `The most recent ${L.rows.length} of ${n0(L.matched)} matching orders. ` : ''}Click a row to see its block on the map.`,
     blocks: labels,
     blocksCaption: 'Blocks in the orders shown',
     html: tbl(`
@@ -581,8 +563,7 @@ function secOrders(op, L) {
 function secObjective(op, P) {
   const W = P.why, O = W.objective;
   return {
-    title: 'Objective and binding constraint',
-    lead: 'Value recovered per man-day, subject to capacity. Each term is in rupiah and traceable to a figure the app already computes.',
+    title: 'Objective and constraint',
     html: `<div class="kpis">
         <div class="kpi"><b>${mIdr(O.terms.deferral_idr)}</b><span>IDR deferral value taken</span></div>
         <div class="kpi"><b>${mIdr(O.terms.contiguity_idr)}</b><span>IDR contiguity bonus</span></div>
@@ -608,7 +589,6 @@ function secContiguity(op, P) {
   }
   return {
     title: 'What contiguity costs',
-    lead: 'The same plan run twice: once keeping crews on adjacent blocks, once as a pure ranking. The difference is the price of a plan a mandor will actually follow.',
     html: `<div class="kpis">
         <div class="kpi"><b>${n0(C.pairs_with)}</b><span>adjacent pairs with</span></div>
         <div class="kpi"><b>${n0(C.pairs_without)}</b><span>adjacent pairs without</span></div>
@@ -620,7 +600,7 @@ function secContiguity(op, P) {
         <tr class="good"><td>With contiguity at ${C.weight_pct}% of block value</td><td class="num">${n0(C.pairs_with)}</td>
           <td class="num">${idr(C.deferral_with_idr)}</td></tr>
         <tr><td>Without: pure ranking</td><td class="num">${n0(C.pairs_without)}</td><td class="num">${idr(C.deferral_without_idr)}</td></tr>`)}
-      <div class="sheet-note">${esc(C.reading)} The weight is an assumption; set it to zero in the register to see the scattered plan.</div>
+      <div class="sheet-note">${esc(C.reading)}</div>
       <div class="fp-actbar"><button class="ops-btn" data-open-panel="assumptions">Open the assumption register</button></div>`,
   };
 }
@@ -628,10 +608,7 @@ function secContiguity(op, P) {
 function secRanking(op, P) {
   const W = P.why, unit = P.unit;
   return {
-    title: 'The demand ranking',
-    lead: P.why.objective.discounted_by_work_done
-      ? 'Sorted by deferral value per man-day, discounted by how much of each block is likely to get done: the order the greedy pass reads. Rows not taken by any crew are highlighted.'
-      : 'Sorted by deferral value per man-day, which is the order the greedy pass reads. Rows not taken by any crew are highlighted.',
+    title: 'Demand ranking',
     blocks: W.ranking.map(r => r.block_label),
     blocksCaption: `Top ${W.ranking.length} by value per man-day`,
     html: tbl(`
@@ -653,8 +630,7 @@ function secRanking(op, P) {
 
 function secAssumptionsUsed(op, P) {
   return {
-    title: 'Assumptions this plan rests on',
-    lead: 'Every rupiah and tonne on the plan is computed from these values. Change one in the register and re-run.',
+    title: 'Assumptions used',
     html: tbl(`
       <tr><th>Assumption</th><th class="num">Value</th><th>Unit</th><th>Source</th></tr>
       ${P.assumptions_used.map(a => `<tr><td>${esc(a.label)}</td><td class="num">${fmt(a.value, a.value % 1 ? 2 : 0)}</td>
@@ -794,14 +770,12 @@ export function assumptionsPopup() {
       if (id === 'overview') {
         const edited = D.assumptions.filter(a => a.overridden);
         return {
-          title: 'The assumption register',
-          lead: 'Every number a plan is priced with, in one place: value, unit, source, and what depends on it.',
+          title: 'Assumptions',
           html: `<div class="kpis">
               <div class="kpi"><b>${D.total}</b><span>assumptions</span></div>
               <div class="kpi ${D.overridden ? 'warn' : ''}"><b>${D.overridden}</b><span>set by the client</span></div>
               ${Object.entries(D.by_source).map(([k, v]) => `<div class="kpi"><b>${v}</b><span>${esc(k)}</span></div>`).join('')}
             </div>
-            <div class="sheet-note" style="margin-top:0">${esc(D.note)}</div>
             <div class="sub-t">Groups</div>
             <div class="fp-grid3">${D.groups.map(g => `<button class="fp-tile" data-go="${esc(g.group)}">
               <b>${esc(cap(g.group))}</b>
@@ -814,14 +788,7 @@ export function assumptionsPopup() {
               ${edited.map(a => `<tr class="edited"><td><b>${esc(a.label)}</b></td>
                 <td class="num">${fmt(a.default, a.default % 1 ? 2 : 0)}</td><td class="num"><b>${fmt(a.value, a.value % 1 ? 2 : 0)}</b></td>
                 <td>${esc(a.unit)}</td><td class="fp-dim">${esc((a.set_at || '').slice(0, 16).replace('T', ' '))} · ${esc(a.set_by || '')}</td></tr>`).join('')}`)
-              : '<div class="empty">Nothing changed yet. Open a group and edit a value; it saves as you leave the field.</div>'}
-            <div class="sub-t">Sources</div>
-            <div class="sheet-note" style="margin-top:0">
-              ${srcBadge('literature')} an agronomic or industry figure, cited in its basis ·
-              ${srcBadge('calibrated')} back-solved from your own data ·
-              ${srcBadge('derived')} computed by a model in this app ·
-              ${srcBadge('assumed')} a planning figure with no better source yet ·
-              ${srcBadge('client')} set by you here, overriding the default</div>
+              : '<div class="empty">Nothing changed yet.</div>'}
             <div class="fp-actbar"><button class="ops-btn" data-asm-reset ${D.overridden ? '' : 'disabled'}>Back to defaults</button>
               <span class="fp-dim" data-asm-note></span></div>`,
         };
@@ -829,7 +796,6 @@ export function assumptionsPopup() {
       const g = D.groups.find(x => x.group === id) || D.groups[0];
       return {
         title: `${cap(g.group)} assumptions`,
-        lead: 'Edit a value and it saves as you leave the field. The next plan is priced at it.',
         html: `<div class="fp-tbl"><table class="tbl asm">
             <tr><th>Assumption</th><th class="num">Value</th><th>Unit</th><th>Source</th><th>Basis</th></tr>
             ${g.assumptions.map(a => `<tr class="${a.overridden ? 'edited' : ''}">
@@ -903,7 +869,7 @@ export function outcomesPopup() {
     initial: S.outSection,
     async load() { D = await getJSON('/gis/ops/outcomes?estate=EC'); },
     header: () => D ? `<span class="prov synthetic" title="Observed figures are read from the generated ledger">observed side is synthetic</span>` : '',
-    menu: () => D ? [{ label: 'Did it work', items: [
+    menu: () => D ? [{ label: 'Results', items: [
       { id: 'overview', label: 'Overview', count: D.realisation_pct === null ? '' : pc0(D.realisation_pct) },
       { id: 'plans', label: 'Accepted plans', count: D.plans.length, alert: D.counts.not_executed > 0 },
       { id: 'baseline', label: 'Baseline by operation', count: D.baseline.length },
@@ -916,7 +882,6 @@ export function outcomesPopup() {
       if (id === 'plans') {
         return {
           title: 'Accepted plans',
-          lead: 'Each accepted assignment beside what the ledger recorded on its planned blocks that day. Click a row to see the planned blocks on the map.',
           html: D.plans.length ? tbl(`
             <tr><th>Accepted</th><th>Plan</th><th>Due</th><th class="num">Expected</th><th class="num">Observed</th>
                 <th class="num">Realised</th><th>Status</th><th>Blocks worked</th></tr>
@@ -931,9 +896,7 @@ export function outcomesPopup() {
                 <td>${esc(words(p.status))}</td>
                 <td>${o ? `${o.blocks_worked} of ${o.blocks_planned}` : '—'}</td></tr>`;
             }).join('')}`)
-            + `<div class="sheet-note">Observed is the ledger's actual on the planned blocks that day; a planned block the estate did not work counts as zero.
-                A plan for a date beyond ${esc(D.window.to)} stays pending until a ledger extract covers it.</div>`
-            : `<div class="empty">No plan has been accepted yet. ${esc(D.how_to_test)}</div>
+            : `<div class="empty">No plan has been accepted yet.</div>
                <div class="fp-actbar"><button class="ops-btn" data-open-panel="ops_harvest">Open the harvest plan</button></div>`,
         };
       }
@@ -941,23 +904,19 @@ export function outcomesPopup() {
         const withChecks = D.plans.filter(p => p.forecast_check && p.forecast_check.checks.length);
         return {
           title: 'Forecasts against the day',
-          lead: 'For each accepted plan whose day is in the ledger: what the forecasts said when it was accepted, and what happened.',
           html: `<div class="fc-summary">${esc(D.forecast_summary ? D.forecast_summary.plain : '')}</div>
             ${withChecks.length ? withChecks.map(p => `<div class="fp-card fc-block">
                 <div class="fc-block-h"><div class="fp-card-t">${esc(p.title)}</div><span class="fp-dim">due ${esc(p.due_date)}</span></div>
                 <ul class="fc-checks">${p.forecast_check.checks.map(c => `<li>${c.right
                   ? '<span class="fc-mark ok">✓</span>' : '<span class="fc-mark no">✗</span>'}<span>${esc(c.plain)}</span></li>`).join('')}</ul>
               </div>`).join('')
-              : `<div class="empty">Nothing to check yet. ${esc(D.how_to_test)}</div>`}
-            <div class="sheet-note">A single day cannot prove a chance or a range right. The forecasts' full track record, over
-              hundreds of past days, is in tomorrow's outlook.</div>
+              : `<div class="empty">Nothing to check yet.</div>`}
             <div class="fp-actbar"><button class="ops-btn" data-open-panel="forecasts">Open tomorrow's outlook</button></div>`,
         };
       }
       if (id === 'baseline') {
         return {
-          title: 'The loop the ledger already closes',
-          lead: "Every day's plan against every day's actual across the generated history. This is what Did it work reads once a season of real orders exists.",
+          title: 'Baseline by operation',
           html: tbl(`
             <tr><th>Operation</th><th class="num">Orders</th><th class="num">Planned</th><th class="num">Actual</th>
                 <th class="num">Realised</th>${(D.baseline[0] ? D.baseline[0].by_month : []).map(m => `<th class="num">${esc(m.month.slice(5))}</th>`).join('')}</tr>
@@ -969,8 +928,7 @@ export function outcomesPopup() {
         };
       }
       return {
-        title: 'Did it work',
-        lead: D.headline,
+        title: 'Plan results',
         html: `<div class="kpis">
             <div class="kpi"><b>${c.accepted}</b><span>plans accepted</span></div>
             <div class="kpi"><b>${c.executed}</b><span>executed</span></div>
@@ -983,11 +941,9 @@ export function outcomesPopup() {
               <div class="fp-dim">across executed plans</div></div>
             <div class="fp-card"><div class="fp-card-t">Observed</div><div class="fp-big">${n1(D.observed_tonnes)} t</div>
               <div class="fp-dim">read back from the ledger</div></div>
-            <div class="fp-card"><div class="fp-card-t">How to test it now</div>
-              <div class="sheet-note" style="margin:0;border:none;padding:0">${esc(D.how_to_test)}</div>
+            <div class="fp-card"><div class="fp-card-t">Next plan</div>
               <div class="fp-actbar"><button class="ops-btn" data-open-panel="ops_harvest">Open the harvest plan</button></div></div>
-          </div>
-          <div class="sheet-note"><b>Provenance.</b> ${esc(D.provenance)}<br><br>${esc(D.note)}</div>`,
+          </div>`,
       };
     },
     wire: (root, api) => wireCommon(root, api),

@@ -65,9 +65,9 @@ const groups = await page.$$eval('#fp-nav .fp-nav-l', els => els.map(e => e.text
 note('  menu groups:', groups.join(' | '));
 for (const g of ['Tomorrow', 'Ledger', 'Why', 'About']) if (!groups.includes(g)) errors.push(`menu missing group ${g}`);
 const title0 = await text('.fp-sec-t h3');
-const lead0 = await text('.fp-sec-t p');
+const lead0 = await text('#fp-content .kpis');
 note('  plan:', lead0);
-if (!/present/.test(lead0)) errors.push('plan section has no headline');
+if (!/present/.test(lead0)) errors.push('plan section has no headline figures');
 await shot('window-plan');
 
 // Edit the first gang, re-run, the plan changes.
@@ -78,10 +78,10 @@ await page.dispatchEvent('#fp-content [data-present]', 'change');
 if (!/edits/.test(await text('#fp-content [data-replan]'))) errors.push('edit did not mark the plan dirty');
 await page.click('#fp-content [data-replan]');
 await page.waitForFunction(l => {
-  const p = document.querySelector('.fp-sec-t p');
+  const p = document.querySelector('#fp-content .kpis');
   return p && p.textContent.replace(/\\s+/g, ' ').trim() !== l;
 }, lead0, { timeout: 30000 }).catch(() => errors.push('re-run with an edited headcount produced the same plan'));
-note('  after edit:', await text('.fp-sec-t p'));
+note('  after edit:', await text('#fp-content .kpis'));
 const edited = await page.$eval(`#fp-content tr[data-crew="${firstCrew}"]`, el => el.classList.contains('edited'));
 if (!edited) errors.push('edited gang not marked on the plan');
 
@@ -152,15 +152,14 @@ await page.click('#fp-x');
 
 // The weeding window switches to spraying.
 await openWindow('ops_weed');
-const weedLead = await text('.fp-sec-t p');
+const weedLead = await text('#fp-content .kpis');
 await page.click('#fp-extra [data-variant="spray"]');
 await page.waitForFunction(l => {
-  const p = document.querySelector('.fp-sec-t p');
-  // Either the spray teams' plan or, when the rain forecast says hold, the
-  // hold call that replaces it: both are the spraying variant.
-  return p && /teams|Spraying held/.test(p.textContent) && p.textContent.replace(/\\s+/g, ' ').trim() !== l;
+  const p = document.querySelector('#fp-content .kpis');
+  // Spraying is planned for teams, weeding for crews, held or not.
+  return p && /teams/.test(p.textContent) && p.textContent.replace(/\\s+/g, ' ').trim() !== l;
 }, weedLead, { timeout: 30000 }).catch(() => errors.push('spraying variant did not load'));
-note('  spraying:', await text('.fp-sec-t p'));
+note('  spraying:', await text('#fp-content .kpis'));
 await page.click('#fp-x');
 
 // The register: open a group, edit a value.

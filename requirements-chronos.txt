@@ -1,0 +1,60 @@
+# Chronos-2 R&D benchmark dependencies (forecast/chronos_*.py).
+#
+# DO NOT install these into the dashboard's anaconda env. autogluon.timeseries
+# pins torch>=2.10,<2.14; the dashboard env has torch 2.9.1, which
+# requirements-timesfm.txt documents (and this benchmark itself proves) as
+# untouched by the TimesFM install. Installing here would silently upgrade
+# that torch and invalidate that guarantee for no benefit -- Chronos-2's own
+# forecast_batch call has nothing to do with the live serving path either.
+#
+# Instead, use a separate conda env. Phase 1 (zero-shot, this env only, no
+# AWS) tolerates any of autogluon.timeseries' supported Pythons (3.10-3.13).
+# Phase 2 (chronos_finetune_sagemaker.py) additionally requires the LOCAL
+# python to be 3.13 specifically -- it must exactly match the PyTorch 2.10
+# SageMaker DLC's python version (confirmed hard requirement; see that
+# script's launch_finetune_job docstring for why 2.10/py313 is also the
+# only image that avoids a whole class of torch-ecosystem ABI-mismatch
+# failures). So just use python=3.13 here too and one env covers both phases:
+#
+#     conda create -n chronos-rd python=3.13
+#     conda run -n chronos-rd python -m pip install -r requirements-chronos.txt
+#     conda run -n chronos-rd python forecast/chronos_smoke.py
+#     conda run -n chronos-rd python forecast/chronos_experiment.py --track monthly
+#
+# autogluon.timeseries wraps amazon/chronos-2 (Apache-2.0, 120M params) for
+# both zero-shot (Phase 1, this file) and LoRA fine-tuning (Phase 2, on
+# SageMaker) behind one API, so both phases stay on one code path.
+#
+# Pulls a large stack: torch, transformers, accelerate, lightning, gluonts,
+# statsforecast, mlforecast, autogluon.tabular[catboost,lightgbm,xgboost] (a
+# hard dependency of the package even though this benchmark only uses the
+# Chronos2 model class). Expect several GB and several minutes to resolve/install.
+#
+# mlflow is separate from autogluon's own deps -- included here so
+# chronos_experiment.py can log to the same sqlite mlflow.db at the repo root
+# (experiment "ffb-chronos2-rd"), same as timesfm_experiment.py.
+
+autogluon.timeseries==1.6.3
+mlflow
+
+# chronos_experiment.py loads monthly_model.py (for the incumbent's scoring/
+# feature helpers) by exec'ing the file directly, which runs its top-level
+# `import statsmodels.api as sm` unconditionally -- not otherwise pulled in by
+# autogluon's own dependency tree (lightgbm and joblib are, via
+# autogluon.tabular[lightgbm] and autogluon.timeseries' own joblib pin).
+statsmodels
+
+# Phase 2 (chronos_finetune_sagemaker.py) only -- the @remote decorator that
+# turns a local Python function into a SageMaker training job. This is for
+# the LOCAL orchestration side; the job container itself installs only
+# requirements-chronos-remote.txt (autogluon.timeseries alone).
+#
+# Verified installs SDK v3 (3.22.1 as of 2026-09-22), which relocated both
+# `sagemaker.remote_function` -> `sagemaker.core.remote_function` and
+# `sagemaker.Session` -> `sagemaker.core.helper.session_helper.Session` --
+# chronos_finetune_sagemaker.py already imports from the new locations.
+# Also needs botocore[crt] (installed separately below) or constructing a
+# Session raises MissingDependencyException on this account's credential
+# provider chain (aws login's short-term credentials).
+sagemaker>=2.240
+botocore[crt]

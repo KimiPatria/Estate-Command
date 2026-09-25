@@ -73,9 +73,6 @@ export async function panelCompare(metricB) {
     </div>
 
     <div class="sub-t">Weak on both — corroborated</div>
-    <div class="sheet-note" style="margin:0 0 9px;border:none;padding:0">
-      Two measurements that share no instrument agree about these blocks. That
-      is evidence, not a lead.</div>
     ${blockTable(d.weak_on_both, d.metric_a, d.metric_b)}
 
     <div class="sub-t">Weak on ${esc(d.metric_a.label)} only</div>
@@ -83,6 +80,5 @@ export async function panelCompare(metricB) {
 
     <div class="sub-t">Weak on ${esc(d.metric_b.label)} only</div>
     ${blockTable(d.weak_on_b_only, d.metric_a, d.metric_b)}
-
-    <div class="sheet-note"><b>Read this carefully.</b> ${esc(d.note)}</div>`;
+`;
 }

@@ -14,7 +14,6 @@ import { selectBlock } from './map/select.js';
 import { toggleSelection } from './state/selection.js';
 import { initTray } from './shell/tray.js';
 import { loadFeatures, markActivePanel, primePanelHints } from './panels/registry.js';
-import { raiseAlerts } from './shell/alerts.js';
 import { dismissIntro, introStep } from './shell/intro.js';
 import { initRail, refreshRail } from './shell/rail.js';
 import { initContextBar, renderCoverage, renderEstates, renderReadinessButton, renderRoles } from './shell/context-bar.js';
@@ -128,12 +127,14 @@ export async function boot() {
   renderMetrics();
   renderReadinessButton();
   primePanelHints();
-  raiseAlerts();
 
   buildEstatePins();
   introStep(88, 'Loading blocks');
-  const withGeometry = S.estates.find(e => e.has_block_geometry);
-  await selectEstate(withGeometry ? withGeometry.estate_code : S.estates[0].estate_code);
+  // Open on the estate the rail's panels are built on (the one with the
+  // synthetic feeds), not whichever estate sorts first.
+  const start = S.estates.find(e => e.has_synthetic_feeds)
+    || S.estates.find(e => e.has_block_geometry) || S.estates[0];
+  await selectEstate(start.estate_code);
   paintScaleHud();
   renderEstatePins();
   renderCoverage();

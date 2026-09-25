@@ -63,8 +63,6 @@ function draftMenu(all, n) {
   return `<div class="draft-menu">
     <div class="mm-h">Draft against ${n} block${n === 1 ? '' : 's'}</div>
     ${rows}
-    <div class="draft-note">Nothing is written to EPMS and nothing is sent.
-      Each document names the queue it would enter.</div>
   </div>`;
 }
 
@@ -116,9 +114,7 @@ async function openDraft(kind) {
       const d = await draft(kind);
       const { renderArtifact } = await import('../panels/decisions.js');
       return (d.artifact ? renderArtifact(d.artifact) : '')
-        + `<div class="sheet-note"><b>Recorded.</b> This decision is in the log
-            with the selected blocks as its evidence, and shows in the shift
-            handover.<br><br><b>Provenance.</b> ${esc(meta.provenance || '')}</div>`;
+        + `<div class="sheet-note"><b>Recorded</b> in the decision log.</div>`;
     },
   });
 }
@@ -146,10 +142,7 @@ function openBrief() {
           <td class="num">${fmt(r.planted_ha, 2)}</td>
           <td class="num">${fmt(r.palms)}</td>
           <td class="num">${r.planted_year ?? '—'}</td></tr>`).join('')}
-      </table>
-      <div class="sheet-note"><b>Provenance: real.</b> Block identity, division,
-        planted area, palm counts and planting year all come from the client's
-        own ArcGIS export.</div>`,
+      </table>`,
   });
 }
 

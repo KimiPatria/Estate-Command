@@ -61,3 +61,7 @@ gis/data/decisions.db
 # Estate Command frontend build
 command_static/node_modules/
 command_static/dist/
+
+# Estate Command estate snapshots (gis/build_estate_data.py): real block
+# polygons and harvest records out of the EPMS databases.
+gis/data/estates/

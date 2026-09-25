@@ -6,6 +6,7 @@
  * base, which defaults to http://localhost:5173/command-static/.
  */
 import { chromium } from 'playwright';
+import { firstSentence } from '../src/lib/fmt.js';
 
 const BASE = process.argv[2] || 'http://localhost:5173/command-static/';
 const errors = [];
@@ -118,7 +119,7 @@ check(!/Backend module not yet in place/i.test(body.text), 'placeholder body sti
 check(body.blocks > 0, 'no block rows point at the map');
 check(body.svg >= 1, 'no scatter drawn');
 check(body.kpis >= 4, `only ${body.kpis} KPIs`);
-check(d.summary && body.text.includes(d.summary.slice(0, 60)), 'summary sentence not on screen');
+check(d.summary && body.text.includes(firstSentence(d.summary)), 'headline sentence not on screen');
 note(`  dock: ${body.blocks} block rows, ${body.tables} tables, ${body.svg} chart, ${body.kpis} KPIs`);
 note('  on screen: ' + body.text.replace(/\s+/g, ' ').trim().slice(0, 160));
 

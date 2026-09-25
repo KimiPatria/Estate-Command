@@ -1,10 +1,11 @@
 """Realised cutting interval against target.
 
 Answers "is the round actually being kept, block by block?" from the client's
-own harvest export. The EPMS OPH file (forecast/EC/EC_oph.csv) carries one or
-more rows per block per harvest date, so the distinct dates per block are the
-block's real cutting days, and the interval between successive cuts is the
-block's realised round. That figure is REAL.
+own harvest export. The EPMS OPH snapshot (gis/data/estates/EC/oph.csv, from
+gis/build_estate_data.py) carries one or more rows per block per harvest
+date, so the distinct dates per block are the block's real cutting days, and
+the interval between successive cuts is the block's realised round. That
+figure is REAL.
 
 Two things about the raw days matter and are handled here rather than left to
 the reader:
@@ -39,7 +40,7 @@ from gis import layers
 
 log = logging.getLogger("estate-command.cutting_interval")
 
-_FORECAST_DIR = Path(__file__).resolve().parent.parent / "forecast"
+_ESTATES_DIR = Path(__file__).resolve().parent / "data" / "estates"
 _CACHE: dict = {}
 _LOCK = Lock()
 
@@ -64,11 +65,17 @@ _MONTH_NAMES = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May",
 # ── loading ────────────────────────────────────────────────────────────────
 
 def _cutting_days(estate: str) -> dict[str, list[date]] | None:
-    """Real cutting days per block, from the client's OPH export."""
+    """Real cutting days per block, from the client's OPH export.
+
+    Cut at the synthetic window's end: the target it is compared against, and
+    the early/late windows above, belong to that window. The snapshot itself
+    now runs well past it.
+    """
     code = estate.upper()
-    path = _FORECAST_DIR / code / f"{code}_oph.csv"
+    path = _ESTATES_DIR / code / "oph.csv"
     if not path.exists():
         return None
+    through = layers.EXPORT_END
     days: dict[str, set] = defaultdict(set)
     with path.open(encoding="utf-8-sig", newline="") as fh:
         rd = csv.reader(fh)
@@ -78,6 +85,8 @@ def _cutting_days(estate: str) -> dict[str, list[date]] | None:
         i_div = head.index("divison_code")
         i_blk = head.index("block_code")
         for row in rd:
+            if row[i_date] > through:
+                continue
             days[layers._key(row[i_div], row[i_blk])].add(row[i_date])
     return {k: sorted(date.fromisoformat(d) for d in s) for k, s in days.items()}
 
@@ -113,9 +122,10 @@ def _compute(estate: str) -> dict:
     if not days_by_block:
         return {"available": False,
                 "reason": f"No harvest export for {estate.upper()}: expected "
-                          f"forecast/{estate.upper()}/{estate.upper()}_oph.csv."}
+                          f"gis/data/estates/{estate.upper()}/oph.csv - run "
+                          f"gis/build_estate_data.py."}
 
-    rows = layers.block_rows(estate) or []
+    rows = layers.block_rows(estate, synthetic_world=True) or []
     meta = {layers._key(r["division_code"], r["block_code"]): r for r in rows}
     rot = layers._state()["rotation"]
     anchor = date.fromisoformat(layers.EXPORT_END)

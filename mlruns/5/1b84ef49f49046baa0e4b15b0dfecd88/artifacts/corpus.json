@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "EC": {
+      "first_day": "2025-01-01",
+      "last_day": "2026-07-22",
+      "val_from": "2026-04-16",
+      "n_blocks": 291,
+      "n_blocks_too_short": 0,
+      "weeks_min": 79,
+      "weeks_max": 81,
+      "train_weeks_total": 19379
+    },
+    "EB": {
+      "first_day": "2025-06-02",
+      "last_day": "2026-01-31",
+      "val_from": "2025-10-26",
+      "n_blocks": 356,
+      "n_blocks_too_short": 0,
+      "weeks_min": 32,
+      "weeks_max": 34,
+      "train_weeks_total": 6897
+    }
+  },
+  "cfg": {
+    "checkpoint": "amazon/chronos-2",
+    "horizon": 14,
+    "min_past": 4,
+    "context_length": 256,
+    "lr": 1e-05,
+    "lora_r": 4,
+    "lora_targets": [
+      "self_attention.q",
+      "self_attention.v",
+      "self_attention.k",
+      "self_attention.o",
+      "output_patch_embedding.output_layer"
+    ],
+    "batch_size": 16,
+    "max_steps": 20,
+    "eval_steps": 10,
+    "patience": 4,
+    "seeds": [
+      0
+    ]
+  }
+}

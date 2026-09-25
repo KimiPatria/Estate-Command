@@ -257,7 +257,7 @@ def _compute(estate: str) -> dict:
         }
 
     meta = {layers._key(r["division_code"], r["block_code"]): r
-            for r in (layers.block_rows(est) or [])}
+            for r in (layers.block_rows(est, synthetic_world=True) or [])}
     blocks = []
     for k, a in by_block.items():
         if a["trips"] < MIN_TRIPS_PER_BLOCK:

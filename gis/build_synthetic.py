@@ -1356,8 +1356,10 @@ def build() -> dict:
     from gis import ontology
 
     rng = random.Random(SEED)
-    blocks = ontology.blocks_geojson("EC")["features"]
-    months = ontology.estate_index()
+    # The synthetic world is generated from the harvest up to WINDOW_END, not
+    # from everything EC's database holds. Moving WINDOW_END is the re-anchor.
+    blocks = ontology.blocks_geojson("EC", synthetic_world=True)["features"]
+    months = ontology.estate_index(synthetic_world=True)
     months = next(e["harvest_window"]["months"] for e in months
                   if e["estate_code"] == "EC")
 

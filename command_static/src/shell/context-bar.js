@@ -86,10 +86,6 @@ export function renderCoverage() {
 async function openDataRequest() {
   const body = el('sheet-body');
   document.querySelector('.sheet-h h2').textContent = 'The data request';
-  document.querySelector('.sheet-h p').textContent =
-    'Every extract this app is waiting on, grouped by the system it comes from, '
-    + 'with the features each one unblocks. Generated from the feature manifest, '
-    + 'so it cannot drift from what the panels actually claim to need.';
   body.dataset.view = 'data-request';
   body.innerHTML = '<div class="empty">Loading…</div>';
   sheetBg.hidden = false;
@@ -97,8 +93,7 @@ async function openDataRequest() {
     const d = await getJSON('/gis/data-request');
     body.innerHTML = renderDataRequest(d);
   } catch (err) {
-    body.innerHTML = `<div class="sheet-note">The data request could not be
-      loaded. Every panel still states its own requirements.</div>`;
+    body.innerHTML = `<div class="sheet-note">The data request could not be loaded.</div>`;
   }
 }
 
@@ -109,8 +104,7 @@ function renderDataRequest(d) {
       <div class="kpi"><b>${d.systems}</b><span>source systems</span></div>
       ${d.highest_value ? `<div class="kpi alert"><b>${d.highest_value.unblocks_count}</b>
         <span>unblocked by the single best ask</span></div>` : ''}
-    </div>
-    ${d.summary ? `<div class="sheet-note" style="margin:0 0 14px">${esc(d.summary)}</div>` : ''}`;
+    </div>`;
 
   const groups = (d.groups || []).map(g => `
     <div class="cap">
@@ -129,8 +123,7 @@ function renderDataRequest(d) {
       </table>
     </div>`).join('');
 
-  return head + groups
-    + (d.note ? `<div class="sheet-note"><b>Note.</b> ${esc(d.note)}</div>` : '');
+  return head + groups;
 }
 
 /* ── readiness ─────────────────────────────────────────────────────────── */

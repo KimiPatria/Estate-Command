@@ -54,14 +54,21 @@ _MONTHS = ("January", "February", "March", "April", "May", "June", "July",
 
 
 def _month_long(m: str) -> str:
+    """'2025-01' -> 'January 2025'. The year stays on: the window runs past
+    twelve months, so a bare 'January' no longer names one month."""
     try:
-        return _MONTHS[int(m[5:7]) - 1]
+        return f"{_MONTHS[int(m[5:7]) - 1]} {m[:4]}"
     except (ValueError, IndexError):
         return m
 
 
-def _month_short(m: str) -> str:
-    return _month_long(m)[:3]
+def _month_short(m: str, with_year: bool = False) -> str:
+    """'Jan', or "Jan '25" where a chart axis needs the year to read."""
+    try:
+        name = _MONTHS[int(m[5:7]) - 1][:3]
+    except (ValueError, IndexError):
+        return m
+    return f"{name} '{m[2:4]}" if with_year else name
 
 
 def _quantile(vals: list, q: float):
@@ -159,11 +166,12 @@ def _measure(estate: str) -> dict | None:
 
     # Months, over the whole estate.
     by_month = []
-    for m in months:
+    for i, m in enumerate(months):
         mb = sum(r["bunches_by_month"][m] for r in blocks)
         ml = sum(r["loose_by_month"][m] for r in blocks)
         by_month.append({
-            "month": m, "label": _month_short(m),
+            # The year rides on the first bar and on every January.
+            "month": m, "label": _month_short(m, with_year=(i == 0 or m[5:7] == "01")),
             "bunches": mb, "loose_fruits": ml,
             "loose_per_bunch": round(ml / mb, 3) if mb else None,
             "blocks": sum(1 for r in blocks if r["bunches_by_month"][m]),
@@ -374,6 +382,8 @@ def position(estate: str = "EC", top: int = 12) -> dict:
         "falls_window": {"first": first, "last": last,
                          "first_label": _month_long(first) if first else None,
                          "last_label": _month_long(last) if last else None,
+                         "first_short": _month_short(first, True) if first else None,
+                         "last_short": _month_short(last, True) if last else None,
                          "blocks_fell": sum(1 for r in m["falls"] if r["delta"] < 0),
                          "blocks_rose": sum(1 for r in m["falls"] if r["delta"] > 0)},
         "recording": {

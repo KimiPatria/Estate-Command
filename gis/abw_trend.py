@@ -83,7 +83,7 @@ def _header_caveat() -> str:
 # ── the computation, once per estate ───────────────────────────────────────
 
 def _compute(estate: str) -> dict:
-    rows = layers.block_rows(estate) or []
+    rows = layers.block_rows(estate, synthetic_world=True) or []
     if not rows:
         return {"available": False, "estate": estate,
                 "reason": f"No block ontology for {estate}."}

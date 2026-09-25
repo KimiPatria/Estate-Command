@@ -55,12 +55,6 @@ export function panelFire() {
         </svg>
         Duty officer brief
       </button>
-
-      <div class="sheet-note"><b>What is real here.</b> The detection is real:
-        NASA FIRMS hotspots over this estate, with live wind from Open-Meteo,
-        against the client's own block geometry and palm counts. Every post,
-        crew, water source and travel time is synthetic, because EPMS has no
-        fire module to carry them.</div>
     </div>`;
 
   return html;

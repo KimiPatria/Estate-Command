@@ -6,6 +6,10 @@ import { clearLegendBand } from './legend-filter.js';
 import { DIVERGING, RAMP_DIV, RAMP_SEQ } from '../state/constants.js';
 import { S } from '../state/store.js';
 
+// Marks a block the metric could not be computed for, so a missing reading
+// renders as a visible hole rather than as the bottom of the ramp.
+const NO_VALUE = -999999;
+
 /* ── metric + choropleth ────────────────────────────────────────────── */
 export async function setMetric(metric) {
   if (!S.blocks) return;
@@ -25,7 +29,16 @@ export async function setMetric(metric) {
 
 export function paintChoropleth() {
   const d = S.metricData;
-  if (!d || !d.domain) return;
+  if (!d) return;
+  if (!d.domain) {
+    // Nothing computed for this metric on this estate or month: every block
+    // is a hole, never the colours the previous metric left behind.
+    S.blocks.features.forEach(f => { f.properties._v = NO_VALUE; f.properties._id = f.id; });
+    map.getSource('blocks').setData(S.blocks);
+    map.setPaintProperty('blocks-fill', 'fill-color', 'rgba(140,160,155,.5)');
+    map.setPaintProperty('blocks-fill', 'fill-opacity', 0.18);
+    return;
+  }
   const [lo, hi] = d.domain;
   const diverging = DIVERGING.has(d.metric);
   const ramp = diverging ? RAMP_DIV : RAMP_SEQ;
@@ -41,11 +54,9 @@ export function paintChoropleth() {
     stops = ramp.map((c, i) => [lo + (span * i) / (ramp.length - 1), c]);
   }
 
-  // Values ride in the feature properties and the source is re-set. With 291
-  // features that costs nothing and cannot fail the way feature-state can.
-  // NO_VALUE marks a block the metric could not be computed for, so a missing
-  // reading renders as a visible hole rather than as the bottom of the ramp.
-  const NO_VALUE = -999999;
+  // Values ride in the feature properties and the source is re-set. With a
+  // few hundred features that costs nothing and cannot fail the way
+  // feature-state can.
   S.blocks.features.forEach(f => {
     const v = d.values[f.id];
     f.properties._v = (v === null || v === undefined) ? NO_VALUE : v;

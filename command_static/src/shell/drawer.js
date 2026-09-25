@@ -71,8 +71,7 @@ export function renderDrawer(f) {
         ${row('Stand density', p.sph, 'per ha')}
         ${row('Ownership', p.ownership)}
       </dl>
-      <div class="src">Geometry and attributes: <b>real</b>, from the client's ArcGIS export
-        (<code>${p.estate_code}_overlay.csv</code>).</div>
+      <div class="src">Source: ArcGIS export</div>
     </div>
 
     <div class="dr-sec">
@@ -85,9 +84,7 @@ export function renderDrawer(f) {
         ${row('Deduction rate', p.deduction_rate === null ? null : (p.deduction_rate * 100).toFixed(2), '%')}
         ${row('Tonnage', null)}
       </dl>
-      <div class="src">Harvest: <b>real</b>, from EPMS OPH records.
-        Tonnage is blank because the export carries no average bunch weight, and
-        assuming one would produce a figure an agronomist would reject.</div>
+      <div class="src">Source: EPMS OPH records</div>
     </div>
 
     ${canopySection(f)}
@@ -116,7 +113,6 @@ export function blockThreatSection(blockId) {
       ${row('Off the wind axis', t.bearing_offset_deg, '°')}
       ${row('Fire radiative power', fmt(t.frp_total, 1), 'MW')}
     </dl>
-    <div class="src">${S.fire.model.caveat}</div>
   </div>`;
 }
 
@@ -170,9 +166,6 @@ export function decisionCard(p, peer) {
                     ? 'not recorded' : (p.deduction_rate * 100).toFixed(2) + '%'}</b>,
               against an estate mean of 0.25% and a maximum of 2.1%.</li>
         </ul>
-        <div class="src">Age is the only covariate this export carries, so the comparison controls
-          for age and nothing else. Soil series, terrain and rainfall are <b>not available</b>,
-          and any of them could explain this gap.</div>
       </div>
       <div class="card-act">
         <p>${action}</p>
@@ -198,7 +191,7 @@ export function decisionCard(p, peer) {
             action: 'deferred', evidence: [`Peer index ${idx.toFixed(2)}`]
           }).replace(/'/g, "&#39;")}'>Defer</button>
         </div>
-        <div class="stub" id="act-note">Accepting drafts an inspection order. Nothing is written to EPMS.</div>
+        <div class="stub" id="act-note"></div>
       </div>
     </div>
   </div>`;

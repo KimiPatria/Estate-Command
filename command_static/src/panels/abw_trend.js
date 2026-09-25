@@ -8,7 +8,7 @@
  * the divisions, not the estate's own wobble, and every sparkline shares one
  * percent scale - a flat block must look flat, or the panel is selling noise.
  */
-import { esc, fmt } from '../lib/fmt.js';
+import { esc, firstSentence, fmt } from '../lib/fmt.js';
 import { blockList } from './_shared.js';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -121,7 +121,7 @@ export async function panelAbwTrend() {
   const d = await r.json();
   if (!d.available) return `<div class="empty">${esc(d.reason || 'No bunch-weight series.')}</div>`;
 
-  const t = d.totals, cal = d.calibration || {}, rvp = d.recovered_vs_planted || {};
+  const t = d.totals, cal = d.calibration || {};
   const months = d.months || [];
   const falling = d.falling || [], rising = d.rising || [];
 
@@ -148,14 +148,11 @@ export async function panelAbwTrend() {
   const widest = (d.spread || {}).widest || [];
 
   return `
-  <p style="margin:6px 0 12px;font-size:12.5px;line-height:1.55;color:var(--text)">${esc(d.summary)}</p>
+  <p style="margin:6px 0 12px;font-size:12.5px;line-height:1.55;color:var(--text)">${esc(firstSentence(d.summary))}</p>
 
-  <div class="sheet-note" style="margin:0 0 14px;padding:10px 12px;border:1px solid rgba(212,168,75,.4);
+  <div class="sheet-note" style="margin:0 0 14px;padding:8px 12px;border:1px solid rgba(212,168,75,.4);
       border-radius:8px;background:var(--gold-dim);color:var(--text)">
-    <b style="color:var(--gold)">Calibration - read this first.</b> ${esc(cal.headline)}
-    The bunch-weight file's own header: <i>"${esc(cal.header)}"</i>
-    ${esc(cal.read_as)}<br>
-    <b style="color:var(--gold)">Ask the client.</b> ${esc(cal.ask_client)}
+    <b style="color:var(--gold)">Calibration.</b> ${esc(cal.headline)}
   </div>
 
   <div class="kpis">
@@ -167,13 +164,9 @@ export async function panelAbwTrend() {
 
   <div class="sub-t">Estate bunch weight by month, divisions behind it</div>
   ${trendChart(d)}
-  <div class="sheet-note" style="margin-top:6px;padding-top:0;border-top:0">
-    ${d.estate_series.map(p => `${esc(p.label)} ${num(p.abw_kg, 2)} kg / ${num(p.trips, 0)} trips`).join(' · ')}.
-    Divisions: ${d.division_series.map(s => `D${esc(s.division_code)} ${num(s.mean_kg, 2)} (${spct(s.change_pct)})`).join(', ')}.
-  </div>
 
   <div class="sub-t">Falling fastest</div>
-  ${blockList(falling, { cols, caption: `Fitted change over the window, least squares across ${months.length} months. Sparklines share one scale of ±${scale} % about each block's mean.` })}
+  ${blockList(falling, { cols })}
 
   <div class="sub-t">Rising fastest</div>
   ${blockList(rising, { cols })}
@@ -187,11 +180,6 @@ export async function panelAbwTrend() {
       <td class="num">${num(a.blocks, 0)}</td><td class="num">${num(a.trips, 0)}</td>
       <td class="num">${num(a.abw_kg, 2)}</td><td class="num">${spct(a.vs_age9_pct)}</td></tr>`).join('')}
   </table>
-  <div class="sheet-note" style="margin-top:6px;padding-top:0;border-top:0">
-    Recovered <b>${spct((d.age_curve || {}).recovered_pct_per_year)} per year</b> of palm age against a planted
-    ${spct((d.age_curve || {}).planted_pct_per_year)}, r² ${num((d.age_curve || {}).r2, 2)}.
-    ${esc((rvp.age || {}).verdict || '')}
-  </div>
 
   <div class="sub-t">Where the tickets disagree most</div>
   <table class="tbl">
@@ -202,27 +190,5 @@ export async function panelAbwTrend() {
       <td class="num">${num(w.trips, 0)}</td><td class="num">${num(w.abw_kg, 2)}</td>
       <td class="num">${num(w.min_kg, 2)}–${num(w.max_kg, 2)}</td>
       <td class="num">${pctAbs(w.cv_pct)}</td></tr>`).join('')}
-  </table>
-  <div class="sheet-note" style="margin-top:6px;padding-top:0;border-top:0">
-    ${num((d.spread || {}).block_months_measured, 0)} block-months with two or more trips; median
-    ${num((d.spread || {}).trips_per_block_month_median, 0)} trips each. A wide row is one load
-    that weighed light or heavy against its count - a ticket to check, not a change in bunch weight.
-    ${esc((d.spread || {}).note || '')}
-  </div>
-
-  <div class="sheet-note"><b>Recovered against planted.</b>
-    <b>Trend:</b> planted ${esc((rvp.trend || {}).planted || '')}. ${esc((rvp.trend || {}).verdict || '')}
-    Block slopes ran ${spct(((rvp.trend || {}).recovered_slope_range_pct_per_month || [])[0], 2)} to
-    ${spct(((rvp.trend || {}).recovered_slope_range_pct_per_month || [])[1], 2)} per month.<br>
-    <b>Age:</b> planted ${esc((rvp.age || {}).planted || '')}; recovered
-    ${spct((rvp.age || {}).recovered_pct_per_year)} per year, r² ${num((rvp.age || {}).r2, 2)}.
-    ${esc((rvp.age || {}).verdict || '')}<br>
-    <b>Level:</b> ec_abw.csv per-block weights average ${num((rvp.level || {}).calibrated_mean_kg, 2)} kg
-    (${num((rvp.level || {}).calibrated_bunch_weighted_kg, 2)} kg bunch-weighted); the ledger returns
-    ${num((rvp.level || {}).recovered_estate_kg, 2)} kg. ${esc((rvp.level || {}).verdict || '')}
-  </div>
-
-  <div class="sheet-note"><b>Caveat.</b> ${esc(d.caveat)}<br><br>
-    <b>Provenance.</b> ${esc(d.provenance)}<br><br>
-    <b>Method.</b> ${esc(d.note)}</div>`;
+  </table>`;
 }

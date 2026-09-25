@@ -143,8 +143,7 @@ export function wireBlockRefs(root) {
       const hint = document.createElement('div');
       hint.className = 'blk-hint';
       hint.innerHTML =
-        `<span>${ids.length} block${ids.length === 1 ? '' : 's'} outlined on the map`
-        + ` · hover a row to find it, click to open it</span>`
+        `<span>${ids.length} block${ids.length === 1 ? '' : 's'} outlined on the map</span>`
         + `<button class="blk-take" type="button">Select all ${ids.length}</button>`;
       hint.querySelector('.blk-take').onclick = () => replaceSelection(ids);
       table.parentNode.insertBefore(hint, table);

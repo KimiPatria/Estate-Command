@@ -6,7 +6,7 @@
  * the side, synthetic incidence along the bottom, and the early-warning
  * quadrant - weak canopy, quiet census - shaded as the thing to act on.
  */
-import { esc, fmt, idr, pct } from '../lib/fmt.js';
+import { esc, firstSentence, fmt, idr, pct } from '../lib/fmt.js';
 import { blockChips, blockList } from './_shared.js';
 
 const GROUPS = {
@@ -26,10 +26,10 @@ export async function panelPestWarning() {
   const d = await r.json();
   if (!d.available) return `<div class="empty">${esc(d.reason || 'Early warning unavailable.')}</div>`;
 
-  const g = d.groups, a = d.agreement, t = d.thresholds, rc = d.recovered;
+  const g = d.groups, a = d.agreement, t = d.thresholds;
 
   const head = `
-    <p class="pw-lead">${esc(d.summary)}</p>
+    <p class="pw-lead">${esc(firstSentence(d.summary))}</p>
     <div class="kpis">
       <div class="kpi alert"><b>${g.early_warning}</b><span>early warning · satellite only</span></div>
       <div class="kpi"><b>${g.corroborated}</b><span>corroborated · weak on both</span></div>
@@ -50,14 +50,11 @@ export async function panelPestWarning() {
         { key: 'coverage_pct', label: 'Inspected', num: true, fmt: v => v === null || v === undefined ? '—' : `${fmt(v, 0)}%` },
         { key: 'why', label: 'Why', fmt: v => String(v || '—').replace(/ canopy/g, '') },
       ],
-      caption: `Top ${d.early_warning.length} of ${g.early_warning}, by priority: weakness plus patchiness plus the share of palms not inspected. `
-        + `Anomaly and spread are real (satellite); census % and inspected are synthetic.`,
     })}</div>
     ${g.strongest_ask ? `
       <div class="sub-t">Strongest ask</div>
-      <div class="blk-cap" style="margin-top:0">${g.strongest_ask} of the ${g.early_warning} had under
-        ${fmt(t.coverage_low_pct, 0)}% of palms inspected last round: ${idr(g.palms_uninspected_in_ask)} palms
-        nobody looked at, in blocks the satellite flags. These go first.</div>
+      <div class="blk-cap" style="margin-top:0">${g.strongest_ask} blocks under
+        ${fmt(t.coverage_low_pct, 0)}% inspected · ${idr(g.palms_uninspected_in_ask)} palms unchecked</div>
       ${blockChips(d.strongest_ask.map(x => x.block_label), { title: 'Strongest ask' })}` : ''}`;
 
   const corroborated = d.corroborated.length ? `
@@ -69,7 +66,6 @@ export async function panelPestWarning() {
         { key: 'ganoderma_trend_pct', label: 'Rise R1→R3', num: true, fmt: signed(2) },
         { key: 'treated', label: 'Treated', fmt: v => v ? 'yes' : 'no' },
       ],
-      caption: 'Flagged by the satellite and over the census line. On a real census these are the confirmed foci.',
     })}` : '';
 
   const censusOnly = d.census_only.length ? `
@@ -81,14 +77,11 @@ export async function panelPestWarning() {
         { key: 'ndre_spread', label: 'Spread', num: true, fmt: num(2) },
         { key: 'treated', label: 'Treated', fmt: v => v ? 'yes' : 'no' },
       ],
-      caption: `${g.census_only} blocks the census calls infected that the satellite sees as ordinary: over-reporting, `
-        + `recent treatment, or disease too young to thin the crown. Worth a second look either way.`,
     })}` : '';
 
   const agreement = `
     <div class="sub-t">Do the two agree?</div>
-    <div class="pw-verdict">ρ ${rho(a.spearman_rho)} across ${a.blocks_with_both} blocks: ${esc(a.reading)}
-      For a real disease the sign would be negative. Here it is ${esc(a.verdict)}</div>
+    <div class="pw-verdict">ρ ${rho(a.spearman_rho)} across ${a.blocks_with_both} blocks.</div>
     <table class="tbl pw-rho">
       <tr><th>Pair · expected sign if the disease were real</th><th class="num">ρ</th></tr>
       <tr><td>vigour anomaly (real) vs Ganoderma incidence (synthetic)
@@ -97,20 +90,9 @@ export async function panelPestWarning() {
       ${(a.others || []).map(o => `<tr><td>${esc(o.a)} vs ${esc(o.b)}
             <small>${esc(o.expected)}</small></td>
           <td class="num">${rho(o.rho)}</td></tr>`).join('')}
-    </table>
-    <div class="blk-cap">${esc(rc.statement)}</div>`;
+    </table>`;
 
-  const provenance = `
-    <div class="sheet-note">
-      <b>Provenance: two sources, kept apart.</b><br>
-      <b>Canopy, real.</b> ${esc(d.sources.canopy.detail)}. ${esc(d.sources.anomaly.what)}.<br>
-      <b>Census, synthetic.</b> ${esc(d.sources.census.what)}. ${esc(d.sources.census.detail)}<br><br>
-      <b>Method.</b> ${esc(d.note)}<br><br>
-      <b>Caveat.</b> ${esc(d.caveat)}<br><br>
-      <b>With the client's census.</b> ${esc(d.with_real_census)}
-    </div>`;
-
-  return STYLE + head + chart + warning + corroborated + censusOnly + agreement + provenance;
+  return STYLE + head + chart + warning + corroborated + censusOnly + agreement;
 }
 
 /* ── the quadrant scatter ─────────────────────────────────────────────── */

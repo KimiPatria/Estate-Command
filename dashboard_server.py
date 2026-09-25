@@ -19,7 +19,7 @@ from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import text
@@ -41,6 +41,7 @@ from chat_router import router as chat_router
 from forecast_router import router as forecast_router, get_forecast
 from eval_router import router as eval_router
 from gis_router import router as gis_router
+from experiment_router import router as experiment_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +55,7 @@ REPORT_STATIC_DIR   = Path(__file__).parent / "report_static"
 CHAT_STATIC_DIR     = Path(__file__).parent / "chat_static"
 FORECAST_STATIC_DIR = Path(__file__).parent / "forecast_static"
 COMMAND_STATIC_DIR  = Path(__file__).parent / "command_static"
+EXPERIMENT_STATIC_DIR = Path(__file__).parent / "experiment_static"
 
 app = FastAPI(
     title="EPMS AI Dashboard",
@@ -83,6 +85,7 @@ app.include_router(chat_router)
 app.include_router(forecast_router)
 app.include_router(eval_router)
 app.include_router(gis_router)
+app.include_router(experiment_router)
 
 
 # ── startup ────────────────────────────────────────────────────────────────
@@ -326,6 +329,20 @@ def model_health_page():
     """MLOps view for the served forecast model — deliberately a separate page
     so the operator-facing /forecast stays about production, not diagnostics."""
     return FileResponse(FORECAST_STATIC_DIR / "model_health.html", headers=_NO_CACHE)
+
+
+@app.get("/experiment")
+def experiment_index():
+    """Experiment pages live under /experiment; the Forecast Lab is the only one so far."""
+    return RedirectResponse("/experiment/forecast")
+
+
+@app.get("/experiment/forecast")
+def forecast_lab_page():
+    """Side-by-side forecast models for the forecasting team. Deliberately not
+    linked from the client-facing /forecast page (it is reached from Model
+    health) and never alters what that page serves."""
+    return FileResponse(EXPERIMENT_STATIC_DIR / "forecast_lab.html", headers=_NO_CACHE)
 
 
 @app.get("/health")

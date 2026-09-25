@@ -1,8 +1,13 @@
 """Derived layers for Estate Command: the metrics the map can colour by.
 
-Joins the real EC ontology (gis/ontology.py) to the synthetic feeds
+Joins the real ontology (gis/ontology.py) to the synthetic feeds
 (gis/data/synthetic/*.csv, written by gis/build_synthetic.py) and exposes one
 value per block per metric.
+
+The synthetic feeds exist for one estate, ontology.SYNTHETIC_ESTATE, and only
+for the harvest window they were generated from (ontology's synthetic_world
+view). Every other estate on the map is real data only: its synthetic metrics
+are null, never borrowed from the synthetic estate's block with the same codes.
 
 Every metric declares its own provenance, because a demo that cannot tell the
 client which numbers are theirs is worth nothing:
@@ -261,13 +266,41 @@ def reload_layers() -> None:
         _CACHE.clear()
 
 
-def months(estate: str = "EC") -> dict:
-    """Observed months (real harvest) and forward months (synthetic forecast)."""
-    row = next((e for e in ontology.estate_index()
-                if e["estate_code"] == estate.upper()), None)
-    observed = (row or {}).get("harvest_window", {}).get("months", []) if row else []
-    st = _state()
-    fwd = sorted({m for b in st["forward"].values() for m in b})
+# What block_rows and months read from the synthetic state, empty. Handed to
+# any estate the feeds were not generated for: they are keyed by
+# division|block alone, so without it an EA block would silently pick up the
+# EC block that happens to share its codes.
+_NO_SYNTHETIC = {k: {} for k in (
+    "abw", "cost", "km_to_mill", "forward", "rotation", "vegetation", "upkeep",
+    "trips_block", "trips_month", "pest", "treatments", "fertiliser", "roads",
+    "worker")}
+
+
+def _synthetic(estate: str) -> dict:
+    """The synthetic feeds, for the estate they describe; empty for any other."""
+    if (estate or "").upper() == ontology.SYNTHETIC_ESTATE:
+        return _state()
+    return _NO_SYNTHETIC
+
+
+def _window(estate: str, synthetic_world: bool = False) -> list[str]:
+    row = next((e for e in ontology.estate_index(synthetic_world)
+                if e["estate_code"] == (estate or "").upper()), None)
+    return list(((row or {}).get("harvest_window") or {}).get("months") or [])
+
+
+def months(estate: str = "EC", synthetic_world: bool = False) -> dict:
+    """Observed months (real harvest) and forward months (synthetic forecast).
+
+    On the map (the default) a forward month the real record has since
+    reached is dropped: the real month is on the map, and a synthetic forecast
+    of it would sit on the scrubber twice. Re-anchoring the synthetic feeds
+    brings them back. synthetic_world=True is the calendar the synthetic
+    panels were built on: observed up to the window's end, then the forecast.
+    """
+    observed = _window(estate, synthetic_world)
+    st = _synthetic(estate)
+    fwd = sorted({m for b in st["forward"].values() for m in b} - set(observed))
     return {"observed": observed, "forward": fwd, "all": list(observed) + fwd}
 
 
@@ -366,14 +399,28 @@ def catalogue(estate: str = "EC") -> dict:
     }
 
 
-def block_rows(estate: str = "EC", month: str | None = None) -> list[dict] | None:
-    """One merged row per block: real attributes plus every derived value."""
-    geo = ontology.blocks_geojson(estate)
+def block_rows(estate: str = "EC", month: str | None = None,
+               synthetic_world: bool = False) -> list[dict] | None:
+    """One merged row per block: real attributes plus every derived value.
+
+    The default is the map's view: real harvest over everything the estate's
+    database holds. The rail's panels live in the synthetic world and pass
+    synthetic_world=True, which cuts the harvest at the synthetic window's end
+    so their totals, rates and forecast months mean what they were built to.
+    """
+    geo = ontology.blocks_geojson(estate, synthetic_world)
     if geo is None:
         return None
-    st = _state()
-    mo = months(estate)
+    st = _synthetic(estate)
+    mo = months(estate, synthetic_world)
     is_forward = bool(month) and month in mo["forward"]
+    # The synthetic feeds only know the harvest they were generated from. What
+    # combines them with bunches - cost per kg, margin - takes its bunches from
+    # that same window, never from the longer real record on the map.
+    syn_geo = ontology.blocks_geojson(estate, synthetic_world=True)
+    syn_props = {f["id"]: f["properties"] for f in syn_geo["features"]}
+    syn_months = _window(estate, synthetic_world=True) if st is not _NO_SYNTHETIC else []
+    syn_last = syn_months[-1] if syn_months else None
     # Real canopy vigour, when a Sentinel-2 scene has been pulled for this
     # estate. It is a single-date snapshot rather than a monthly series, so it
     # rides on every month and carries its own date - see the ndre_date field.
@@ -410,13 +457,17 @@ def block_rows(estate: str = "EC", month: str | None = None) -> list[dict] | Non
         else:
             loose_pb = p.get("loose_per_bunch")
 
+        sp = syn_props.get(f["id"]) or {}
         if month:
             cost = st["cost"].get(k, {}).get(month)
+            cost_bunches = (sp.get("bunches_by_month") or {}).get(month)
         else:
             cost = sum(v for m, v in st["cost"].get(k, {}).items()
-                       if m in mo["observed"]) or None
+                       if m in syn_months) or None
+            cost_bunches = sp.get("bunches_total")
+        cost_t = (cost_bunches * abw / 1000.0) if (cost and cost_bunches and abw) else None
 
-        veg = st["vegetation"].get(k, {}).get(month or mo["observed"][-1])
+        veg = st["vegetation"].get(k, {}).get(month or syn_last)
         rv = real_ndre.get(k)
         # A satellite that could not see the block through cloud has nothing
         # to say about it: null, never the synthetic value wearing a real badge.
@@ -442,10 +493,11 @@ def block_rows(estate: str = "EC", month: str | None = None) -> list[dict] | Non
             "tonnes": round(tonnes, 2) if tonnes else None,
             "t_per_ha": round(tonnes / ha, 2) if (tonnes and ha) else None,
             "cost_idr": round(cost) if cost else None,
-            "cost_per_tonne": round(cost / tonnes) if (cost and tonnes) else None,
+            "cost_per_tonne": round(cost / cost_t) if cost_t else None,
             # IDR per kg, which is how Indonesian planters quote cost and how
             # it compares directly against the FFB price.
-            "cost_per_kg": round(cost / tonnes / 1000, 1) if (cost and tonnes) else None,
+            "cost_per_kg": round(cost / cost_t / 1000, 1) if cost_t else None,
+            "_cost_t": cost_t,
             "km_to_mill": st["km_to_mill"].get(k),
             "forecast": fc_any,
             "gang_code": rot["gang_code"] if rot else None,
@@ -456,7 +508,7 @@ def block_rows(estate: str = "EC", month: str | None = None) -> list[dict] | Non
             "ndre_source": ("real:sentinel-2" if use_real
                             else ("synthetic" if veg else None)),
             "ndre_date": (vegetation.scene(estate) or {}).get("date") if use_real else None,
-            "ndre_month": real_month if use_real else (month or mo["observed"][-1]),
+            "ndre_month": real_month if use_real else (month or syn_last),
             "ndvi": rv["ndvi"] if use_real else None,
             "ndre_valid_pct": rv["valid_pct"] if rv else None,
             "ndre_baseline": veg["baseline"] if veg else None,
@@ -626,8 +678,11 @@ def _add_relative(rows):
                                   if r["days_since_harvest"] and r["rotation_target_days"]
                                   else None)
         # Margin needs a price; FFB farmgate is a scenario input, not client data.
-        if r["tonnes"] and r["cost_idr"] and r["planted_ha"]:
-            revenue = r["tonnes"] * 1000 * 2600
+        # Revenue is on the tonnes the cost was incurred for (the synthetic
+        # window), not on the whole real record.
+        cost_t = r.pop("_cost_t", None)
+        if cost_t and r["cost_idr"] and r["planted_ha"]:
+            revenue = cost_t * 1000 * 2600
             # Million IDR per hectare over the selected window. Raw rupiah per
             # hectare runs to eight digits and is unreadable on a legend.
             r["margin_per_ha"] = round((revenue - r["cost_idr"]) / r["planted_ha"] / 1e6, 2)
@@ -810,7 +865,7 @@ def compare_metrics(estate: str, metric_a: str, metric_b: str,
 def contract_position(estate: str = "EC") -> dict:
     """UC-08: production against committed volume, month by month."""
     st = _state()
-    mo = months(estate)
+    mo = months(estate, synthetic_world=True)
     orders = defaultdict(lambda: {"tonnes": 0, "orders": [], "price": []})
     for o in st["orders"]:
         e = orders[o["month"]]
@@ -820,7 +875,7 @@ def contract_position(estate: str = "EC") -> dict:
 
     out = []
     for m in mo["all"]:
-        rows = block_rows(estate, m) or []
+        rows = block_rows(estate, m, synthetic_world=True) or []
         produced = sum(r["tonnes"] or 0 for r in rows)
         band = None
         if m in mo["forward"]:
@@ -974,7 +1029,7 @@ def replant_schedule(estate: str = "EC") -> dict:
     inside a five-year window, and replanting it on schedule would take the
     whole estate out of production at once. Real data, real problem.
     """
-    rows = block_rows(estate) or []
+    rows = block_rows(estate, synthetic_world=True) or []
     by_year = defaultdict(lambda: {"blocks": 0, "ha": 0.0, "palms": 0})
     for r in rows:
         y = r["replant_year"]
@@ -1025,7 +1080,7 @@ def transport_position(estate: str = "EC") -> dict:
     counts inside it are real; the trips, weights, vehicles and times are not.
     """
     st = _state()
-    rows = block_rows(estate) or []
+    rows = block_rows(estate, synthetic_world=True) or []
     trips = st["trips_block"]
     if not trips:
         return {"available": False,
@@ -1122,7 +1177,7 @@ def pest_position(estate: str = "EC", top: int = 12) -> dict:
     export - grading deductions - is degenerate at 0.25% mean across all 291
     blocks. The client currently has no visibility into pest pressure at all.
     """
-    rows = block_rows(estate) or []
+    rows = block_rows(estate, synthetic_world=True) or []
     have = [r for r in rows if r.get("ganoderma_pct") is not None]
     if not have:
         return {"available": False,
@@ -1232,7 +1287,7 @@ def nutrition_position(estate: str = "EC", top: int = 12) -> dict:
     palm against a recommendation.
     """
     st = _state()
-    rows = block_rows(estate) or []
+    rows = block_rows(estate, synthetic_world=True) or []
     have = [r for r in rows if r.get("nutrient_gap_pct") is not None]
     if not have:
         return {"available": False,
@@ -1330,7 +1385,7 @@ def nutrition_position(estate: str = "EC", top: int = 12) -> dict:
 def roads_position(estate: str = "EC", top: int = 12) -> dict:
     """Road condition and the grading backlog, with what it costs in haulage."""
     st = _state()
-    rows = block_rows(estate) or []
+    rows = block_rows(estate, synthetic_world=True) or []
     have = [r for r in rows if r.get("road_condition_score") is not None]
     if not have:
         return {"available": False,
@@ -1396,7 +1451,7 @@ def roads_position(estate: str = "EC", top: int = 12) -> dict:
 
 def rotation_plan(estate: str = "EC", top: int = 25) -> dict:
     """UC-01: which blocks are due, and which gang covers each."""
-    rows = block_rows(estate) or []
+    rows = block_rows(estate, synthetic_world=True) or []
     due = [r for r in rows if r["ripeness_pressure"] is not None]
     due.sort(key=lambda r: -r["ripeness_pressure"])
     overdue = [r for r in due if r["ripeness_pressure"] > 1.0]

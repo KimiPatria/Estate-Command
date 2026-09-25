@@ -657,7 +657,7 @@ def recovery() -> dict:
     try:
         from gis import ontology
         from gis.build_synthetic import SEED, _latent_field
-        feats = ontology.blocks_geojson("EC")["features"]
+        feats = ontology.blocks_geojson("EC", synthetic_world=True)["features"]
         latent = _latent_field(feats, random.Random(SEED))
         block_h, _ = _history_at(WINDOW_END + timedelta(days=1))
         st = ops._state()

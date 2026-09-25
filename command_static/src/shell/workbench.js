@@ -14,6 +14,7 @@
 import { map } from '../map/instance.js';
 import { easeMapPadding } from '../map/camera.js';
 import { esc } from '../lib/fmt.js';
+import { ML_ICON } from '../lib/ml.js';
 import { clearBlockRefs, wireBlockRefs } from '../panels/_shared.js';
 
 const WIDTH_KEY = 'ec.wb.width.v1';
@@ -74,13 +75,13 @@ export function workbenchIsOpen() { return WB.open; }
 
 /* A tab is identified by kind+key so re-opening the same panel focuses the
    tab that already holds it instead of stacking duplicates. */
-export function addTab({ kind, key, label, question, render, after }) {
+export function addTab({ kind, key, label, question, render, after, ml = false }) {
   const id = `${kind}:${key}`;
   let tab = WB.tabs.find(t => t.id === id);
   if (tab) {
-    Object.assign(tab, { label, question, render, after });
+    Object.assign(tab, { label, question, render, after, ml });
   } else {
-    tab = { id, kind, key, label, question, render, after };
+    tab = { id, kind, key, label, question, render, after, ml };
     WB.tabs.push(tab);
   }
   WB.active = id;
@@ -138,7 +139,7 @@ function renderTabs() {
 /* ── painting the active tab ───────────────────────────────────────────── */
 
 async function paint(tab) {
-  el('wb-title').textContent = tab.label;
+  el('wb-title').innerHTML = esc(tab.label) + (tab.ml ? ML_ICON : '');
   el('wb-sub').textContent = tab.question || '';
   const body = el('wb-body');
   body.dataset.view = tab.key;

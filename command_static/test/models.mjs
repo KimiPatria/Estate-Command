@@ -147,7 +147,7 @@ await shot('outlook-glance');
 await section('rain');
 expect(/washes the herbicide off|wash off/.test(await text('#fp-content')) && (await page.$$('.fc-chance')).length === 3,
   'rain: three chances, each explained');
-expect(/How it works/.test(await text('#fp-content')), 'rain: explains how it works');
+expect(/How accurate is it/.test(await text('#fp-content')), 'rain: says how accurate it is');
 await shot('outlook-rain');
 
 await section('headcount');
@@ -179,10 +179,12 @@ expect(/faster than the average crew|slower than the average crew/.test(await te
 await shot('outlook-speeds');
 
 await section('accuracy');
-expect(/rules every forecast is held to/.test(await text('#fp-content')), 'accuracy: states the rules');
+expect((await page.$$('#fp-content .fc-trustcard')).length >= 4, 'accuracy: a grade for every forecast');
 await shot('outlook-accuracy');
+// The explanations live on this one page, not repeated under every section.
 await section('how');
 expect((await page.$$('.fc-howblock')).length === 4, 'how: four plain explanations');
+expect(/How it works/.test(await text('#fp-content')), 'how: explains how each forecast works');
 
 // A replay day from the header.
 await page.fill('[data-fc-date]', '2025-04-22');

@@ -11,6 +11,7 @@
  * resolved against its origin.
  */
 import { chromium } from 'playwright';
+import { firstSentence } from '../src/lib/fmt.js';
 
 const BASE = process.argv[2] || 'http://localhost:5173/command-static/';
 const SHOT = process.argv[3] || null;
@@ -117,7 +118,7 @@ expect(!/failed to render/i.test(body.text), 'panel failed to render');
 expect(body.refs > 0, `no block references in the panel (${body.refs})`);
 expect(body.svg > 0, 'no SVG chart in the panel');
 expect(body.real > 0 && body.synth > 0, 'real/synthetic badges missing on screen');
-expect(body.text.includes(d.summary), 'summary sentence not on screen verbatim');
+expect(body.text.includes(firstSentence(d.summary)), 'headline sentence not on screen verbatim');
 note(`  title: ${body.title}`);
 note(`  ${body.refs} block refs, ${body.tables} tables, ${body.svg} chart, ${body.real} real / ${body.synth} synthetic badges`);
 note(`  body: ${body.text.replace(/\s+/g, ' ').trim().slice(0, 160)}…`);

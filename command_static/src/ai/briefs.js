@@ -132,8 +132,6 @@ export async function loadBlockRows(force) {
 export async function openFireBrief() {
   const body = document.getElementById('sheet-body');
   document.querySelector('.sheet-h h2').textContent = 'Duty officer brief';
-  document.querySelector('.sheet-h p').textContent =
-    'Written over the live assessment. Detection and exposure are real; every response asset is invented.';
   body.innerHTML = '<div class="thinking">Assessing…</div>';
   sheetBg.hidden = false;
   let b;
@@ -145,12 +143,9 @@ export async function openFireBrief() {
   }
   if (b.available === false) { body.innerHTML = aiFailure(b, 'The brief'); return; }
   if (b.generated === false) {
-    body.innerHTML = `<div class="empty">${esc(b.headline)}</div>
-      <div class="sheet-note">No model was called: with nothing exposed there is
-        nothing to brief, and the server can say that for free.</div>`;
+    body.innerHTML = `<div class="empty">${esc(b.headline)}</div>`;
     return;
   }
-  const g = b.grounding || {};
   body.innerHTML = `
     <div class="brief">
       <div class="brief-h">
@@ -175,14 +170,6 @@ export async function openFireBrief() {
         ${genBadge(b.model)} ${auditChip(b.figure_audit)}
         <span>${b.cached ? 'cached' : b.latency_ms + ' ms'}</span>
       </div>
-    </div>
-    <div class="sheet-note">
-      <b>Detection.</b> ${esc((g.detection || {}).provenance || '')}
-      ${(g.detection || {}).clusters_total !== undefined
-        ? ` — ${g.detection.clusters_total} fires, ${g.detection.threatening} threatening this estate.` : ''}<br>
-      <b>Weather.</b> ${esc((g.weather || {}).wind_provenance || '')}<br>
-      <b>Response assets.</b> ${esc((g.response_assets || {}).provenance || '')}<br>
-      <b>The model.</b> ${esc((g.model || {}).caveat || '')}
     </div>`;
 }
 

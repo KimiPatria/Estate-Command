@@ -1,0 +1,53 @@
+{
+  "device": "cpu",
+  "seeds": {
+    "0": {
+      "best_step": 20,
+      "best_eval_loss": 6.426632881164551,
+      "last_step": 20,
+      "seconds": 21.1,
+      "history": [
+        {
+          "step": 10,
+          "loss": 8.273719787597656,
+          "grad_norm": 3.3580548763275146,
+          "learning_rate": 5.500000000000001e-06,
+          "epoch": 0.5
+        },
+        {
+          "step": 10,
+          "eval_loss": 6.429037094116211,
+          "eval_runtime": 4.5914,
+          "eval_samples_per_second": 140.915,
+          "eval_steps_per_second": 8.93,
+          "epoch": 0.5
+        },
+        {
+          "step": 20,
+          "loss": 8.582506561279297,
+          "grad_norm": 3.8808510303497314,
+          "learning_rate": 5.000000000000001e-07,
+          "epoch": 1.0
+        },
+        {
+          "step": 20,
+          "eval_loss": 6.426632881164551,
+          "eval_runtime": 4.6754,
+          "eval_samples_per_second": 138.385,
+          "eval_steps_per_second": 8.769,
+          "epoch": 1.0
+        },
+        {
+          "step": 20,
+          "train_runtime": 18.6348,
+          "train_samples_per_second": 17.172,
+          "train_steps_per_second": 1.073,
+          "total_flos": 0.0,
+          "train_loss": 8.428113174438476,
+          "epoch": 1.0
+        }
+      ]
+    }
+  },
+  "dest": "C:\\Users\\DP\\OneDrive\\Documents\\KIMI\\Wilmar\\AutoDashboard-experiment\\forecast\\experiments\\chronos2_blocks\\EC-EB_local_20260923-140742\\adapters"
+}

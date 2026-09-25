@@ -1,0 +1,53 @@
+==============================================================================
+Chronos-2 fine-tune v2 (block-weekly LoRA) -- test estate k3
+==============================================================================
+zero-shot only (no adapters)
+cross-learning OFF for every forecast; 30 origins; step-1 folds: 14 clean (target month ends before 2025-01-01), 16 calendar-overlapping
+completeness-scaled actuals (block series are raw): 2024-01, 2025-12, 2026-02, 2026-04
+
+-- step-1 scoreboard, all folds (sorted by MASE) --
+               model    MAE   RMSE sMAPE  MASE   Bias
+Chronos2_monthly_cov 10,329 12,860  8.9% 0.507  4,438
+    zero_shot|blocks 11,271 15,530  9.8% 0.553 -6,724
+   Ensemble_workdone 11,664 15,106 10.1% 0.572  4,001
+             SARIMAX 13,722 18,176 11.5% 0.673  3,625
+           Trailing3 14,479 17,409 12.4% 0.710  3,273
+    zero_shot|estate 14,878 22,557 13.8% 0.730   -700
+       SeasonalNaive 20,387 27,152 17.6% 1.000 10,002
+
+-- step-1 scoreboard, clean folds (sorted by MASE) --
+            model    MAE   RMSE sMAPE  MASE    Bias
+Ensemble_workdone 13,756 18,359 11.0% 0.589   3,820
+ zero_shot|blocks 14,745 19,908 12.2% 0.631 -11,394
+        Trailing3 17,127 20,614 13.6% 0.733   4,169
+          SARIMAX 18,741 23,248 14.7% 0.802   6,623
+ zero_shot|estate 21,421 30,223 20.1% 0.917  -7,062
+    SeasonalNaive 23,373 30,211 20.0% 1.000   7,070
+
+-- step-1 scoreboard, overlap folds (sorted by MASE) --
+            model    MAE   RMSE sMAPE  MASE   Bias
+ zero_shot|blocks  8,232 10,267  7.7% 0.463 -2,638
+ zero_shot|estate  9,153 12,442  8.3% 0.515  4,868
+          SARIMAX  9,330 12,104  8.7% 0.525  1,002
+Ensemble_workdone  9,834 11,529  9.2% 0.553  4,159
+        Trailing3 12,162 14,016 11.3% 0.684  2,489
+    SeasonalNaive 17,774 24,161 15.5% 1.000 12,567
+
+-- paired vs Ensemble_workdone, step 1, all folds --
+   zero_shot vs Ensemble_workdone [blocks]: wins 16/30, t=+0.16 not significant
+
+-- by step (MAE / sMAPE) --
+   Ensemble_workdone(multih)          h1:    12,180 /  10.5%  h2:    16,159 /  13.7%  h3:    18,464 /  15.5%
+   zero_shot|blocks                   h1:    11,271 /   9.8%  h2:    12,040 /  10.8%  h3:    12,179 /  10.7%
+   zero_shot|estate                   h1:    14,878 /  13.8%  h2:    16,822 /  16.6%  h3:    15,027 /  13.9%
+
+-- how to read this --
+  * 'blocks' sums per-block forecasts (the grain the adapter trained on);
+    'estate' forecasts the estate's weekly total directly.
+  * ~30 folds: a paired t below ~2 means the arms are indistinguishable,
+    whatever the aggregate MASE says.
+  * EC/EB have a deep Sep-Dec trough that k3 does not; an adapter can learn
+    that shape and carry it to k3 where it does not belong. The clean vs
+    overlap split and the in-domain table separate 'learned nothing' from
+    'learned something that does not transfer'.
+==============================================================================
