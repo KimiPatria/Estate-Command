@@ -14,6 +14,7 @@ import { openPanel, panelOpensIn } from '../panels/registry.js';
 /* One glyph per domain. Keyed by the manifest's domain id, so a new domain in
    gis/features.py shows up with a fallback rather than breaking the rail. */
 const DOMAIN_ICON = {
+  cost: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
   harvesting: '<path d="M3 21h18"/><path d="M7 21V9l5-6 5 6v12"/><path d="M12 21v-6"/>',
   upkeep: '<path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.1 2.1 0 0 1-3-3z"/><circle cx="17" cy="7" r="3.6"/>',
   pest: '<path d="M12 3v4"/><ellipse cx="12" cy="13" rx="5" ry="8"/><path d="M7 10H3m4 6H3m14-6h4m-4 6h4"/>',

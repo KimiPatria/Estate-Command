@@ -3,6 +3,7 @@ import logging
 import re
 from pathlib import Path
 
+import data_sources
 from metadata_loader import TableCard, compact_ddl_for
 from prompts import load_prompt
 
@@ -12,6 +13,14 @@ _RULES_PATH = Path("./business_rules.txt")
 
 _SQL_SYSTEM_PREAMBLE = load_prompt("sql_system_preamble")
 
+
+def _preamble(src: "data_sources.DataSource") -> str:
+    """The SQL writer's system prompt for a source: the live one is loaded once
+    at import (stable prefix, cache-friendly); others come from their own file."""
+    if src.id == data_sources.LIVE:
+        return _SQL_SYSTEM_PREAMBLE
+    return load_prompt(src.preamble_prompt)
+
 INTERPRET_SYSTEM_PROMPT = load_prompt("interpret_system")
 
 REASONING_SYSTEM_PROMPT = load_prompt("reasoning_system")
@@ -20,21 +29,34 @@ REASONING_SYSTEM_PROMPT = load_prompt("reasoning_system")
 _BUSINESS_RULES: str = ""
 
 
-def _load_business_rules() -> str:
-    if not _RULES_PATH.exists():
-        log.warning("business_rules.txt not found at %s — using empty rules", _RULES_PATH)
+def _load_business_rules(path: Path = _RULES_PATH) -> str:
+    if not path.exists():
+        log.warning("%s not found — using empty rules", path)
         return ""
     try:
-        return _RULES_PATH.read_text(encoding="utf-8").strip()
+        return path.read_text(encoding="utf-8").strip()
     except Exception as e:
-        log.exception("Failed to load business_rules.txt: %s", e)
+        log.exception("Failed to load %s: %s", path, e)
         return ""
+
+
+# Business rules of the non-live sources, read on first use.
+_RULES_BY_SOURCE: dict[str, str] = {}
+
+
+def _rules(src: "data_sources.DataSource") -> str:
+    if src.id == data_sources.LIVE:
+        return _BUSINESS_RULES
+    if src.id not in _RULES_BY_SOURCE:
+        _RULES_BY_SOURCE[src.id] = _load_business_rules(src.rules_path)
+    return _RULES_BY_SOURCE[src.id]
 
 
 def reload_business_rules() -> str:
-    """Re-read business_rules.txt from disk. Returns the new content."""
+    """Re-read the business rules from disk. Returns the live content."""
     global _BUSINESS_RULES
     _BUSINESS_RULES = _load_business_rules()
+    _RULES_BY_SOURCE.clear()
     return _BUSINESS_RULES
 
 
@@ -60,17 +82,19 @@ def build_sql_messages(
       [SYSTEM: preamble + business rules]   — fixed every request
       [USER: schema + examples + question]  — schema is alphabetized for stability
     """
-    # System message — completely fixed; maximises prefix-cache reuse
-    system_content = _SQL_SYSTEM_PREAMBLE
-    if _BUSINESS_RULES:
-        system_content = f"{system_content}\n\n{_BUSINESS_RULES}"
+    # System message — fixed per source; maximises prefix-cache reuse
+    src = data_sources.active()
+    business_rules = _rules(src)
+    system_content = _preamble(src)
+    if business_rules:
+        system_content = f"{system_content}\n\n{business_rules}"
 
     # User message parts — ordered for cache stability (stable → variable)
     table_names = [card.name for card in table_cards]
     schema_block = compact_ddl_for(table_names)
 
     # Token budget logging
-    tokens_biz    = _estimate_tokens(_BUSINESS_RULES)
+    tokens_biz    = _estimate_tokens(business_rules)
     tokens_schema = _estimate_tokens(schema_block)
     tokens_q      = _estimate_tokens(question)
 

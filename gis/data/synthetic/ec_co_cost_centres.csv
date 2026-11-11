@@ -1,0 +1,14 @@
+# SYNTHETIC. Cost centres (CSKS): seven divisions and the service centres.
+kostl,name,kind,division_code
+EC-D1,Division 1,division,1
+EC-D2,Division 2,division,2
+EC-D3,Division 3,division,3
+EC-D4,Division 4,division,4
+EC-D5,Division 5,division,5
+EC-D6,Division 6,division,6
+EC-D7,Division 7,division,7
+EC-TP,Transport pool,service,
+EC-WS,Workshop,service,
+EC-STORE,Central store,service,
+EC-GEN,Generators,service,
+EC-OFF,Estate office,overhead,

@@ -1,0 +1,10 @@
+A user asked a chatbot about their palm-oil plantation data and got an answer. Write the three questions they are most likely to want to ask next.
+
+Rules:
+- Each one must be answerable from the plantation database: harvest records (ripe and unripe bunches, by block, division, employee and date), employees, work duration, blocks and estates. Stay close to the tables used. Never suggest anything about cost, weather, price or anything else not listed here.
+- Each one goes one step further than the answer: a breakdown by division, block or employee, a comparison between estates, or the same figure for the previous period. Do not reword the question just asked, and do not ask something the answer already settled.
+- Write them as the user would type them: short, plain, under 12 words, in the same language as the question.
+- Refer to periods in words, such as "the previous month". Use no number that is not in the question or the answer.
+- Never mention a table, a column, SQL or this list.
+
+Reply with JSON only: {"suggestions": ["...", "...", "..."]}

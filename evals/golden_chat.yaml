@@ -1,0 +1,310 @@
+# Golden set for the CHAT pipeline: does the page give the right NUMBER, every time?
+#
+# Unlike sql_cases.yaml (compares generated SQL results to a reference at the
+# SQL step) this is run through the whole /chat/message path, as a user sees it:
+# table retrieval, few-shot examples, SQL writing, estate scoping, validation,
+# execution, merging. Run it several times: the model is not deterministic, and
+# the same question has come out with and without the deleted-rows filter.
+#
+#   python evals/run_golden_chat.py --check-cases          # no LLM: reference SQL sanity
+#   python evals/run_golden_chat.py --runs 3               # the real test
+#   python evals/run_golden_chat.py --only sd_002 --runs 5
+#
+# Fields
+#   id, database (live | staging), category, query
+#   turns          optional: messages sent first in the same chat; only the reply to
+#                  `query` is scored (a conversation, e.g. ask-back then "run it")
+#   rel_tol        optional relative tolerance for the figures (default exact), for
+#                  ratios the model may round
+#   scope          live only: all | ba | k3 (the estates the question should reach)
+#   reference_sql  run on each in-scope database. Live: one row, column `value`.
+#                  Staging: rows with columns `estate` and `value`. This is the
+#                  expected figure; the model never writes it.
+#   trap_sql       the plausible WRONG figure (same shape), e.g. the total that
+#                  still counts deleted rows. If the answer matches the trap the
+#                  failure is reported as "wrong figure" and named.
+#   sql_must       regexes the generated SQL must match (the guard is there)
+#   sql_must_not   regexes it must not match (fails the run), e.g. the approval date
+#   sql_warn_not   regexes that only raise a warning (right answer, fragile SQL), e.g. a
+#                  named estate turned into a WHERE on a per-estate database
+#   notes          why the case exists
+#
+# A run passes when: the pipeline answered, every sql_must / sql_must_not holds,
+# and every expected figure appears in the returned rows (exact, as a value or as
+# a column total, so monthly rows summing to the total are fine).
+#
+# Rules the reference SQL follows (business_rules.txt): rule 3 is_deleted guard,
+# rule 5 oph_created_date. Fixed dates, except cases that test the default period
+# (no period in the question), which use the same GETDATE() window as the rule.
+
+# ── live databases (BA + K3): deleted rows ─────────────────────────────────
+
+- id: sd_001
+  database: live
+  category: soft_delete
+  scope: all
+  query: "Total harvest in 2025"
+  reference_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  trap_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  notes: "the plain case. Deleted tickets are 0.1 to 0.5 percent of the total."
+  sql_must_not: ['oph_approved_date']
+
+- id: sd_002
+  database: live
+  category: soft_delete
+  scope: all
+  query: "Compare total harvest in 2025 between estate BA and estate K3"
+  reference_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  trap_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  sql_must_not: ['oph_approved_date']
+  sql_warn_not: ['oph_estate_code\s*(=|IN|LIKE)']
+  notes: "the question that came out two ways. Naming the estates must not turn them into a WHERE filter (each estate has its own database)."
+
+- id: sd_003
+  database: live
+  category: soft_delete
+  scope: ba
+  query: "Total ripe bunches in estate BA in 2025"
+  reference_sql: |
+    SELECT SUM(bunches_ripe) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  trap_sql: |
+    SELECT SUM(bunches_ripe) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  sql_must_not: ['oph_approved_date']
+  sql_warn_not: ['oph_estate_code\s*(=|IN|LIKE)']
+  notes: "one named estate narrows the scope to its database only"
+
+- id: sd_004
+  database: live
+  category: soft_delete
+  scope: k3
+  query: "berapa total janjang panen di kebun 3 pada tahun 2025?"
+  reference_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  trap_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  notes: "Bahasa, alias 'kebun 3' means K3"
+  sql_must_not: ['oph_approved_date']
+
+- id: sd_005
+  database: live
+  category: soft_delete
+  scope: all
+  query: "How many harvest records (OPH) were there in 2025 for each estate?"
+  reference_sql: |
+    SELECT COUNT(*) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  trap_sql: |
+    SELECT COUNT(*) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  notes: "a count, not a sum: deleted tickets must not be counted either"
+  sql_must_not: ['oph_approved_date']
+
+- id: sd_006
+  database: live
+  category: soft_delete
+  scope: all
+  query: "Total bunches harvested in the first quarter of 2025"
+  reference_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2025-04-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  trap_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2025-04-01'
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  notes: "a period other than a calendar year"
+  sql_must_not: ['oph_approved_date']
+
+- id: sd_007
+  database: live
+  category: deleted_on_purpose
+  scope: all
+  query: "How many harvest records were deleted in 2025?"
+  reference_sql: |
+    SELECT COUNT(*) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025 AND oph_is_deleted = 1
+  trap_sql: |
+    SELECT COUNT(*) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  sql_must: ['oph_is_deleted\s*=\s*1']
+  notes: "the opposite case. A blind 'always exclude deleted' fix would make this return zero, so this keeps any enforcement honest."
+
+- id: sd_008
+  database: live
+  category: soft_delete_other_table
+  scope: all
+  query: "Total tonnage delivered to the mill, all time"
+  reference_sql: |
+    SELECT SUM(fdn_actual_tonnage) AS value FROM t_fdn
+    WHERE (fdn_is_deleted = 0 OR fdn_is_deleted IS NULL)
+  trap_sql: |
+    SELECT SUM(fdn_actual_tonnage) AS value FROM t_fdn
+  sql_must: ['t_fdn', 'fdn_is_deleted']
+  notes: "a second table with its own flag, and no date at all so only the guard is tested. Which date defines delivered in a year is a business question (fdn_created_date is hidden from the model as an audit column, so it cannot be offered)."
+
+# ── staging database (SQL Server): the figures that went wrong before ───────
+
+- id: st_001
+  database: staging
+  category: tonnage_once_per_trip
+  query: "How many tonnes were delivered to the mill per estate in October 2026?"
+  reference_sql: |
+    SELECT e.NAME1 AS estate, SUM(t.w) / 1000.0 AS value
+    FROM (SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w FROM FDN
+          WHERE BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY ESTNR, SPB) t
+    JOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'
+    WHERE t.w > 0 GROUP BY e.NAME1
+  trap_sql: |
+    SELECT e.NAME1 AS estate, SUM(f.WB_QTY_TOTAL) / 1000.0 AS value
+    FROM FDN f JOIN EST e ON e.ESTNR = f.ESTNR AND e.KDATE = '9999-12-31'
+    WHERE f.BUDAT >= '2026-10-01' AND f.BUDAT < '2026-11-01' GROUP BY e.NAME1
+  notes: "trip weight repeats on every delivery row; summing rows overstates ~20x"
+
+- id: st_002
+  database: staging
+  category: harvest
+  query: "Total ripe bunches harvested per estate in September 2026"
+  reference_sql: |
+    SELECT e.NAME1 AS estate, SUM(o.ZMASAK) AS value
+    FROM OPH o JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01' GROUP BY e.NAME1
+  notes: "harvest is OPH.ZMASAK; rows with no WERKS are not an estate"
+
+- id: st_003
+  database: staging
+  category: attendance
+  query: "How many people were absent without leave (mangkir) per estate in October 2026?"
+  reference_sql: |
+    SELECT PRFNR AS estate, COUNT(DISTINCT EMPNR) AS value
+    FROM ATD WHERE ATDCD = 'M' AND PRFNR IS NOT NULL
+      AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY PRFNR
+  trap_sql: |
+    SELECT PRFNR AS estate, COUNT(*) AS value
+    FROM ATD WHERE ATDCD = 'M' AND PRFNR IS NOT NULL
+      AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY PRFNR
+  sql_must: ['DISTINCT']
+  notes: "people, not person-days. ATD has no WERKS, the estate is PRFNR."
+
+- id: st_004
+  database: staging
+  category: estate_scope
+  query: "Ripe bunches harvested in estate EC in October 2026"
+  reference_sql: |
+    SELECT 'ESTATE C' AS estate, SUM(ZMASAK) AS value FROM OPH
+    WHERE WERKS = '00EC' AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01'
+  sql_must: ['00EC|''EC''|ESTATE C']
+  notes: "a named estate becomes a WHERE on staging (one database holds all of them)"
+
+# ── estate scope in a comparison, block area, the default period ───────────
+
+- id: st_005
+  database: staging
+  category: estate_scope
+  turns:
+    - "compare the operational efficiency of estate C againts other estates"
+    - "Total ripe bunches per hectare"
+  query: "run it"
+  reference_sql: |
+    SELECT e.NAME1 AS estate, h.b / a.ha AS value
+    FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+          WHERE WERKS IS NOT NULL AND BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+          GROUP BY WERKS) h
+    JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a
+      ON a.ESTNR = RIGHT(h.WERKS, 2)
+    JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+  trap_sql: |
+    SELECT e.NAME1 AS estate, SUM(CAST(o.ZMASAK AS decimal(18,2))) / SUM(b.BHA) AS value
+    FROM OPH o
+    JOIN BLK b ON b.ESTNR = RIGHT(o.WERKS, 2) AND b.BLOCK = o.BLOCK AND b.KDATE = '9999-12-31'
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND o.BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    GROUP BY e.NAME1
+  rel_tol: 0.01
+  sql_must_not: ["WERKS\\s*(=|IN)\\s*\\(?\\s*'00EC'\\s*\\)?\\s*(AND|GROUP|\\)|$)"]
+  notes: "a real conversation (2026-11-10). It stayed on Estate C at every turn, because naming C scoped the chat to C, and summed block area once per harvest ticket (1.11 bunches/ha from 13 million ha). No period was given: the rule's default is the last 12 full months."
+
+- id: st_006
+  database: staging
+  category: estate_scope
+  query: "How do Estate C's ripe bunches per hectare compare with the other estates?"
+  reference_sql: |
+    SELECT e.NAME1 AS estate, h.b / a.ha AS value
+    FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+          WHERE WERKS IS NOT NULL AND BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+          GROUP BY WERKS) h
+    JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a
+      ON a.ESTNR = RIGHT(h.WERKS, 2)
+    JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+  trap_sql: |
+    SELECT e.NAME1 AS estate, SUM(CAST(o.ZMASAK AS decimal(18,2))) / SUM(b.BHA) AS value
+    FROM OPH o
+    JOIN BLK b ON b.ESTNR = RIGHT(o.WERKS, 2) AND b.BLOCK = o.BLOCK AND b.KDATE = '9999-12-31'
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND o.BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    GROUP BY e.NAME1
+  rel_tol: 0.01
+  sql_must_not: ["WERKS\\s*(=|IN)\\s*\\(?\\s*'00EC'\\s*\\)?\\s*(AND|GROUP|\\)|$)"]
+  notes: "one estate named and set against the rest: every estate must be queried"
+
+- id: st_007
+  database: staging
+  category: area_once_per_block
+  query: "Ripe bunches per hectare for each estate in September 2026"
+  reference_sql: |
+    SELECT e.NAME1 AS estate, h.b / a.ha AS value
+    FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+          WHERE WERKS IS NOT NULL AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01'
+          GROUP BY WERKS) h
+    JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a
+      ON a.ESTNR = RIGHT(h.WERKS, 2)
+    JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+  trap_sql: |
+    SELECT e.NAME1 AS estate, SUM(CAST(o.ZMASAK AS decimal(18,2))) / SUM(b.BHA) AS value
+    FROM OPH o
+    JOIN BLK b ON b.ESTNR = RIGHT(o.WERKS, 2) AND b.BLOCK = o.BLOCK AND b.KDATE = '9999-12-31'
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01'
+    GROUP BY e.NAME1
+  rel_tol: 0.01
+  notes: "block area joined onto harvest tickets repeats once per ticket"
+
+- id: sd_009
+  database: live
+  category: estate_scope
+  scope: all
+  query: "How did estate BA's total harvest in 2025 compare with the other estates?"
+  reference_sql: |
+    SELECT SUM(bunches_total) AS value FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  sql_must: ['oph_is_deleted', 'oph_created_date']
+  sql_must_not: ['oph_approved_date']
+  sql_warn_not: ['oph_estate_code\s*(=|IN|LIKE)']
+  notes: "BA named, set against the others: every estate's database must be queried, not only BA's"

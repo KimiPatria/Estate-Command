@@ -100,17 +100,21 @@ def call_llm(
     max_tokens: int = 800,
     provider: str | None = None,
     task: str = "general",
+    tier: str = "main",
 ) -> tuple[str, str, dict]:
     """Route a chat-style messages list to the active (or specified) model.
 
-    Returns (text, provider_used, usage_dict).
+    tier ("main" | "reasoning") only matters under Bedrock, where the tiers are
+    different models; under Groq the toggle picks the model and tier is ignored.
+    Returns (text, provider_used, usage_dict); usage["model"] is the model id
+    that actually answered.
     """
     p = (provider or _active_provider).lower()
     if p not in VALID_PROVIDERS:
         raise ValueError(f"Unknown provider: {p}")
     if LLM_PROVIDER == "bedrock":
         result = llm_client.chat(
-            messages, tier="main",
+            messages, tier=tier,
             temperature=temperature, max_tokens=max_tokens, task=task,
         )
         return result.text, "bedrock", result.usage

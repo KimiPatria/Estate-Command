@@ -1,0 +1,387 @@
+# Golden set v0 for the MULTI-ESTATE chatbot path (draft, synthetic-author).
+#
+# Complements evals/sql_cases.yaml (36 single-database K3 cases). Everything
+# here exercises what that file cannot: estate scope detection, fan-out of one
+# SQL string over several estate databases, and merging per-estate results.
+#
+# Fields:
+#   id, query, expected_tables, ordered, notes   same meaning as sql_cases.yaml
+#   category    mix tag for reporting (see list below)
+#   scope       all | ba | k3 : the estates the question should reach. A named
+#               estate (or alias, e.g. "kebun 3") narrows scope; otherwise all.
+#   kind        rows     : correct result = expected_sql run on each in-scope
+#                          estate, rows tagged _source_estate (row diff).
+#               combined : the question wants ONE answer across estates, which
+#                          cannot come from the per-estate rows alone. A correct
+#                          pipeline must combine additive components (sum
+#                          numerator and denominator, then divide; never
+#                          average per-estate averages). expected_sql returns the
+#                          per-estate components; `combine` says how to merge.
+#   combine     sum{col} | ratio{num,den,scale} | winner{col} | peak_month{} |
+#               topn_union{n,order,key}
+#
+# Authoring rules (same as sql_cases.yaml): fixed dates only (no "last 30
+# days"), ALL-CAPS string literals, rule 3 is_deleted guard on t_oph, rule 5
+# oph_created_date. Result sets kept small: chat caps rows per estate, so a
+# big result would be truncated and fail for the wrong reason.
+#
+# Run `python evals/verify_multi_cases.py` after editing: it executes every
+# expected_sql on every in-scope estate and flags empty / all-zero results
+# (which would let a wrong query pass by matching zero).
+#
+# Categories: compare_rows, bahasa, named_estate, alias, composite_key,
+#             combined_additive, combined_ratio, combined_rank
+#
+# NOT YET COVERED (needs client input, see notes in the chat that produced this):
+#   the client's real questions, their KPI definitions (yield, cost/ton),
+#   follow-up turns ("bandingkan dengan bulan lalu"), questions the staging DB
+#   (rather than EPMS) must answer.
+
+# ── cross-estate, per-estate rows ──────────────────────────────────────────
+
+- id: mx_001
+  category: compare_rows
+  scope: all
+  kind: rows
+  query: "Compare total harvest in 2025 between estate BA and estate K3"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: estates named in the text must be stripped from the SQL question and
+    must not become a WHERE filter (BA/K3 look like real estate codes)
+
+- id: mx_002
+  category: bahasa
+  scope: all
+  kind: rows
+  query: "bandingkan produksi bunches setiap bulan di tahun 2025 antar estate"
+  expected_sql: |
+    SELECT EXTRACT(MONTH FROM oph_created_date) AS month,
+           SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(MONTH FROM oph_created_date)
+  expected_tables: [t_oph]
+  notes: Bahasa, no estate named so scope defaults to all, monthly series per estate
+
+- id: mx_003
+  category: compare_rows
+  scope: all
+  kind: rows
+  query: "which estate has more employees, and how many are male vs female?"
+  expected_sql: |
+    SELECT employee_sex, COUNT(employee_id) AS total_employees
+    FROM m_employee
+    WHERE employee_sex IN ('MALE', 'FEMALE')
+    GROUP BY employee_sex
+  expected_tables: [m_employee]
+  notes: master-data comparison, ALL-CAPS literals
+
+- id: mx_004
+  category: bahasa
+  scope: all
+  kind: rows
+  query: "berapa persentase tandan lewat matang (overripe) di setiap estate pada tahun 2025"
+  expected_sql: |
+    SELECT SUM(bunches_overripe) * 100.0 / NULLIF(SUM(bunches_total), 0) AS overripe_pct
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: Bahasa, per-estate ratio (adapted from a real past question). Rotten
+    was dropped because K3 records zero rotten/diseased bunches in 2025, so a
+    wrong query could match it. K3 grading columns are almost empty in
+    general, which is itself a data-quality finding for the client.
+
+- id: mx_005
+  category: compare_rows
+  scope: all
+  kind: rows
+  query: "compare attendance records by attendance code across the estates in Q1 2025"
+  expected_sql: |
+    SELECT attendance_code, COUNT(*) AS total_records
+    FROM t_attendance
+    WHERE attendance_date BETWEEN '2025-01-01' AND '2025-03-31'
+    GROUP BY attendance_code
+  expected_tables: [t_attendance]
+  notes: group-by distribution compared across estates
+
+- id: mx_006
+  category: compare_rows
+  scope: all
+  kind: rows
+  query: "how many mandays were spent on pruning in each estate from january to march 2025"
+  expected_sql: |
+    SELECT SUM(workdone_mandays) AS total_mandays
+    FROM t_workdone
+    WHERE workdone_activity_name LIKE '%PRUN%'
+      AND workdone_date BETWEEN '2025-01-01' AND '2025-03-31'
+  expected_tables: [t_workdone]
+  notes: rule 9 LIKE on activity name
+
+- id: mx_007
+  category: compare_rows
+  scope: all
+  kind: rows
+  ordered: true
+  query: "top 3 blocks by ripe bunches in 2025 for each estate"
+  expected_sql: |
+    SELECT oph_estate_code, oph_block_code, SUM(bunches_ripe) AS total_ripe
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_estate_code, oph_block_code
+    ORDER BY total_ripe DESC
+    LIMIT 3
+  expected_tables: [t_oph]
+  notes: per-estate top-N must group on estate code AND block code (block codes
+    repeat); LIMIT applies inside each estate database
+
+- id: mx_008
+  category: compare_rows
+  scope: all
+  kind: rows
+  query: "total planted hectarage in each estate"
+  expected_sql: |
+    SELECT SUM(block_hectarage) AS planted_ha
+    FROM m_block
+    WHERE block_is_planted = 1
+  expected_tables: [m_block]
+  notes: block master flag + hectarage
+
+- id: mx_009
+  category: bahasa
+  scope: all
+  kind: rows
+  query: "berapa pekerja berbeda yang tercatat bekerja pada kuartal pertama 2025 di tiap estate"
+  expected_sql: |
+    SELECT COUNT(DISTINCT workdone_employee_code) AS total_employees
+    FROM t_workdone
+    WHERE workdone_date BETWEEN '2025-01-01' AND '2025-03-31'
+  expected_tables: [t_workdone]
+  notes: Bahasa, "kuartal pertama" = Q1, DISTINCT count per estate
+
+- id: mx_010
+  category: compare_rows
+  scope: all
+  kind: rows
+  query: "daily harvest from 1 to 7 March 2025 for all estates"
+  expected_sql: |
+    SELECT oph_created_date, SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE oph_created_date BETWEEN '2025-03-01' AND '2025-03-07'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_created_date
+  expected_tables: [t_oph]
+  notes: daily series, small result
+
+# ── named estate / alias: scope must narrow ────────────────────────────────
+
+- id: mx_011
+  category: named_estate
+  scope: ba
+  kind: rows
+  query: "total harvest in 2025 for estate BA"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: scope must be BA only; the answer must not mention K3
+
+- id: mx_012
+  category: bahasa
+  scope: k3
+  kind: rows
+  query: "berapa total panen di kebun K3 pada Q2 2025"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND EXTRACT(MONTH FROM oph_created_date) IN (4, 5, 6)
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: Bahasa, "kebun K3" alias
+
+- id: mx_013
+  category: alias
+  scope: k3
+  kind: rows
+  query: "how many attendance records were taken in January 2025 at kebun 3"
+  expected_sql: |
+    SELECT COUNT(*) AS total_attendance_records
+    FROM t_attendance
+    WHERE attendance_date BETWEEN '2025-01-01' AND '2025-01-31'
+  expected_tables: [t_attendance]
+  notes: 'the phrase "kebun 3" is an alias of K3; must not be read as a literal value 3'
+
+- id: mx_014
+  category: named_estate
+  scope: ba
+  kind: rows
+  query: "ripe vs unripe vs overripe bunches in 2025, estate BA only"
+  expected_sql: |
+    SELECT SUM(bunches_ripe) AS ripe_bunches,
+           SUM(bunches_unripe) AS unripe_bunches,
+           SUM(bunches_overripe) AS overripe_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: 'the word "only" must narrow scope even though the question is a comparison'
+
+# ── composite-key traps ────────────────────────────────────────────────────
+
+- id: mx_015
+  category: composite_key
+  scope: all
+  kind: rows
+  ordered: true
+  query: "top 5 blocks by total harvest in 2025, show the block names from the block master"
+  expected_sql: |
+    SELECT m_block.block_name, SUM(t_oph.bunches_total) AS total_bunches
+    FROM t_oph
+    JOIN m_block ON t_oph.oph_block_code = m_block.block_code
+               AND t_oph.oph_estate_code = m_block.block_estate_code
+    WHERE EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025
+      AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)
+    GROUP BY m_block.block_name
+    ORDER BY total_bunches DESC
+    LIMIT 5
+  expected_tables: [t_oph, m_block]
+  notes: join on block code alone fans out (documented failure class); this
+    is the cross-estate version of sql_035 with a small result
+
+- id: mx_016
+  category: composite_key
+  scope: all
+  kind: rows
+  ordered: true
+  query: "5 block dengan bunches per hektar tertinggi di tahun 2025"
+  expected_sql: |
+    SELECT m_block.block_estate_code, m_block.block_code,
+           SUM(t_oph.bunches_total) / NULLIF(MAX(m_block.block_hectarage), 0) AS bunches_per_ha
+    FROM t_oph
+    JOIN m_block ON t_oph.oph_block_code = m_block.block_code
+               AND t_oph.oph_estate_code = m_block.block_estate_code
+    WHERE EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025
+      AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)
+    GROUP BY m_block.block_estate_code, m_block.block_code
+    ORDER BY bunches_per_ha DESC
+    LIMIT 5
+  expected_tables: [t_oph, m_block]
+  notes: Bahasa, composite join + derived ratio + rank
+
+# ── combined answers: ONE number across estates ────────────────────────────
+# These expose the main weakness of per-estate fan-out: the rows come back one
+# per estate and the answer needs a correct merge.
+
+- id: mx_017
+  category: combined_additive
+  scope: all
+  kind: combined
+  combine: {type: sum, col: total_bunches}
+  query: "what is the total harvest in 2025 across all estates?"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: answer must be the sum of both estates, not one of them
+
+- id: mx_018
+  category: combined_ratio
+  scope: all
+  kind: combined
+  combine: {type: ratio, num: sum_bunches, den: n_records, scale: 1}
+  query: "what is the average number of bunches per harvest record in 2025 across all estates?"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS sum_bunches, COUNT(*) AS n_records
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: must be weighted (total bunches / total records), NOT the mean of the
+    two estates' averages
+
+- id: mx_019
+  category: combined_ratio
+  scope: all
+  kind: combined
+  combine: {type: ratio, num: loose, den: total, scale: 1}
+  query: "berapa rata-rata loose fruits per tandan secara keseluruhan di semua estate tahun 2025"
+  expected_sql: |
+    SELECT SUM(loose_fruits) AS loose, SUM(bunches_total) AS total
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: Bahasa, "secara keseluruhan" = overall; pooled ratio, not the mean of
+    the estates' ratios (they differ materially here)
+
+- id: mx_020
+  category: combined_additive
+  scope: all
+  kind: combined
+  combine: {type: sum, col: total_employees}
+  query: "how many employees do we have in total across all estates?"
+  expected_sql: |
+    SELECT COUNT(employee_id) AS total_employees
+    FROM m_employee
+  expected_tables: [m_employee]
+  notes: head-office headcount
+
+- id: mx_021
+  category: combined_rank
+  scope: all
+  kind: combined
+  combine: {type: winner, col: total_bunches}
+  query: "which estate produced more bunches in 2025, and by what percentage more than the other?"
+  expected_sql: |
+    SELECT SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  expected_tables: [t_oph]
+  notes: winner label + percent difference, computed from the two sums
+
+- id: mx_022
+  category: combined_rank
+  scope: all
+  kind: combined
+  combine: {type: peak_month, col: total_bunches}
+  query: "which month had the highest harvest in 2025 with all estates combined?"
+  expected_sql: |
+    SELECT EXTRACT(MONTH FROM oph_created_date) AS month,
+           SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(MONTH FROM oph_created_date)
+  expected_tables: [t_oph]
+  notes: month totals must be added across estates BEFORE taking the max; the
+    peak month of one estate may not be the combined peak
+
+- id: mx_023
+  category: combined_rank
+  scope: all
+  kind: combined
+  combine: {type: topn_union, n: 5, order: total_ripe, key: [oph_estate_code, oph_block_code]}
+  query: "top 5 blocks across all estates by ripe bunches in 2025"
+  expected_sql: |
+    SELECT oph_estate_code, oph_block_code, SUM(bunches_ripe) AS total_ripe
+    FROM t_oph
+    WHERE EXTRACT(YEAR FROM oph_created_date) = 2025
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_estate_code, oph_block_code
+    ORDER BY total_ripe DESC
+    LIMIT 5
+  expected_tables: [t_oph]
+  notes: global top 5 must be re-ranked from the per-estate top 5s (10 rows
+    in, 5 out); returning 10 rows or one estate's five is wrong

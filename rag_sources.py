@@ -298,7 +298,7 @@ def _run_both(
     t0 = time.monotonic()
     with llm_client.rag_instrumentation("both") as synth_log:
         synth = llm_client.chat(
-            synthesis_messages, tier="main", temperature=0, max_tokens=600,
+            synthesis_messages, tier="reasoning", temperature=0, max_tokens=600,
             task="rag_synthesis_both",
         )
     synth_latency_ms = int((time.monotonic() - t0) * 1000)

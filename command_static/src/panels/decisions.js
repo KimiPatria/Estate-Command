@@ -35,6 +35,16 @@ export async function recordDecision(spec, btn) {
     };
   } else if (spec.inspection) {
     body.artifact_payload = spec.inspection;
+  } else if (spec.cost) {
+    // The cost window's action, from the same figures the window shows; the
+    // decision records what was drafted so Did it work can read it back.
+    const q = new URLSearchParams({ id: spec.cost.id, month: spec.cost.month || '' });
+    if (spec.cost.action) q.set('action', spec.cost.action);
+    const doc = await (await fetch(`/gis/finance/document?${q}`)).json();
+    body.artifact_payload = doc;
+    body.expected_effect = { unit_id: doc.id, unit: doc.label, driver: doc.driver, month: doc.month,
+                             leakage_idr: doc.leakage_idr, saving_idr_month: doc.saving_idr_month };
+    body.due_date = doc.review_date;
   } else if (spec.stores) {
     // The store's document, from the same figures the window shows.
     const q = new URLSearchParams({ matnr: spec.stores.matnr, kind: spec.stores.kind });

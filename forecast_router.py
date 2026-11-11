@@ -579,6 +579,51 @@ def get_forecast(estate: str = "k3", refresh: bool = False, horizon: int = HORIZ
         return _CACHE[key]
 
 
+# ── sources: live files or the staging database extract ─────────────────────
+# The page offers the same two databases the chat page does. "live" is
+# everything above; "staging" is served by forecast_sources.py from the Forecast
+# Lab's artifacts. Both return one payload shape, so the page has one render
+# path; the fields added here say where the two differ.
+SOURCES = ("live", "staging")
+
+
+def page_payload(estate: str = "k3", refresh: bool = False,
+                 horizon: int = HORIZON_DEFAULT, source: str = "live") -> dict:
+    """What /forecast/data returns: the forecast for one scope of one source,
+    with each modelled estate's own tile figures attached.
+
+    The tiles need every modelled estate's forecast, not only the one being
+    drawn: without them a tile could only repeat the selected series' total
+    under another estate's name.
+    """
+    import forecast_sources as fs
+
+    if source == fs.STAGING:
+        return fs.payload(estate, horizon, refresh)
+
+    data = dict(get_forecast(estate=estate, refresh=refresh, horizon=horizon))
+    scope = dict(data["scope"])
+    estates = []
+    for e in scope["estates"]:
+        e = dict(e)
+        if e.get("modeled"):
+            try:
+                e["tile"] = fs.tile(get_forecast(estate=e["id"], horizon=horizon))
+            except Exception as exc:
+                log.warning("[forecast] estate tile unavailable for %s: %s", e["id"], exc)
+        estates.append(e)
+    scope["estates"] = estates
+    data.update({
+        "scope": scope,
+        "source": fs.LIVE,
+        "components": ["sarimax", "trailing3", "lightgbm"],
+        "benchmark_label": "seasonal-naïve",
+        "horizon_choices": list(HORIZON_CHOICES),
+        "capabilities": {"intelligence": True, "investigate": True},
+    })
+    return data
+
+
 # ── model health (MLOps view) ───────────────────────────────────────────────
 
 def _model_health() -> dict:
@@ -847,13 +892,37 @@ def _artifact_older_than(path: Path) -> bool:
 
 # ── routes ──────────────────────────────────────────────────────────────────
 
+@router.get("/sources")
+def forecast_sources_list():
+    """The sources the forecast pages can read, for their Database control.
+    A source that is configured but not built yet is listed as unavailable
+    with the reason, so the control can say why instead of hiding it."""
+    import forecast_sources as fs
+    try:
+        return {"sources": fs.sources(), "default": fs.LIVE}
+    except Exception as exc:
+        log.exception("[forecast] sources failed")
+        return JSONResponse(status_code=500, content={"detail": f"Source list failed: {exc}"})
+
+
 @router.get("/model-health")
-def forecast_model_health():
+def forecast_model_health(source: str = Query(default="live"),
+                          estate: str = Query(default="all")):
     """Served-model health for the /model-health page (accuracy, interval
     calibration, data quality, lifecycle). Reads the cached forecast + the
-    training artifact — never refits."""
+    training artifact — never refits. `estate` applies to the staging source
+    only (ea/eb/ec or "all" for the group); live reports K3, as it always has."""
+    import forecast_sources as fs
+    if source not in SOURCES:
+        return JSONResponse(status_code=400, content={"detail": f"Unknown source '{source}'."})
     try:
-        return _model_health()
+        if source == fs.STAGING:
+            return fs.health(estate)
+        out = _model_health()
+        out.update({"source": fs.LIVE, "benchmark_label": "seasonal-naïve"})
+        return out
+    except fs.Unavailable as exc:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
     except Exception as exc:
         log.exception("[forecast] model-health failed")
         return JSONResponse(
@@ -939,7 +1008,23 @@ def forecast_block_forecast(estate: str = Query(...)):
 
 @router.get("/data")
 def forecast_data(refresh: bool = False, horizon: int = Query(default=HORIZON_DEFAULT),
-                   estate: str = Query(default="k3")):
+                   estate: str = Query(default="k3"), source: str = Query(default="live")):
+    import forecast_sources as fs
+    if source not in SOURCES:
+        return JSONResponse(status_code=400, content={"detail": f"Unknown source '{source}'."})
+    if source == fs.STAGING:
+        # estate is ea/eb/ec, or "all" for the three summed
+        try:
+            data = page_payload(estate=estate, refresh=refresh, horizon=horizon, source=source)
+            log.info("[forecast] served staging %s: %d history + %d forecast months (%s)",
+                     estate, len(data["history"]), len(data["forecast"]), data["model_name"])
+            return data
+        except fs.Unavailable as exc:
+            return JSONResponse(status_code=409, content={"detail": str(exc)})
+        except Exception as exc:
+            log.exception("[forecast] staging forecast failed for estate=%s", estate)
+            return JSONResponse(status_code=500,
+                                content={"detail": f"Staging forecast failed: {exc}"})
     horizon = horizon if horizon in HORIZON_CHOICES else HORIZON_DEFAULT
     if estate not in MODELED_ESTATES:
         return JSONResponse(
@@ -947,7 +1032,7 @@ def forecast_data(refresh: bool = False, horizon: int = Query(default=HORIZON_DE
             content={"detail": f"No forecast model for estate '{estate}'."},
         )
     try:
-        data = get_forecast(estate=estate, refresh=refresh, horizon=horizon)
+        data = page_payload(estate=estate, refresh=refresh, horizon=horizon)
         log.info("[forecast] served %d history + %d forecast months for estate=%s "
                  "(sMAPE %.1f%% avg-band %.1f%%)",
                  len(data["history"]), len(data["forecast"]), estate, data["smape"], data["avg_band_pct"])

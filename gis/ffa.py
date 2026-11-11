@@ -305,18 +305,16 @@ def _compute(estate: str) -> dict:
     queue_points = round(slope * mean_queue, 3)
     pm_extra_points = round(slope * (q_pm - q_am), 3)
     penalty_kg_points = float((np.clip(ffa - FFA_PENALTY_PCT, 0.0, None) * net).sum())
+    # Priced per call in position(), off the assumption register, so an edited
+    # mill price reprices this panel and the cost window alike. Only the
+    # quantities are cached.
     pricing = {
-        "idr_per_kg_point": FFA_IDR_PER_KG_POINT,
         "placeholder": True,
         "queue_ffa_points": queue_points,
-        "queue_cost_idr": round(tot_kg * queue_points * FFA_IDR_PER_KG_POINT),
         "afternoon_extra_points": pm_extra_points,
-        "afternoon_cost_idr": round(float(net[pm].sum()) * pm_extra_points * FFA_IDR_PER_KG_POINT),
-        "over_threshold_penalty_idr": round(penalty_kg_points * FFA_IDR_PER_KG_POINT),
-        "note": (f"IDR {FFA_IDR_PER_KG_POINT:g}/kg per FFA point is a placeholder, "
-                 "not the mill's tariff. The queue cost prices the FFA the mill "
-                 "gate adds to every tonne; the penalty is what the mill would "
-                 f"bill for tonnes over {FFA_PENALTY_PCT:.1f}%."),
+        "_tot_kg": tot_kg,
+        "_pm_kg": float(net[pm].sum()),
+        "_penalty_kg_points": penalty_kg_points,
     }
 
     over_trips = int(over.sum())
@@ -438,6 +436,31 @@ def _compute(estate: str) -> dict:
     }
 
 
+def _rate() -> float:
+    try:
+        from gis import assumptions
+        return float(assumptions.get("ffa_idr_per_kg_point"))
+    except Exception:
+        return FFA_IDR_PER_KG_POINT
+
+
+def _price(q: dict) -> dict:
+    rate = _rate()
+    return {
+        "idr_per_kg_point": rate,
+        "placeholder": True,
+        "queue_ffa_points": q["queue_ffa_points"],
+        "queue_cost_idr": round(q["_tot_kg"] * q["queue_ffa_points"] * rate),
+        "afternoon_extra_points": q["afternoon_extra_points"],
+        "afternoon_cost_idr": round(q["_pm_kg"] * q["afternoon_extra_points"] * rate),
+        "over_threshold_penalty_idr": round(q["_penalty_kg_points"] * rate),
+        "note": (f"IDR {rate:g}/kg per FFA point is a placeholder from the assumption register, "
+                 "not the mill's tariff. The queue cost prices the FFA the mill "
+                 "gate adds to every tonne; the penalty is what the mill would "
+                 f"bill for tonnes over {FFA_PENALTY_PCT:.1f}%."),
+    }
+
+
 # -- the endpoint -----------------------------------------------------------
 
 def position(estate: str = "EC", top: int = 12) -> dict:
@@ -455,6 +478,7 @@ def position(estate: str = "EC", top: int = 12) -> dict:
     except (TypeError, ValueError):
         top = 12
     out = dict(d)
+    out["pricing"] = _price(d["pricing"])
     out["worst_ffa_blocks"] = d["worst_ffa_blocks"][:top]
     out["longest_delay_blocks"] = d["longest_delay_blocks"][:top]
     return out

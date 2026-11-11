@@ -28,6 +28,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from config import engine, ESTATES, ESTATE_ORDER
 from estates import detect_estate_mentions, strip_estate_mentions
 import metadata_loader
+import data_sources
 from metadata_loader import load_all_cards, compact_ddl_for
 from retrieval import initialize as init_retrieval, retrieve_tables
 from sql_validator import validate, ensure_limit
@@ -38,7 +39,7 @@ from llm import call_llm, get_provider, list_providers, PROVIDER_LABELS
 from prompt_builder import strip_fences
 from report_router import router as report_router
 from chat_router import router as chat_router
-from forecast_router import router as forecast_router, get_forecast
+from forecast_router import router as forecast_router, get_forecast, page_payload as forecast_page_payload
 from eval_router import router as eval_router
 from gis_router import router as gis_router
 from experiment_router import router as experiment_router
@@ -98,6 +99,19 @@ def startup() -> None:
         "EPMS AI Dashboard ready — http://127.0.0.1:%d  (%d tables indexed)",
         DASHBOARD_PORT, len(cards),
     )
+    # Other databases (the SQL Server staging DB) are optional: if one is
+    # configured but down, or its metadata is missing, the rest of the app must
+    # still come up, so a failure here only takes that source offline.
+    for src in data_sources.available():
+        if src.id == data_sources.LIVE:
+            continue
+        try:
+            src_cards = load_all_cards(source=src)
+            init_retrieval(src_cards, source=src.id)
+            log.info("[%s] %s ready (%d tables indexed)", src.id, src.label, len(src_cards))
+        except (Exception, SystemExit) as exc:
+            log.warning("[%s] could not be initialised, leaving it offline: %s", src.id, exc)
+            src.engine = None
 
 
 # ── request / response models ──────────────────────────────────────────────
@@ -316,7 +330,7 @@ def chat_page():
 def forecast_page():
     import json
     try:
-        data_json = json.dumps(get_forecast()).replace("</script>", "<\\/script>")
+        data_json = json.dumps(forecast_page_payload()).replace("</script>", "<\\/script>")
     except Exception:
         data_json = "null"
     html = (FORECAST_STATIC_DIR / "forecast.html").read_text(encoding="utf-8")

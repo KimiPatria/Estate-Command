@@ -262,7 +262,7 @@ def _log_mlflow(run_id: str, summary: dict, results_path: str):
         import mlflow
         import llm_client
         from config import INVESTIGATOR_MODEL, GROQ_MODEL_JUDGE
-        agent_model = llm_client.resolve_model(INVESTIGATOR_MODEL, tier="main")
+        agent_model = llm_client.resolve_model(INVESTIGATOR_MODEL, tier="reasoning")
         mlflow.set_tracking_uri(
             "sqlite:///" + os.path.join(_DIR, "mlflow.db").replace(os.sep, "/"))
         art = "file:///" + os.path.join(_DIR, "mlartifacts").replace(os.sep, "/")

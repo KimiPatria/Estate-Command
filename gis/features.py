@@ -42,6 +42,11 @@ from collections import OrderedDict
 # should render them.
 
 DOMAINS = OrderedDict([
+    # First, because it is the question the client asked: where is money lost,
+    # and what stops it (buildplan_finance.md).
+    ("cost", {
+        "label": "Cost efficiency",
+    }),
     ("harvesting", {
         "label": "Harvesting",
     }),
@@ -71,6 +76,9 @@ SYSTEMS = {
     "sap_pm": "SAP Plant Maintenance",
     "sap_mm": "SAP Materials Management",
     "sap_sd": "SAP Sales & Distribution",
+    "sap_co": "SAP Controlling",
+    "sap_fi": "SAP Financial Accounting",
+    "sap_hr": "SAP HR payroll",
     "mill": "Mill weighbridge & laboratory",
     "arcgis": "Client ArcGIS",
     "public": "Public data, no client action needed",
@@ -146,8 +154,26 @@ REQUIREMENTS = {
         "Upkeep activity completion dates", "epms_core", "t_upkeep", "synthetic",
         "upkeep_log"),
     "cost_ledger": _r(
-        "Cost routed to block", "epms_core", "m_cost_control_mapping", "synthetic",
-        "cost_margin", "The routing rule exists in EPMS. The export carried no cost."),
+        "Actual cost line items by cost centre and order", "sap_co", "KSB1 / KOB1 (ACDOCA)", "synthetic",
+        "finance", "Posted from the work in the generated ledger: every line names its source document."),
+    "co_budget": _r(
+        "Budget by cost centre, order and cost element", "sap_co", "KP06 / COSP, version 0", "synthetic",
+        "finance", "The baseline the leak engine is judged against."),
+    "co_masters": _r(
+        "Cost centres, internal orders and their block or vehicle", "sap_co", "KS03 / KO03, cost elements",
+        "synthetic", "finance", "How a block, a vehicle and a road segment are carried in CO."),
+    "payroll_wage_types": _r(
+        "Payroll results by wage type, per gang and month", "sap_hr", "payroll wage-type summary",
+        "synthetic", "finance", "Basic, premium, overtime and man-days paid, against the muster."),
+    "fuel_log": _r(
+        "Fuel fills per vehicle and fuel card transactions", "sap_pm", "fuel log / card extract",
+        "synthetic", "finance", "The litres each vehicle was given, against what its trips burned."),
+    "supplier_invoices": _r(
+        "Supplier invoices against goods receipts", "sap_fi", "MIRO, RBKP / RSEG", "synthetic",
+        "finance", "Invoice price against the PO price and the standard."),
+    "contract_sheets": _r(
+        "Contract work sheets (fertiliser application, road works)", "sap_mm", "service entry sheets",
+        "synthetic", "finance", "Man-days and km billed by contractors."),
 
     # -- the asks: SAP ------------------------------------------------------
     "weighbridge": _r(
@@ -287,6 +313,31 @@ def _f(fid, domain, label, question, panel, requires, status="live", note=None):
 
 
 FEATURES = [
+    # ── cost efficiency ────────────────────────────────────────────────────
+    _f("money_leaks", "cost",
+       "Where money leaks",
+       "Where are we losing money, and what stops it?",
+       "leakage",
+       ["block_polygons", "cost_ledger", "co_masters", "payroll_wage_types", "fuel_log",
+        "supplier_invoices", "contract_sheets", "mm_movements", "harvest_short"], "live",
+       "Every block, vehicle, crew, material and road segment priced against its best peers; "
+       "the cause and the action chosen by the model from server-run checks."),
+    _f("node_efficiency", "cost",
+       "Efficiency map",
+       "Which blocks run closest to their best peers?",
+       "efficiency_map",
+       ["block_polygons", "cost_ledger", "harvest_short"]),
+    _f("budget_vs_actual", "cost",
+       "Budget vs actual",
+       "Where is spend off budget?",
+       "budget",
+       ["cost_ledger", "co_budget", "co_masters"]),
+    _f("cost_margin", "cost",
+       "Block margin",
+       "Which blocks earn their keep?",
+       "margin",
+       ["block_polygons", "cost_ledger", "abw", "harvest_short"]),
+
     # ── harvesting ─────────────────────────────────────────────────────────
     _f("harvest_rotation", "harvesting",
        "Overdue harvest",
@@ -513,11 +564,7 @@ FEATURES = [
        "How long do suppliers really take, against what SAP plans on?",
        "stores",
        ["mm_purchase_history", "mm_material_master"]),
-    _f("cost_margin", "commercial",
-       "Block margin",
-       "Which blocks earn their keep?",
-       "margin",
-       ["block_polygons", "cost_ledger", "abw", "harvest_short"]),
+
 
     # ── governance and force majeure ───────────────────────────────────────
     _f("fire_triage", "governance",

@@ -318,6 +318,21 @@ _READINESS = [
                 "development."),
     },
     {
+        "id": "finance",
+        "capability": "Cost efficiency: where money leaks",
+        "needs": ("CO line items with sender documents, the CO budget, cost centre and order masters, "
+                  "payroll by wage type, the fuel log or fuel card extract, supplier invoices"),
+        "status": "synthetic",
+        "evidence": ("The EC export carries no cost at all. A CO ledger is generated, posted from the "
+                     "generated work orders, trips, material documents, payroll days and contract "
+                     "sheets, so every rupiah points at its source; it reconciles to payroll man-days, "
+                     "MM issues at standard and the fuel issued per division, to the unit."),
+        "degrades_to": "Block margin on cost allocated by hectare: a ranking of noise, not of leaks.",
+        "ask": ("KSB1/KOB1 or ACDOCA line items, KP06 plan version 0, the KS03/KO03 masters with the "
+                "block and vehicle mapping, the payroll wage-type summary per gang and month, and the fuel "
+                "card extract, for company code and plant EC over 24 months."),
+    },
+    {
         "id": "vendor_sourcing",
         "capability": "Vendor sourcing (UC-09)",
         "needs": "Vendor locations",

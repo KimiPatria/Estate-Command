@@ -867,7 +867,10 @@ export function outcomesPopup() {
   return {
     key: 'outcomes',
     initial: S.outSection,
-    async load() { D = await getJSON('/gis/ops/outcomes?estate=EC'); },
+    async load() {
+      D = await getJSON('/gis/ops/outcomes?estate=EC');
+      try { D.cost = await getJSON('/gis/finance/outcomes'); } catch (e) { D.cost = null; }
+    },
     header: () => D ? `<span class="prov synthetic" title="Observed figures are read from the generated ledger">observed side is synthetic</span>` : '',
     menu: () => D ? [{ label: 'Results', items: [
       { id: 'overview', label: 'Overview', count: D.realisation_pct === null ? '' : pc0(D.realisation_pct) },
@@ -875,6 +878,7 @@ export function outcomesPopup() {
       { id: 'baseline', label: 'Baseline by operation', count: D.baseline.length },
       { id: 'forecasts', label: 'Forecasts against the day',
         count: D.forecast_summary && D.forecast_summary.checked ? `${D.forecast_summary.right}/${D.forecast_summary.checked}` : '' },
+      { id: 'cost', label: 'Cost actions', count: D.cost ? D.cost.actions.length : '' },
     ] }] : [],
     onSection: id => { S.outSection = id; },
     section(id) {
@@ -912,6 +916,20 @@ export function outcomesPopup() {
               </div>`).join('')
               : `<div class="empty">Nothing to check yet.</div>`}
             <div class="fp-actbar"><button class="ops-btn" data-open-panel="forecasts">Open tomorrow's outlook</button></div>`,
+        };
+      }
+      if (id === 'cost') {
+        const A = (D.cost && D.cost.actions) || [];
+        return {
+          title: 'Cost actions',
+          html: A.length ? tbl(`
+            <tr><th>Drafted</th><th>Action</th><th>Leak</th><th class="num">When drafted</th><th>Months after</th><th>Reading</th><th>Cause found</th></tr>
+            ${A.map(a => `<tr><td>${esc(a.created_at.slice(0, 16).replace('T', ' '))}</td><td>${esc(a.title)}</td>
+              <td>${esc(a.driver_label)}</td><td class="num">${n0(a.before_idr)}</td>
+              <td>${a.after.map(x => `${esc(x.label)} ${n0(x.driver_idr)}`).join(' · ') || '—'}</td>
+              <td>${esc(a.words)}</td><td>${esc(a.cause_found || '—')}</td></tr>`).join('')}`)
+            : `<div class="empty">No cost action has been drafted yet.</div>
+               <div class="fp-actbar"><button class="ops-btn" data-open-panel="leakage">Where money leaks</button></div>`,
         };
       }
       if (id === 'baseline') {

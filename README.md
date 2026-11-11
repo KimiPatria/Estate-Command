@@ -13,7 +13,10 @@ map to match.
 The project began as *AutoDashboard*, a natural-language interface to a
 PostgreSQL plantation management (EPMS) database. Those text-to-SQL
 surfaces — Dashboard, Report and Chat — are still here and still work
-(§5), but the map and the forecast are the product now.
+(§5), but the map and the forecast are the product now. Chat has since been
+rebuilt as a streaming, chart-drawing assistant that can answer from either
+the live Postgres estates or the central SQL Server staging database, and the
+forecast pages read from the same two sources.
 
 One rule holds everywhere in this app: **a figure never wears a badge it did
 not earn.** Real client records, real free satellite and weather measurements,
@@ -125,6 +128,37 @@ conformal-calibrated uncertainty band.
 | Target hygiene | Under-recorded months are seasonally imputed and flagged; sparse months and partial endpoints are excluded from train and score, not day-scaled — naive day-scaling caused ~41% of the previous build's backtest error |
 | Coverage | Two estates modelled (K3, EC); the page states its real coverage rather than implying every estate is forecast |
 
+#### Two sources: live and staging
+
+`/forecast` and `/model-health` carry a **Database** chip, the same control
+and the same `chat-db` setting the chat page uses, so one choice of source
+holds across both. `?db=live|staging` and `?theme=light|dark` work as deep
+links.
+
+| Source | Estates | What serves it |
+|---|---|---|
+| **Live** (default) | K3, EC | The ensemble above, fitted on the cleaned estate files. Unchanged. |
+| **Staging** | EA, EB, EC, and **All** (a true sum of the three over the months all three have) | One zero-shot Chronos-2 arm (currently estate weekly), chosen by a dated rule from walk-forward backtests: it must beat the Naive last-3 mean on every estate, otherwise the naive mean is served and the page says so (`forecast/lab/select_staging.py`) |
+
+Neither source touches a database inside a request. Staging series are cut
+offline from the EPMS staging database by `forecast/build_staging_series.py`
+into gitignored `forecast/staging/<ESTATE>/`, behind a gate that re-checks the
+cut before it is written. The series is **bunches**, not tonnes: OPH carries a
+ripe-bunch count and no weight. `forecast_sources.py` returns the same payload
+shape the live page draws, so one render path serves both. The differences are
+data, not structure: no per-member columns, no SHAP drivers, a Naive last-3
+mean benchmark (a seasonal naive needs a year of history before each target),
+and a horizon of 3 or 6 months. The band is the typical error measured at each
+step on the walk-forward backtest, with the row count behind every step; it is
+a rough band, not a prediction interval.
+
+Staging is honest about being weak: with 17–22 months of history, group sMAPE
+is **19.3%** over steps 1–3 and EC alone **30.6%**. Staging EC agrees with the
+live EC database to the bunch from May 2025 on. The panels that read
+the live estate databases (Production Risk Intelligence and its Investigator)
+and the per-member columns are hidden on staging rather than shown empty; the
+Block Map and the plasma schemes (P1, P2) are not built on staging yet.
+
 On top of the numbers:
 
 - **TreeSHAP driver panel** — per-forecast-month feature attributions
@@ -139,12 +173,52 @@ On top of the numbers:
   signals, the database and SHAP tools to explain the anomaly.
 - **Model health** (`/model-health`) — accuracy, interval calibration, data
   quality and lifecycle for the served model, read from the cached forecast
-  and the training artifact. It never refits to make itself look good.
+  and the training artifact. It never refits to make itself look good. Takes
+  the same Database chip; on staging it reports the selected arm's measured
+  backtest per estate. Its header links to the Forecast Lab.
 - **Block Map** — the estate's 291 polygons with a per-block forecast overlay
   and drill-down. Deliberately *not* the estate ensemble run 291 times: each
   block has the same handful of monthly points the whole estate has, so the
   point forecast is a trailing mean of the block's own non-partial months —
   what a ~4-point series can actually support.
+
+### Forecast Lab — comparing models before one is served (`/experiment/forecast`)
+
+An experiment surface kept deliberately off the client-facing `/forecast`
+page. It puts models side by side by estate (K3, EC, EB, EA, and the staging
+cuts), grain (months or weeks) and a 1–12 step horizon slider, in two views:
+
+- **Forecast** — each model's forward forecast on one chart. Only real
+  intervals are drawn: the block sum, and the estate-weekly model at month
+  grain, have none, and no band is invented for them.
+- **Backtest** — error by horizon, a leaderboard, and a replay slider. It
+  scores only the (origin, step) rows that every selected model produced, so
+  a model that skipped hard origins cannot win by omission. It also shows the
+  promotion gate card.
+
+Models on the bench: the served ensemble, Chronos-2 zero-shot (monthly,
+monthly + weather, block sum, estate weekly), a last-3 mean and a seasonal
+naive. A model's colour is fixed to the model, never to its position in a
+selection.
+
+**Promotion is a rule, not a judgement call.** `forecast/lab/promotion.py`
+fixes the champion/challenger test before the first result was seen: Chronos-2
+monthly + weather against the served ensemble on K3, steps 1–3. Gate A is the
+backtest (lower pooled MAPE, a Diebold–Mariano test with the HLN correction at
+p < 0.05, and no higher MAE at each step). Gate B is a shadow log of forecasts
+recorded before their outcome was known (at least six resolved months, lower
+pooled MAPE, closer in at least half of them). Gate A passed; Gate B has not
+yet, so the verdict is **HOLD**. Thresholds are never edited after the fact: a
+changed rule is a new dated rule beside the old one. Each month, after a data
+refresh, `python forecast/lab/shadow.py record --rebuild` adds to the log and
+`status` reads it back.
+
+Fine-tuning has been tried and failed its gate: a LoRA adapter trained on
+EC + EB weekly blocks took K3 step-1 MASE from 0.553 to 0.904. It learned the
+shared late-2025 decline rather than anything transferable, so it is not
+served, and the rule going forward is that no estate may regress. Zero-shot
+Chronos-2 needs no training job; anything that does train runs as a SageMaker
+job (`forecast/chronos_finetune_sagemaker.py`), not on a laptop.
 
 ### Tomorrow's outlook — the operational forecast (`/command`)
 
@@ -241,9 +315,8 @@ User question
   its own SQL query, as structured JSON produced by the LLM.
 - **Report** — preset SQL templates (zero LLM cost) or freeform generated
   reports with saved, date-parameterized query templates.
-- **Chat** — conversational Q&A with per-estate fan-out across the two live
-  estate databases (BA, K3). Returns the SQL, row count, tables used, and the
-  answer.
+- **Chat** — conversational Q&A, rebuilt in the style of the popular AI chat
+  apps and described in full below.
 
 Supporting machinery: hybrid dense + BM25 table retrieval, a one-shot
 self-correction loop on SQL error, few-shot examples mined from successful
@@ -251,6 +324,101 @@ history, SQL safety validation (DDL, DML and multi-statement queries blocked;
 read-only connection with a statement timeout), runtime model switching, and
 hot-reload of schema metadata and glossary. Every prompt is grounded in
 `business_rules.txt` and `glossary.yaml`.
+
+### The chat page (`/chat`)
+
+A sidebar of saved chats, a message thread and a composer, in plain HTML, CSS
+and JS with no build step (`chat_static/chat.html`, `chat.css`, `chat.js`;
+marked, DOMPurify and Chart.js are vendored in `chat_static/vendor/`).
+
+**What you see**
+
+- **Live progress.** `POST /chat/stream` sends server-sent events while the
+  question runs: a row per pipeline step (finding tables, writing the query,
+  running it), the result table as soon as it exists, a chart, then the
+  answer. A **Stop** button cancels the request server-side and nothing is
+  stored for a stopped message. The answer text is typed out in the browser,
+  because the model returns it in one piece; the steps and the table are
+  genuinely live.
+- **Charts.** After a query runs, the model is asked which chart shows the
+  result (a type and a choice of columns, nothing else). `chat_charts.py`
+  checks that against the real columns and takes every number from the rows,
+  so a chart cannot show a figure the database did not return. If the model
+  is unavailable a plain rule picks the chart. Time becomes a line, comparison
+  bars, rankings horizontal bars; the reader can switch type, and measures of
+  very different size are never drawn on one axis.
+- **Chats you can keep.** Rename, pin, search and delete; regenerate the last
+  answer or edit the last question; thumbs up or down on any answer. Light and
+  dark themes. Deep links: `/chat?c=<session>` and
+  `/chat?q=<question>&db=staging&theme=dark`.
+- **The tools menu** in the composer picks the **database**, the **answer
+  source** (the data, the Bedrock knowledge base of documents, or both), and the
+  **model** (Automatic, which uses the fast model and steps up for analysis, or
+  a named one).
+
+**Two databases**
+
+`data_sources.py` describes each database once (dialect, schema, curated
+metadata, business rules, prompt preamble, estate scoping, retrieval index) and
+the pipeline asks for whichever is in force for the request, so concurrent
+requests on different databases never see each other.
+
+| Database | What it is |
+|---|---|
+| **Live** (default) | The Postgres estate databases the app was built on (BA, K3), one database per estate, readable table names |
+| **EPMS staging** | The central SQL Server `EPMSStagingDB`: EA, EB, EC and the plasma schemes P1/P2 in one database, SAP-style table codes (`OPH`, `FDN`, `BLK`…), split by `WERKS`. Optional; set `DATABASE_URL_STAGING` |
+
+Staging is read through a login with `db_datareader` only: SQL Server has no
+read-only transaction mode, so permissions are the only write protection. Its
+schema has traps a model walks into, and they are written into
+`business_rules_staging.txt` and `schema_metadata_staging.json` (12 curated
+tables; the rest are deliberately not indexed): tonnage lives in `FDN` and
+repeats on every row of a weighbridge trip, so summing rows overcounts about
+twenty-fold; block, division and employee tables are history tables where the
+current row has `KDATE = '9999-12-31'`; and area summed after joining to
+harvest tickets fans out.
+
+**Getting the right number, not just a valid query**
+
+- **Derived facts.** Gaps, ratios and shares are computed in code and handed
+  to the answer model, because it does the arithmetic wrong.
+- **Lint before run.** `DataSource.lint` rejects SQL that is valid but wrong
+  and gives the model one corrected retry; if it is still flagged the user is
+  told no query could be produced, and it is never saved. Live: the approval
+  date rule, the deleted-row guard, area summed at a level that reads a
+  transaction table. Staging: trip weight counted once per trip, area fan-out,
+  `WERKS` compared with an estate code, and `EST.NAME1 = PRFNR` dropping both
+  plasmas.
+- **Examples can be poisoned.** Successful queries are mined as few-shot
+  examples, so a wrong one that ran cleanly gets copied. Lint also screens
+  stored examples at retrieval, and a thumbs-down retires the answer's SQL as
+  an example (`/chat/feedback`).
+- **A default period.** On staging, a question with no period means the last
+  twelve full months, and the answer states the window it used.
+
+**Conversation around the pipeline**
+
+`chat_conversation.py` sits around the SQL pipeline, never inside it, and every
+model call in it is optional: a failure means no question back or no buttons,
+never a lost answer. Whatever the model writes is checked before it reaches the
+page, so a question or a button cannot carry a figure nobody retrieved.
+
+- **Ask back.** A vague question gets a clarifying question with answer
+  buttons; the reply is folded into the original question for retrieval. The
+  language to ask in (English or Indonesian) is detected in code and stated to
+  the model, which got it wrong when asked to match the message itself.
+- **Follow-up buttons** after an answer, and "run it" or "yes" resolved to the
+  previous question plus the sentence the answer offered.
+- **Scope that carries.** A follow-up keeps the estate the conversation was
+  about, and "other estates", "the rest" or "without the filter" widens it to
+  every estate.
+- **Small talk** (greetings, thanks, "what can you do?") answers directly with
+  no query.
+
+**Chat endpoints:** `POST /chat/stream`, `POST /chat/message` (the same
+pipeline without streaming, kept for the evals), `GET /chat/databases`,
+`GET /chat/models`, `GET /chat/sessions`, `GET`/`PATCH`/`DELETE`
+`/chat/sessions/{id}`, `POST /chat/feedback`.
 
 ---
 
@@ -262,12 +430,14 @@ hot-reload of schema metadata and glossary. Every prompt is grounded in
 | Map | MapLibre GL, ES modules built by Vite |
 | Geospatial | ArcGIS block export → GeoJSON; Sentinel-2 L2A via STAC + COG range requests (numpy only, no GDAL/rasterio) |
 | Estate forecasting | SARIMAX + LightGBM + Trailing3 ensemble, conformal prediction (ACI), TreeSHAP |
+| Forecast challengers | Chronos-2 zero-shot (own Python env); training jobs on Amazon SageMaker |
 | Operational models | Ridge / logistic fits with backtests, trust grades and fallbacks (`gis/models/learn.py`) |
 | Scheduling | Greedy value-density assignment with swap improvement and a relaxed bound |
 | LLM inference | Provider-agnostic LangChain layer (`llm_client.py`): Groq today (GPT OSS 120B/20B, Llama 3.1 8B, Qwen3 32B); Amazon Bedrock (Nova Pro / Nova Lite) ready via config |
 | Agents | LangGraph (forecast investigator), tool-calling copilot (`gis/copilot.py`) |
 | Vector store / retrieval | ChromaDB + fastembed (BAAI/bge-small-en-v1.5), BM25 (rank-bm25) |
-| Database | PostgreSQL via SQLAlchemy (read-only) |
+| Database | PostgreSQL via SQLAlchemy (read-only); optional SQL Server staging via pyodbc (read-only login) |
+| Chat frontend | Plain HTML/CSS/JS, server-sent events, marked + DOMPurify + Chart.js (vendored, no build) |
 | Decision log / assumptions | SQLite — never EPMS |
 | Public feeds | Copernicus / Sentinel-2, Open-Meteo (history, forecast, previous runs), NASA FIRMS, NASA POWER |
 | Experiment tracking | MLflow |
@@ -334,18 +504,35 @@ hot-reload of schema metadata and glossary. Every prompt is grounded in
 │   │                       #   selection, compare, blocks, and one per feature
 │   └── dist/               # Built bundle, what /command serves (gitignored)
 │
-├── forecast_router.py      # Forecast endpoints: data, model health, blocks, intelligence
+├── forecast_router.py      # Forecast endpoints: data, sources, model health, blocks, intelligence
+├── forecast_sources.py     # The staging source: same payload shape as live, read from lab artifacts
+├── experiment_router.py    # Forecast Lab endpoints (/experiment/forecast/*)
 ├── forecast/
 │   ├── monthly_model.py    # SARIMAX + Trailing3 + LightGBM ensemble, walk-forward backtest
 │   ├── conformal.py        # Conformal / ACI uncertainty bands
 │   ├── blocks.py           # Block-polygon GeoJSON for the Block Map
 │   ├── build_block_forecast.py # Per-block trailing-mean forecast
+│   ├── build_staging_series.py # Offline: cut EA/EB/EC harvest from the staging DB, gated
+│   ├── block_weekly.py     # 7-day block and division series for the weekly models
 │   ├── serving.py          # Monthly + daily/weekly serving layer
-│   ├── monthly_model.joblib, EC/, experiments/
+│   ├── chronos_*.py, chronos2_blocks_finetune.py # Chronos-2 runs, incl. the SageMaker job wrapper
+│   ├── lab/
+│   │   ├── registry.py     # Estates, grains, models, backtest readers
+│   │   ├── build_artifacts.py # Writes lab forecasts and backtests (Chronos env; --source, --remote)
+│   │   ├── evaluate.py     # Diebold–Mariano with the HLN correction
+│   │   ├── promotion.py    # The fixed champion/challenger rule
+│   │   ├── shadow.py       # The shadow log behind Gate B
+│   │   └── select_staging.py # The dated rule that picks the staging model
+│   ├── monthly_model.joblib, EC/, staging/ (gitignored), experiments/
 ├── forecast_intelligence.py # LLM risk synthesis over live weather/ENSO/fire signals
 ├── forecast_investigator.py # LangGraph ReAct agent for anomaly investigation
 │
-├── chat_router.py          # Chat: RAG → SQL → conversational answer
+├── chat_router.py          # Chat: sessions, /chat/stream, RAG → SQL → answer, feedback
+├── chat_conversation.py    # Ask-back, follow-up buttons, scope carry, small talk
+├── chat_charts.py          # Chart choice from the result; numbers always from the rows
+├── chat_events.py          # Request-scoped progress events and cancellation
+├── chat_history.py         # Saved chats and per-turn metadata
+├── data_sources.py         # Live vs staging: dialect, metadata, rules, lint, scoping
 ├── report_router.py        # Reports: preset and generated
 ├── retrieval.py            # Hybrid ChromaDB + BM25 retrieval
 ├── prompt_builder.py       # Prompt assembly and SQL extraction
@@ -363,13 +550,23 @@ hot-reload of schema metadata and glossary. Every prompt is grounded in
 │
 ├── sql_eval.py             # Golden-set text-to-SQL eval harness
 ├── eval_harness.py         # Investigator-agent eval harness
+├── evals/
+│   ├── golden_chat.yaml    # 16 chat cases scored on the number, not the SQL text
+│   ├── run_golden_chat.py  # Runs them through the real /chat/message path
+│   └── purge_bad_examples.py # Removes stored few-shot examples that now fail lint
 ├── infra/terraform/        # Bedrock KB IaC skeletons — NOT YET APPLIED
 ├── doc_ingestion/          # PDF/DOCX parsing dry run for the contracts use case
 │
-├── dashboard_static/ report_static/ chat_static/ forecast_static/   # the four single-file UIs
-├── business_rules.txt      # Domain rules and query constraints for the LLM
+├── dashboard_static/ report_static/   # single-file UIs, no build
+├── chat_static/            # Chat page: chat.html / chat.css / chat.js + vendor/
+├── forecast_static/        # forecast.html, model_health.html, theme.css/js (chat look + Database chip)
+├── experiment_static/      # forecast_lab.html
+├── business_rules.txt      # Domain rules and query constraints for the LLM (live)
+├── business_rules_staging.txt  # The same for the staging database
 ├── glossary.yaml           # Domain term → table/column mappings
-├── schema_metadata.json    # Table descriptions and embeddings
+├── schema_metadata.json    # Table descriptions and embeddings (live)
+├── schema_metadata_staging.json # 12 curated staging tables
+├── test_*.py               # pytest: chat experience and conversation, data sources, forecast lab, staging, theme
 └── requirements.txt
 ```
 
@@ -402,6 +599,17 @@ FIRMS_MAP_KEY=your_firms_key     # live fire hotspots; the panel degrades withou
 
 Get a free Groq API key at [console.groq.com](https://console.groq.com) and a
 free FIRMS map key at [firms.modaps.eosdis.nasa.gov](https://firms.modaps.eosdis.nasa.gov/api/).
+
+**Optional: the EPMS staging database.** To offer "EPMS staging" on the chat
+and forecast pages, install Microsoft's *ODBC Driver 18 for SQL Server* (the
+`pyodbc` package in `requirements.txt` needs it) and add a connection string:
+
+```env
+DATABASE_URL_STAGING=mssql+pyodbc://epms_ro:password@localhost/EPMSStagingDB?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+```
+
+Use a login with `db_datareader` only. Without the variable the database is
+listed as unavailable and everything else runs as before.
 
 ### 3. Set up domain context files
 
@@ -455,9 +663,11 @@ uvicorn dashboard_server:app --reload --port 8001
 |---|---|
 | **Estate Command** | [http://localhost:8001/command](http://localhost:8001/command) |
 | **Forecast** | [http://localhost:8001/forecast](http://localhost:8001/forecast) |
+| Model health | [http://localhost:8001/model-health](http://localhost:8001/model-health) |
+| Forecast Lab | [http://localhost:8001/experiment/forecast](http://localhost:8001/experiment/forecast) |
+| **Chat** | [http://localhost:8001/chat](http://localhost:8001/chat) |
 | Dashboard | [http://localhost:8001](http://localhost:8001) |
 | Report | [http://localhost:8001/report](http://localhost:8001/report) |
-| Chat | [http://localhost:8001/chat](http://localhost:8001/chat) |
 
 The operational models and the stores replay fit in background threads when
 the server starts, so the first outlook, plan or stores call after a restart
@@ -473,6 +683,22 @@ python gis/build_rainfall.py        # daily rainfall the ledger reads
 python gis/build_rain_forecast.py   # what the forecast said the evening before, daily
 python gis/build_ndre.py            # the real Sentinel-2 canopy layer
 ```
+
+To refresh the **staging forecast** after new data lands in the staging
+database (the Chronos steps run in the separate Chronos Python environment,
+not the dashboard one):
+
+```bash
+python forecast/build_staging_series.py                   # dashboard env: cut EA/EB/EC, gated
+python forecast/lab/build_artifacts.py --source staging   # Chronos env: forecasts and backtests
+python forecast/lab/select_staging.py                     # re-apply the dated selection rule
+```
+
+Add `--remote` to the second step to run it as a SageMaker job (`--recover-job
+<name>` collects one whose local poll died). The full K3/EC lab build takes
+about six minutes; `--no-backtest` is quick. After any data refresh, also run
+`python forecast/lab/shadow.py record --rebuild` to log the month's shadow
+forecasts for the promotion rule.
 
 ### 8. Tests
 
@@ -491,6 +717,22 @@ its planted-truth checks, that the generator's answer key never reaches a
 payload, that switching a forecast off puts the plan back on the old method,
 and that a replayed spray day decides on the forecast rather than the rain
 that fell.
+
+The chat and forecast pages have their own tests:
+
+```bash
+pytest test_chat_experience.py test_chat_conversation.py test_data_sources.py
+pytest test_forecast_lab.py test_forecast_staging.py test_forecast_theme.py
+node command_static/test/forecast_page.mjs http://127.0.0.1:8001   # /forecast in a real browser
+node command_static/test/forecast_lab.mjs http://127.0.0.1:8001    # the Lab, 33 checks
+```
+
+`test_forecast_theme.py` fails if `forecast_static/theme.css` drifts from the
+chat tokens in `chat_static/chat.css`: the forecast pages carry a copy so they
+look like the chat page, and the test is what keeps it a copy. The lab test
+includes a leakage check, so a model cannot be scored on data it had already
+seen. Anything that goes through `/chat` should be tested against the running
+server, because a standalone process has no retrieval index.
 
 ---
 
@@ -570,16 +812,28 @@ that fell.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/forecast` | Forecast UI |
-| `GET` | `/forecast/data` | Historical + 3/6/12-month production forecast with uncertainty band |
-| `GET` | `/forecast/model-health` | Served-model accuracy, interval calibration, data quality, lifecycle |
+| `GET` | `/forecast` · `/model-health` | Forecast UI; model health UI |
+| `GET` | `/forecast/sources` | The databases the forecast pages can read, and whether each is built |
+| `GET` | `/forecast/data` | Historical + 3/6/12-month production forecast with uncertainty band. `source=live\|staging`; `estate=k3\|ec` live, `ea\|eb\|ec\|all` staging (horizon 3 or 6) |
+| `GET` | `/forecast/model-health` | Served-model accuracy, interval calibration, data quality, lifecycle. Same `source` and `estate` |
 | `GET` | `/forecast/blocks` | Block-polygon GeoJSON for the Block Map |
 | `GET` | `/forecast/block-forecast` | Per-block trailing-mean forecast overlay |
 | `GET` | `/forecast/intelligence` | LLM risk-synthesis narrative over the ML forecast |
 | `GET` | `/forecast/investigate` | Investigator agent output (runs only when triggered, or `?force=1`) |
 | `GET` / `POST` | `/` · `/api/generate` | Dashboard UI; generate a dashboard layout |
 | `GET` / `POST` | `/report` · `/report/generate` | Report UI; generate a freeform report |
-| `GET` / `POST` | `/chat` · `/chat/message` | Chat UI; send a chat message |
+| `GET` | `/chat` | Chat UI |
+| `POST` | `/chat/stream` | Send a message; server-sent events `step`, `table`, `chart`, `delta`, `final` / `error` |
+| `POST` | `/chat/message` | The same pipeline without streaming (used by the evals) |
+| `GET` | `/chat/databases` · `/chat/models` | What the tools menu offers; a database that isn't configured is listed as unavailable |
+| `GET` | `/chat/sessions` · `/chat/sessions/{id}` | Saved chats; one chat's turns |
+| `PATCH` / `DELETE` | `/chat/sessions/{id}` | Rename or pin; delete |
+| `POST` | `/chat/feedback` | Thumbs up/down; a thumbs-down retires that answer's SQL as an example |
+| `GET` | `/experiment` · `/experiment/forecast` | Forecast Lab UI |
+| `GET` | `/experiment/forecast/sources` · `/catalog` | Lab databases; estates, grains and models with their availability |
+| `GET` | `/experiment/forecast/data` | Every model's forward forecast for an estate and grain |
+| `GET` | `/experiment/forecast/backtest` | Every model's walk-forward predictions, for the error and replay views |
+| `GET` | `/experiment/forecast/promotion` | The champion/challenger gates and the verdict |
 | `GET` | `/health` | Health check |
 | `POST` | `/admin/reload-schema` · `/admin/reload-glossary` | Hot-reload schema metadata / business rules |
 
@@ -592,6 +846,8 @@ that fell.
 | `GROQ_API_KEY` | — | Groq API key (required while `LLM_PROVIDER=groq`) |
 | `DATABASE_URL` | — | PostgreSQL connection string for estate K3 (required) |
 | `DATABASE_URL_BA` | — | PostgreSQL connection string for estate BA (required) |
+| `DATABASE_URL_STAGING` | — | Optional SQL Server connection string for the EPMS staging database (read-only login). Without it, staging is listed as unavailable |
+| `CHAT_DEFAULT_MODEL` | `nova-2-lite` | Model the chat page's "Automatic" starts from |
 | `DB_SCHEMA` | `public` | PostgreSQL schema to introspect |
 | `FIRMS_MAP_KEY` | — | NASA FIRMS key for live fire hotspots |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Main SQL-generation model |
@@ -652,6 +908,16 @@ Notes:
   `evals/results/` and MLflow (`text2sql-evals`). `--check-cases` validates
   the reference SQL without any LLM calls; `--with-examples` measures the
   production few-shot configuration.
+- `python evals/run_golden_chat.py --runs 3` — the whole chat pipeline, scored
+  on whether the **number** is right (16 cases, 9 live and 7 staging, some
+  multi-turn). Expected figures come from hand-written reference SQL, never
+  from the model; `--check-cases` validates that SQL with no LLM calls. Runs
+  are not saved as few-shot examples. Two rounds of fixes took live from 50% to
+  100% and staging to 21 of 21 runs, and each came from a real wrong answer
+  (a missing deleted-row filter; a tonnage query that summed trip weight per
+  row; a conversation that stayed scoped to one estate). Rerun it after any
+  change to prompts, rules, metadata or the example pool, and turn real bad
+  conversations into new cases.
 - `python eval_harness.py` — investigator-agent harness (LLM-judged, MLflow
   experiment `investigator-evals`).
 - `python forecast/monthly_model.py` — the walk-forward backtest behind the

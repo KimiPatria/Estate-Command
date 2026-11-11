@@ -4,46 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EPMS · Production Forecast</title>
+<script>
+  // Theme before first paint (same key as the chat page), so a dark-mode user never sees a white flash.
+  (function () {
+    var t = null;
+    try { t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('chat-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23115e6e'/%3E%3Cpath d='m16 6 2.5 7.4L26 15.3l-7.5 2.5L16 25.3l-2.5-7.5L6 15.3l7.5-1.9Z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/chat-static/vendor/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/forecast-static/vendor/leaflet.css">
+<script src="/forecast-static/vendor/leaflet.js"></script>
 <style>
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-:root {
-  --bg:          #f7faf9;
-  --surface:     #ffffff;
-  --card:        #ffffff;
-  --card-h:      #f1f5f4;
-  --border:      #dce4e1;
-  --border-s:    #ebf1ef;
-  --text:        #20312e;
-  --muted:       #64746f;
-  --accent:      #115e6e;
-  --accent-deep: #0b4351;
-  --sage:        #7ba39f;
-  --olive:       #8b8c7a;
-  --gold:        #c79a36;
-  --accent-dim:  rgba(17,94,110,.07);
-  --accent-glow: rgba(17,94,110,.20);
-  --sage-dim:    rgba(123,163,159,.16);
-  --gold-dim:    rgba(212,168,75,.14);
-  --error:       #b3382e;
-  --r:           8px;
-  --font:        'Inter', system-ui, sans-serif;
-  --ease-out:    cubic-bezier(.16, 1, .3, 1);
-}
 
-html, body { height:100%; overflow:hidden; }
-body {
-  font-family: var(--font);
-  background: #ffffff;
-  color: var(--text);
-  display: flex; flex-direction: column;
-  font-size: 14px; line-height: 1.5;
-}
 
 @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
@@ -51,59 +32,23 @@ body {
   *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
 }
 
-/* ── HEADER (shared) ─────────────────────────────────────────────── */
-.app-header {
-  display: flex; align-items: center; gap: 14px;
-  padding: 0 20px; height: 52px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0; z-index: 10; position: relative;
-}
-.app-name { font-weight: 800; font-size: 14px; letter-spacing: -.3px; color: var(--accent-deep); }
-.app-sep  { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
-.app-sub  { font-size: 12px; color: var(--muted); }
-.app-nav { display: flex; align-items: center; gap: 2px; position: absolute; left: 50%; transform: translateX(-50%); }
-.nav-pill {
-  position: absolute; background: var(--accent); border-radius: 99px;
-  z-index: 0; pointer-events: none; opacity: 0;
-  transition: left .3s var(--ease-out), width .3s var(--ease-out), opacity .15s;
-}
-.app-nav a {
-  position: relative; z-index: 1;
-  font-size: 12px; font-weight: 500; color: var(--muted);
-  text-decoration: none; padding: 5px 12px; border-radius: 99px;
-  transition: color .18s; white-space: nowrap;
-}
-.app-nav a:not(.nav-active):hover { color: var(--accent); }
-.app-nav a.nav-active { color: var(--muted); }
-.nav-clone {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; gap: 2px;
-  pointer-events: none; z-index: 2;
-  clip-path: inset(0 100% 0 0 round 99px);
-  transition: clip-path .3s var(--ease-out);
-}
-.nav-clone span { font-size: 12px; font-weight: 500; color: #fff; padding: 5px 12px; white-space: nowrap; }
-.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.provider-pill { font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; }
-
 /* ── TITLE BAR ───────────────────────────────────────────────────── */
 .fc-titlebar {
   padding: 11px 18px; flex-shrink: 0;
   background: var(--surface); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
-.fc-title { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.fc-title { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 .fc-title .accent { color: var(--accent); }
 .fc-meta  { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .badge {
-  font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 99px;
+  font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px;
   background: var(--accent-dim); border: 1px solid var(--accent-glow); color: var(--accent);
 }
-.meta-txt { font-size: 11px; color: var(--muted); }
+.meta-txt { font-size: 12.5px; color: var(--muted); }
 .btn-refresh {
-  font-size: 11px; font-weight: 600; color: var(--muted);
-  background: var(--bg); border: 1px solid var(--border); border-radius: 99px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 99px;
   padding: 3px 12px; cursor: pointer; font-family: var(--font);
   display: inline-flex; align-items: center; gap: 5px;
   transition: color .15s, border-color .15s, background .15s;
@@ -112,10 +57,10 @@ body {
 .btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ── HORIZON TOGGLE ──────────────────────────────────────────────── */
-.hz-toggle { display: flex; align-items: center; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
-.hz-btn { font-size: 11px; font-weight: 600; color: var(--muted); background: transparent; border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer; font-family: var(--font); transition: color .15s, background .15s; }
+.hz-toggle { display: flex; align-items: center; gap: 2px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
+.hz-btn { font-size: 12.5px; font-weight: 600; color: var(--muted); background: transparent; border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer; font-family: var(--font); transition: color .15s, background .15s; }
 .hz-btn:hover:not(.active) { color: var(--accent); }
-.hz-btn.active { background: var(--accent); color: #fff; }
+.hz-btn.active { background: var(--accent); color: var(--on-accent); }
 
 /* ── CONTENT ─────────────────────────────────────────────────────── */
 .fc-content { flex: 1; overflow-y: auto; padding: 16px 18px 28px; }
@@ -125,19 +70,17 @@ body {
 
 /* ── KPI ROW ─────────────────────────────────────────────────────── */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; }
-.cov-inline { color: var(--muted); font-size: 11px; font-weight: 500; }
+.cov-inline { color: var(--muted); font-size: 12.5px; font-weight: 500; }
 .kpi-card {
   background: var(--card); border: 1px solid var(--border-s);
   border-radius: var(--r); padding: 14px 16px;
   display: flex; flex-direction: column; gap: 4px;
   animation: fadeUp .45s var(--ease-out) both;
 }
-.kpi-card .k-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.kpi-card .k-value { font-size: 30px; font-weight: 800; letter-spacing: -1.2px; color: var(--text); line-height: 1.1; }
-.kpi-card .k-sub   { font-size: 11px; color: var(--muted); }
+.kpi-card .k-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.kpi-card .k-value { font-size: 30px; font-weight: 700; letter-spacing: -.8px; color: var(--text); line-height: 1.1; }
+.kpi-card .k-sub   { font-size: 12.5px; color: var(--muted); }
 .kpi-card.accent .k-value { color: var(--accent); }
-.kpi-card.gold   { border-color: var(--gold-dim); background: linear-gradient(180deg, rgba(212,168,75,.05), #fff); }
-.kpi-card.gold   .k-value { color: var(--gold); }
 
 /* ── SCOPE BAR (head-office hierarchy) ───────────────────────────── */
 .scope-bar {
@@ -146,21 +89,21 @@ body {
   border-radius: var(--r); padding: 9px 14px;
   animation: fadeUp .45s var(--ease-out) both;
 }
-.scope-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.scope-chips { display: flex; align-items: center; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
+.scope-lbl { font-size: 12px; font-weight: 500; color: var(--muted); }
+.scope-chips { display: flex; align-items: center; gap: 2px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
 .scope-chip {
-  font-size: 11px; font-weight: 600; color: var(--muted); background: transparent;
+  font-size: 12.5px; font-weight: 600; color: var(--muted); background: transparent;
   border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer;
   font-family: var(--font); transition: color .15s, background .15s;
 }
 .scope-chip:hover:not(.active):not(:disabled) { color: var(--accent); }
-.scope-chip.active { background: var(--accent); color: #fff; }
+.scope-chip.active { background: var(--accent); color: var(--on-accent); }
 .scope-chip:disabled { opacity: .4; cursor: not-allowed; }
 .crumbs { display: flex; align-items: center; gap: 7px; margin-left: auto; flex-wrap: wrap; }
-.crumb { font-size: 11px; color: var(--muted); }
+.crumb { font-size: 12.5px; color: var(--muted); }
 .crumb.on  { color: var(--text); font-weight: 600; }
 .crumb.off { opacity: .42; }
-.crumb-sep { font-size: 11px; color: var(--border); }
+.crumb-sep { font-size: 12.5px; color: var(--border); }
 
 /* ── EXECUTIVE OVERVIEW ──────────────────────────────────────────── */
 .exec-card {
@@ -169,67 +112,67 @@ body {
   animation: fadeUp .45s var(--ease-out) .02s both;
 }
 .exec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.exec-head h2 { font-size: 13px; font-weight: 700; }
-.exec-head .sub { font-size: 11px; color: var(--muted); }
-.badge.warn { background: var(--gold-dim); border-color: rgba(212,168,75,.45); color: #9a7414; }
+.exec-head h2 { font-size: 14px; font-weight: 600; }
+.exec-head .sub { font-size: 12.5px; color: var(--muted); }
+.badge.warn { background: var(--gold-dim); border-color: var(--warn-bd); color: var(--warn-text); }
 .exec-hero { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; padding-bottom: 15px; border-bottom: 1px solid var(--border-s); }
 .hero-main { display: flex; flex-direction: column; gap: 2px; }
-.hero-main .h-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.exec-value { font-size: 42px; font-weight: 800; letter-spacing: -2px; line-height: 1.05; color: var(--accent); }
+.hero-main .h-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.exec-value { font-size: 42px; font-weight: 700; letter-spacing: -1.2px; line-height: 1.05; color: var(--accent); }
 .exec-value .unit { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
-.exec-value.na { color: var(--muted); font-size: 30px; letter-spacing: -1px; }
-.exec-range { font-size: 11.5px; color: var(--muted); }
+.exec-value.na { color: var(--muted); font-size: 30px; letter-spacing: -.6px; }
+.exec-range { font-size: 12.5px; color: var(--muted); }
 .hero-deltas { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
 .delta-box { display: flex; flex-direction: column; gap: 2px; min-width: 128px; }
-.delta-box .d-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.delta-val { font-size: 20px; font-weight: 800; letter-spacing: -.6px; }
+.delta-box .d-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.delta-val { font-size: 20px; font-weight: 700; letter-spacing: -.6px; }
 .delta-val.up   { color: var(--accent); }
 .delta-val.down { color: var(--error); }
-.delta-val.na   { color: var(--muted); font-size: 17px; font-weight: 700; }
-.delta-box .d-sub { font-size: 10.5px; color: var(--muted); }
+.delta-val.na   { color: var(--muted); font-size: 17px; font-weight: 600; }
+.delta-box .d-sub { font-size: 12px; color: var(--muted); }
 .exec-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin-top: 15px; }
 .exec-metric { display: flex; flex-direction: column; gap: 2px; padding: 0 15px; border-left: 1px solid var(--border-s); }
 .exec-metric:first-child { padding-left: 0; border-left: none; }
-.exec-metric .m-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.exec-metric .m-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .exec-metric .m-value { font-size: 19px; font-weight: 700; letter-spacing: -.5px; color: var(--text); }
 .exec-metric.na .m-value { font-size: 16px; color: var(--muted); }
-.exec-metric .m-sub { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.exec-metric .m-sub { font-size: 12px; color: var(--muted); line-height: 1.45; }
 
 /* ── ESTATE BREAKDOWN ────────────────────────────────────────────── */
 .strip-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: -4px; }
-.strip-head h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.strip-head .sub { font-size: 11px; color: var(--muted); }
+.strip-head h3 { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.strip-head .sub { font-size: 12.5px; color: var(--muted); }
 .est-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
 .est-tile {
   background: var(--card); border: 1px solid var(--border-s); border-radius: var(--r);
   padding: 13px 15px; display: flex; flex-direction: column; gap: 3px;
   animation: fadeUp .45s var(--ease-out) both;
 }
-.est-tile.na { background: linear-gradient(180deg, var(--bg), #fff); border-style: dashed; }
+.est-tile.na { background: linear-gradient(180deg, var(--bg-soft), var(--on-accent)); border-style: dashed; }
 .est-top { display: flex; align-items: center; gap: 8px; }
-.est-name { font-size: 12px; font-weight: 700; letter-spacing: -.1px; }
-.est-flag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 99px; margin-left: auto; }
+.est-name { font-size: 13px; font-weight: 600; letter-spacing: -.1px; }
+.est-flag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px; margin-left: auto; }
 .est-flag.live { background: var(--sage-dim); color: var(--accent); }
 .est-flag.none { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
-.est-value { font-size: 25px; font-weight: 800; letter-spacing: -1.1px; color: var(--text); line-height: 1.15; }
+.est-value { font-size: 25px; font-weight: 700; letter-spacing: -.7px; color: var(--text); line-height: 1.15; }
 .est-tile.na .est-value { font-size: 20px; color: var(--muted); font-weight: 700; }
-.est-sub { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
-.est-delta { font-size: 11px; font-weight: 700; }
+.est-sub { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.est-delta { font-size: 12.5px; font-weight: 600; }
 .est-delta.up { color: var(--accent); } .est-delta.down { color: var(--error); } .est-delta.na { color: var(--muted); font-weight: 600; }
 
 /* ── UNAVAILABLE-DATA STATE (shared) ─────────────────────────────── */
 .na-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 9px; text-align: center; padding: 32px 20px;
-  background: var(--bg); border: 1px dashed var(--border);
+  background: var(--bg-soft); border: 1px dashed var(--border);
   border-radius: var(--r); color: var(--muted);
 }
 .na-state.tall { min-height: 340px; }
 .na-state .na-ico { opacity: .45; }
-.na-state b { font-size: 12.5px; font-weight: 700; color: var(--text); }
-.na-state p { font-size: 11.5px; line-height: 1.6; max-width: 540px; }
+.na-state b { font-size: 13px; font-weight: 600; color: var(--text); }
+.na-state p { font-size: 12.5px; line-height: 1.6; max-width: 540px; }
 .na-req {
-  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  font-size: 11px; font-weight: 500;
   color: var(--muted); background: var(--surface); border: 1px solid var(--border);
   border-radius: 99px; padding: 3px 11px;
 }
@@ -237,18 +180,18 @@ body {
 /* ── MAP CARD (overlay chips are inert until geometry exists) ────── */
 .ovl-chips { display: flex; align-items: center; gap: 5px; margin-left: auto; flex-wrap: wrap; }
 .ovl-chip {
-  font-size: 10.5px; font-weight: 600; color: var(--muted); background: var(--bg);
+  font-size: 12px; font-weight: 600; color: var(--muted); background: var(--bg-soft);
   border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px;
   font-family: var(--font); cursor: not-allowed; opacity: .55;
 }
 .ovl-chip:not(:disabled) { cursor: pointer; opacity: 1; }
 .ovl-chip:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
-.ovl-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ovl-chip.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .blk-map { height: 420px; border-radius: var(--r); overflow: hidden; border: 1px solid var(--border); }
-.map-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 10.5px; color: var(--muted); }
+.map-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
 .map-legend .ramp { display: flex; height: 10px; border-radius: 3px; overflow: hidden; width: 150px; border: 1px solid var(--border); }
 .map-legend .ramp span { flex: 1; }
-.leaflet-popup-content { font-family: var(--font); font-size: 12px; line-height: 1.55; color: var(--text); }
+.leaflet-popup-content { font-family: var(--font); font-size: 13px; line-height: 1.55; color: var(--text); }
 .leaflet-popup-content b { color: var(--accent-deep); }
 
 /* ── HEADER LINK BUTTON ──────────────────────────────────────────── */
@@ -261,11 +204,11 @@ a.btn-refresh { text-decoration: none; }
   animation: fadeUp .45s var(--ease-out) .04s both;
 }
 .intel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-.intel-head h2 { font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; }
+.intel-head h2 { font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
 .intel-head h2 .spark { color: var(--gold); }
-.intel-head .sub { font-size: 11px; color: var(--muted); }
+.intel-head .sub { font-size: 12.5px; color: var(--muted); }
 .btn-analyze {
-  margin-left: auto; font-size: 11px; font-weight: 600; color: #fff;
+  margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--on-accent);
   background: var(--accent); border: 1px solid var(--accent); border-radius: 99px;
   padding: 5px 14px; cursor: pointer; font-family: var(--font);
   display: inline-flex; align-items: center; gap: 6px;
@@ -274,49 +217,49 @@ a.btn-refresh { text-decoration: none; }
 .btn-analyze:hover { background: var(--accent-deep); }
 .btn-analyze:disabled { opacity: .55; cursor: not-allowed; }
 
-.intel-placeholder { font-size: 12px; color: var(--muted); padding: 6px 0 2px; line-height: 1.6; }
+.intel-placeholder { font-size: 13px; color: var(--muted); padding: 6px 0 2px; line-height: 1.6; }
 
-.intel-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; padding: 8px 0; }
+.intel-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 8px 0; }
 .intel-loading .spinner { width: 18px; height: 18px; border-width: 2.5px; }
 
 .intel-err {
-  background: #fdf3f2; border: 1px solid #fecaca; color: var(--error);
-  border-radius: var(--r); padding: 10px 14px; font-size: 12px; line-height: 1.5;
+  background: var(--danger-bg); border: 1px solid var(--danger-bd); color: var(--error);
+  border-radius: var(--r); padding: 10px 14px; font-size: 13px; line-height: 1.5;
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .intel-err button {
-  font-size: 11px; font-weight: 600; color: var(--error); background: #fff;
-  border: 1px solid #fecaca; border-radius: 99px; padding: 3px 10px; cursor: pointer; font-family: var(--font);
+  font-size: 12.5px; font-weight: 600; color: var(--error); background: var(--surface);
+  border: 1px solid var(--danger-bd); border-radius: 99px; padding: 3px 10px; cursor: pointer; font-family: var(--font);
 }
 
 .risk-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .risk-badge {
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  font-size: 12.5px; font-weight: 500;
   padding: 4px 12px; border-radius: 99px; display: inline-flex; align-items: center; gap: 7px;
 }
 .risk-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
 .risk-badge.low      { background: var(--sage-dim);  color: var(--accent);     }
 .risk-badge.low      .dot { background: var(--accent); }
-.risk-badge.moderate { background: var(--gold-dim);  color: #9a7414;           }
+.risk-badge.moderate { background: var(--gold-dim);  color: var(--warn-text);           }
 .risk-badge.moderate .dot { background: var(--gold); }
-.risk-badge.high     { background: rgba(179,56,46,.10); color: var(--error);    }
+.risk-badge.high     { background: var(--danger-bg); color: var(--error);    }
 .risk-badge.high     .dot { background: var(--error); }
-.risk-summary { font-size: 13px; font-weight: 600; color: var(--text); }
+.risk-summary { font-size: 14px; font-weight: 600; color: var(--text); }
 
-.intel-narrative { font-size: 13px; color: var(--text); line-height: 1.65; }
+.intel-narrative { font-size: 14px; color: var(--text); line-height: 1.65; }
 .intel-narrative p { margin-bottom: 9px; }
 .intel-narrative p:last-child { margin-bottom: 0; }
 
 .intel-signals { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-.intel-signals .sig-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.intel-signals .sig-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .sig-pill {
-  font-size: 11px; color: var(--muted); background: var(--bg);
+  font-size: 12.5px; color: var(--muted); background: var(--bg-soft);
   border: 1px solid var(--border); border-radius: 99px; padding: 3px 11px;
   display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
 .sig-pill b { color: var(--text); font-weight: 600; }
 .sig-pill.na { opacity: .6; }
-.intel-foot { font-size: 10.5px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+.intel-foot { font-size: 12px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
 
 /* ── CHART CARD ──────────────────────────────────────────────────── */
 .chart-card {
@@ -325,16 +268,16 @@ a.btn-refresh { text-decoration: none; }
   animation: fadeUp .45s var(--ease-out) .08s both;
 }
 .chart-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
-.chart-head h2 { font-size: 13px; font-weight: 700; }
+.chart-head h2 { font-size: 14px; font-weight: 600; }
 .legend { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-wrap: wrap; }
-.legend .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.legend .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
 .lg .swatch { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
-.lg .swatch.line  { background: #157082; }
+.lg .swatch.line  { background: var(--accent); }
 .lg .swatch.fcst  { background: var(--gold); height: 0; border-top: 2px dashed var(--gold); }
-.lg .swatch.band  { height: 11px; border-radius: 3px; background: var(--gold-dim); border: 1px solid rgba(212,168,75,.4); }
-.lg .swatch.under { width: 9px; height: 9px; border-radius: 50%; background: #b07a5e; }
+.lg .swatch.band  { height: 11px; border-radius: 3px; background: color-mix(in srgb, var(--s4) 14%, transparent); border: 1px solid color-mix(in srgb, var(--s4) 45%, transparent); }
+.lg .swatch.under { width: 9px; height: 9px; border-radius: 50%; background: var(--s2); }
 .chart-box { position: relative; height: 420px; }
-.chart-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+.chart-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
 
 /* ── FORECAST TABLE ──────────────────────────────────────────────── */
 .tbl-card {
@@ -343,21 +286,20 @@ a.btn-refresh { text-decoration: none; }
   animation: fadeUp .45s var(--ease-out) .16s both;
 }
 .tbl-card h2 {
-  font-size: 12px; font-weight: 700; padding: 11px 16px; border-bottom: 1px solid var(--border-s);
-  background: var(--bg); display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; font-weight: 600; padding: 11px 16px; border-bottom: 1px solid var(--border-s);
+  background: var(--bg-soft); display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
 .btn-collapse {
-  font-size: 10.5px; font-weight: 600; color: var(--accent); background: var(--accent-dim);
+  font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-dim);
   border: 1px solid var(--accent-glow); border-radius: 99px; padding: 3px 10px;
   font-family: var(--font); cursor: pointer; white-space: nowrap;
 }
 .btn-collapse:hover { background: var(--accent-glow); }
 .blk-scroll { max-height: 360px; overflow-y: auto; }
 .blk-scroll.expanded { max-height: none; }
-.fc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .fc-table thead th {
-  background: var(--surface); color: var(--muted); font-size: 10px;
-  text-transform: uppercase; letter-spacing: .05em;
+  background: var(--surface); color: var(--muted); font-size: 12px;
   padding: 9px 16px; text-align: right; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 1;
 }
@@ -367,25 +309,25 @@ a.btn-refresh { text-decoration: none; }
 .fc-table tbody tr:last-child td { border-bottom: none; }
 .fc-table tbody tr:hover td { background: var(--card-h); }
 .fc-table .num { font-variant-numeric: tabular-nums; }
-.fc-table .ens { font-weight: 700; color: var(--gold); }
-.fc-table .rng { color: var(--muted); font-size: 11px; }
+.fc-table .ens { font-weight: 600; }
+.fc-table .rng { color: var(--muted); font-size: 12.5px; }
 .fc-table td.na { color: var(--muted); font-weight: 600; }
 
 /* ── DRIVERS (TreeSHAP) ──────────────────────────────────────────── */
 .drv-tabs { display: flex; align-items: center; gap: 2px; margin-left: auto;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
-.drv-tab { font-size: 11px; font-weight: 600; color: var(--muted); background: transparent;
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 99px; padding: 3px; }
+.drv-tab { font-size: 12.5px; font-weight: 600; color: var(--muted); background: transparent;
   border: none; border-radius: 99px; padding: 3px 11px; cursor: pointer;
   font-family: var(--font); transition: color .15s, background .15s; }
 .drv-tab:hover:not(.active) { color: var(--accent); }
-.drv-tab.active { background: var(--accent); color: #fff; }
-.drv-base { font-size: 11.5px; color: var(--muted); margin-bottom: 12px; }
+.drv-tab.active { background: var(--accent); color: var(--on-accent); }
+.drv-base { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
 .drv-base b { color: var(--text); font-weight: 600; }
 .drv-row { display: grid; grid-template-columns: minmax(180px, 1.1fr) 2fr 90px;
   align-items: center; gap: 12px; padding: 5px 0; }
-.drv-label { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.drv-label .drv-val { color: var(--muted); font-size: 11px; margin-left: 6px; }
-.drv-track { position: relative; height: 14px; background: var(--bg);
+.drv-label { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drv-label .drv-val { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
+.drv-track { position: relative; height: 14px; background: var(--bg-soft);
   border-radius: 4px; overflow: hidden; }
 .drv-track::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
   width: 1px; background: var(--border); }
@@ -393,7 +335,7 @@ a.btn-refresh { text-decoration: none; }
   transition: width .4s var(--ease-out); }
 .drv-bar.pos { left: 50%; background: var(--accent); opacity: .75; }
 .drv-bar.neg { right: 50%; background: var(--error); opacity: .6; }
-.drv-amt { font-size: 12px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.drv-amt { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .drv-amt.pos { color: var(--accent); }
 .drv-amt.neg { color: var(--error); }
 @media (max-width: 640px) { .drv-row { grid-template-columns: 1fr 1.2fr 70px; gap: 8px; } }
@@ -410,14 +352,13 @@ a.btn-refresh { text-decoration: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .err-box {
-  background: #fdf3f2; border: 1px solid #fecaca; color: var(--error);
-  border-radius: var(--r); padding: 14px 18px; font-size: 12px; line-height: 1.6; max-width: 560px;
+  background: var(--danger-bg); border: 1px solid var(--danger-bd); color: var(--error);
+  border-radius: var(--r); padding: 14px 18px; font-size: 13px; line-height: 1.6; max-width: 560px;
 }
 .hidden { display: none !important; }
 
 /* ── RESPONSIVE ──────────────────────────────────────────────────── */
 @media (max-width: 820px) {
-  .app-sep, .app-sub { display: none; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .chart-box { height: 340px; }
   .exec-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 0; }
@@ -432,37 +373,36 @@ a.btn-refresh { text-decoration: none; }
   .exec-metric { padding-left: 0; border-left: none; }
 }
 </style>
+<link rel="stylesheet" href="/forecast-static/theme.css?v=1">
 </head>
 <body>
 
-<header class="app-header">
-  <span class="app-name">EPMS AI</span>
-  <div class="app-sep"></div>
-  <span class="app-sub">Production Forecast</span>
-  <nav class="app-nav" id="app-nav">
-    <span class="nav-pill" id="nav-pill"></span>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="EPMS AI, dashboard">
+    <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
+  </a>
+  <span class="page-name">Production Forecast</span>
+  <nav class="app-nav" aria-label="Pages">
     <a href="/">Dashboard</a>
     <a href="/report">Report</a>
     <a href="/chat">Chat</a>
-    <a href="/forecast" class="nav-active">Forecast</a>
-    <div class="nav-clone" id="nav-clone" aria-hidden="true">
-      <span>Dashboard</span><span>Report</span><span>Chat</span><span>Forecast</span>
-    </div>
+    <a href="/forecast" class="on" aria-current="page">Forecast</a>
   </nav>
-  <div class="header-right">
-    <a class="btn-refresh" href="/model-health" title="Model accuracy, interval calibration, data quality and drift">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-      </svg>
-      <span>Model health</span>
-    </a>
+  <div class="top-right">
+    <a class="top-link" href="/model-health" title="Model accuracy, interval calibration, data quality and drift"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Model health</span></a>
     <span class="provider-pill" id="model-pill">N/A</span>
+    <button class="icon-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme"></button>
   </div>
 </header>
 
 <div class="fc-titlebar">
   <span class="fc-title">Plantation Production Forecast <span class="accent">· next 3 months</span></span>
   <div class="fc-meta">
+    <div class="pop-anchor">
+      <button type="button" class="chip" id="db-chip" aria-haspopup="dialog" aria-expanded="false"
+              title="Database the forecast is read from" hidden></button>
+      <div class="popover" id="db-pop" role="dialog" aria-label="Database" hidden></div>
+    </div>
     <div class="hz-toggle" id="hz-toggle">
       <button class="hz-btn active" data-hz="3">3M</button>
       <button class="hz-btn" data-hz="6">6M</button>
@@ -484,7 +424,7 @@ a.btn-refresh { text-decoration: none; }
     <!-- loading -->
     <div id="state-loading" class="center-state">
       <div class="spinner"></div>
-      <p>Fitting the forecast model on monthly production history…</p>
+      <p id="loading-msg">Fitting the forecast model on monthly production history…</p>
     </div>
 
     <!-- error -->
@@ -545,7 +485,7 @@ a.btn-refresh { text-decoration: none; }
 
       <!-- ── INTELLIGENCE PANEL (LLM risk synthesis — narrative only, never
            touches the chart/KPI/table numbers) ───────────────────────────── -->
-      <div class="intel-card">
+      <div class="intel-card" id="intel-card">
         <div class="intel-head">
           <h2><span class="spark">✦</span> Production Risk Intelligence</h2>
           <span class="sub">AI synthesis · weather · ENSO · hotspots</span>
@@ -726,9 +666,9 @@ a.btn-refresh { text-decoration: none; }
               <th>Forecast (bunches)</th>
               <th id="rng-th">Range (± sMAPE)</th>
               <th id="bw-th">Band ±%</th>
-              <th>SARIMAX</th>
-              <th>Trailing-3</th>
-              <th>LightGBM</th>
+              <th class="comp-col">SARIMAX</th>
+              <th class="comp-col">Trailing-3</th>
+              <th class="comp-col">LightGBM</th>
             </tr>
           </thead>
           <tbody id="fc-tbody"></tbody>
@@ -739,13 +679,16 @@ a.btn-refresh { text-decoration: none; }
   </div>
 </div>
 
+<script src="/forecast-static/theme.js?v=1"></script>
 <script>
 'use strict';
 
-const C = { teal:'#157082', tealFill:'rgba(21,112,130,.07)', gold:'#d4a84b',
-            goldFill:'rgba(212,168,75,.12)', under:'#b07a5e', grid:'rgba(220,228,225,.65)', tick:'#64746f' };
+// Chart colours come from the theme and are re-read when it changes.
+let C = Theme.chart();
 
 let chart = null;
+let lastChart = null;   // renderChart's arguments, to redraw on a theme change
+Theme.onChange(() => { C = Theme.chart(); if (lastChart) renderChart(...lastChart); });
 let currentHorizon = 3;
 
 /* ── boot ─────────────────────────────────────────────────────────── */
@@ -770,23 +713,40 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  loadForecast(false);
+  // The database is the one last picked here or on the chat page (?db= wins).
+  Theme.db.onChange(() => {
+    // Another database is another set of estates: start from its group view.
+    currentScope = 'all';
+    lastData = null;
+    resetIntelligencePanel();
+    resetInvestigatorPanel();
+    loadForecast(false);
+  });
+  Theme.db.init('/forecast/sources').then(() => loadForecast(false));
 });
 
 /* ── fetch + render ───────────────────────────────────────────────── */
+let loadSeq = 0;
 async function loadForecast(refresh) {
   const btn = document.getElementById('refresh-btn');
-  // 'all' (group view) always serves k3's series — see the "Group rollup"
+  const source = Theme.db.current;
+  const seq = ++loadSeq;
+  // Live: 'all' (group view) always serves k3's series — see the "Group rollup"
   // decision in forecast_router.py: two modeled estates' forecasts cover
   // different calendar windows (k3 real, ec synthetic) and can't be honestly
   // summed, so the group tile stays exactly what it always showed.
-  const estateParam = currentScope === 'all' ? 'k3' : currentScope;
+  // Staging: the three estates share one window, so 'all' is a true sum the
+  // server builds (forecast_sources.py).
+  const estateParam = (source === 'live' && currentScope === 'all') ? 'k3' : currentScope;
+  document.getElementById('loading-msg').textContent = source === 'live'
+    ? 'Fitting the forecast model on monthly production history…'
+    : 'Reading the forecast built on the staging database…';
   // Fast path: the server pre-injects the ML forecast into the page (see the
   // /forecast route — always k3's default payload), so first paint needs no
   // network round-trip. Only valid for that same default estate. Guarded so a
   // render glitch can NEVER strand the page on the spinner — it falls back to a
   // fetch instead of leaving the user stuck.
-  if (!refresh && currentHorizon === 3 && estateParam === 'k3' && window.__FORECAST_DATA__) {
+  if (!refresh && source === 'live' && currentHorizon === 3 && estateParam === 'k3' && window.__FORECAST_DATA__) {
     try {
       render(window.__FORECAST_DATA__);
       showState('result');
@@ -802,10 +762,11 @@ async function loadForecast(refresh) {
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 30000);
     const url   = '/forecast/data?horizon=' + currentHorizon + '&estate=' + encodeURIComponent(estateParam)
-                + (refresh ? '&refresh=1' : '');
+                + '&source=' + encodeURIComponent(source) + (refresh ? '&refresh=1' : '');
     const res   = await fetch(url, { signal: ctrl.signal });
     clearTimeout(timer);
     const data = await res.json();
+    if (seq !== loadSeq) return;           // a newer scope or database choice superseded this one
     if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
     showState('result');
     await new Promise(r => requestAnimationFrame(r));
@@ -814,11 +775,22 @@ async function loadForecast(refresh) {
     const msg = (err && err.name === 'AbortError')
       ? 'The forecast took too long to respond. Please retry.'
       : (err && err.message ? err.message : 'Could not load the forecast.');
+    if (seq !== loadSeq) return;
     document.getElementById('err-msg').textContent = '⚠ ' + msg;
     showState('error');
   } finally {
     btn.disabled = false;
   }
+}
+
+/** Horizon buttons follow what the source can serve (staging stops at 6 months). */
+function syncHorizon(data) {
+  const choices = data.horizon_choices || [3, 6, 12];
+  currentHorizon = data.horizon || currentHorizon;
+  document.querySelectorAll('#hz-toggle .hz-btn').forEach(b => {
+    b.classList.toggle('hidden', !choices.includes(+b.dataset.hz));
+    b.classList.toggle('active', +b.dataset.hz === currentHorizon);
+  });
 }
 
 function showState(which) {
@@ -1016,6 +988,14 @@ function render(data) {
   const anchor = data.anchor || (hist.length ? { month: hist[hist.length-1].month, value: hist[hist.length-1].value } : null);
 
   const hz = data.horizon || 3;
+  syncHorizon(data);
+
+  // What this source's model does not have is hidden, not shown empty: the
+  // per-member columns, and the panels that read the live estate databases.
+  showComponents = (data.components || ['sarimax', 'trailing3', 'lightgbm']).length > 0;
+  document.querySelectorAll('.comp-col').forEach(el => el.classList.toggle('hidden', !showComponents));
+  const caps = data.capabilities || { intelligence: true };
+  document.getElementById('intel-card').classList.toggle('hidden', !caps.intelligence);
 
   // header meta
   document.getElementById('model-pill').textContent = data.model_name || 'Ensemble';
@@ -1071,10 +1051,16 @@ function render(data) {
       + `of this exact pipeline (not an assumed growth curve); it runs ±${fmtPct(firstBand)} at step 1 `
       + `to ±${fmtPct(lastBand)} at step ${hz}, reflecting the model's real observed error at each horizon. `
       + `It is a typical-error band, NOT a 90% prediction interval: across the backtest folds the actual `
-      + `landed inside it ${bandCovNote} of the time. The wider ${nomPct}% conformal interval that does `
-      + `hold at its nominal level is reported on the model-health page.`;
+      + `landed inside it ${bandCovNote} of the time.`
+      + (iv.conformal_nominal_pct != null
+          ? ` The wider ${nomPct}% conformal interval that does hold at its nominal level is reported on the model-health page.`
+          : ` Each step is measured on few past forecasts, so read the band as a rough guide.`);
+  const staging = data.source === 'staging';
   document.getElementById('chart-note').textContent =
-    `The teal line is recorded monthly production (under-recorded months are seasonally imputed and marked). ` +
+    (staging
+      ? `The teal line is monthly production recorded in the staging database` + (data.data_through ? ` (data to ${data.data_through})` : '')
+        + `; a partly recorded month is marked. ` + (data.stale_note ? `Note: ${data.stale_note}. ` : '')
+      : `The teal line is recorded monthly production (under-recorded months are seasonally imputed and marked). `) +
     `The dashed gold line is the ${data.model_label || 'ensemble'} forecast for ${fcMonths}, ` +
     `connected at the last complete month. ` + bandNote;
 }
@@ -1352,8 +1338,10 @@ function renderExec(data) {
     { label: 'vs Budget', value: 'N/A',
       sub: 'No production budget is loaded', na: true },
     { label: 'Estates covered', value: modeled + ' / ' + nEstate,
-      sub: (scope.series_label ? scope.series_label + ' only' : 'N/A')
-           + ' · ' + (nEstate - modeled) + ' awaiting a model', na: false },
+      sub: (scope.group_is_sum && isGroup)
+        ? 'sum of ' + (scope.series_label || 'the modelled estates')
+        : (scope.series_label ? scope.series_label + ' only' : 'N/A')
+          + ' · ' + (nEstate - modeled) + ' awaiting a model', na: false },
   ];
   document.getElementById('exec-grid').innerHTML = metrics.map(m => `
     <div class="exec-metric${m.na ? ' na' : ''}">
@@ -1391,18 +1379,35 @@ function renderEstates(data) {
         <span class="est-sub">${esc(sub)}</span>
       </div>`;
     }
-    let deltaHtml = '<span class="est-delta na">vs LY N/A</span>';
-    if (yoy && yoy.total > 0 && total != null) {
-      const pct = (total - yoy.total) / yoy.total * 100;
-      deltaHtml = `<span class="est-delta ${pct >= 0 ? 'up' : 'down'}">`
-        + (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(1) + '% vs LY</span>';
+    // Each tile shows ITS estate's forecast (e.tile, from the server). The
+    // series on screen is only one estate's, so without a tile the figures
+    // may be shown under that estate's name alone, never under another's.
+    const own = (e.id === scope.series_estate && fc.length) ? {
+      total, band_pct: data.avg_band_pct ?? data.smape,
+      yoy_pct: (yoy && yoy.total > 0 && total != null) ? (total - yoy.total) / yoy.total * 100 : null,
+      first_month: fc[0].month, last_month: fc[fc.length - 1].month } : null;
+    const t = e.tile || own;
+    if (!t || t.total == null) {
+      return `<div class="est-tile" ${delay}>
+        <div class="est-top"><span class="est-name">${esc(e.label)}</span>
+          <span class="est-flag live">Modelled</span></div>
+        <span class="est-value">N/A</span>
+        <span class="est-delta na">vs LY N/A</span>
+        <span class="est-sub">Select this estate to load its forecast.</span>
+      </div>`;
     }
+    let deltaHtml = '<span class="est-delta na">vs LY N/A</span>';
+    if (t.yoy_pct != null) {
+      deltaHtml = `<span class="est-delta ${t.yoy_pct >= 0 ? 'up' : 'down'}">`
+        + (t.yoy_pct >= 0 ? '▲ ' : '▼ ') + Math.abs(t.yoy_pct).toFixed(1) + '% vs LY</span>';
+    }
+    const win = t.first_month ? mShort(t.first_month) + ' – ' + mShort(t.last_month) : hz + '-month';
     return `<div class="est-tile" ${delay}>
       <div class="est-top"><span class="est-name">${esc(e.label)}</span>
         <span class="est-flag live">Modelled</span></div>
-      <span class="est-value">${fmtNum(total)}</span>
+      <span class="est-value">${fmtNum(t.total)}</span>
       ${deltaHtml}
-      <span class="est-sub">${esc(hz)}-month bunches · ±${fmtPct(data.avg_band_pct ?? data.smape)} band</span>
+      <span class="est-sub">${esc(win)} bunches · ±${fmtPct(t.band_pct)} band</span>
     </div>`;
   }).join('');
 }
@@ -1746,20 +1751,22 @@ function renderKpis(data, fc, iv, isConf, nomPct, covPct) {
   // Benchmark card: MASE over the same walk-forward rows as the headline
   // sMAPE, shown as "x% less error" because that is the sentence a client
   // actually asks for. MASE stays in the sub-line for anyone who wants it.
+  const bench = data.benchmark_label || 'seasonal-naïve';
   const mhMase = data.headline_mase ?? mh.pooled_mase;
   const maseSub = perH.filter(h => h.mase != null)
     .map(h => 'h' + h.step + ' ' + h.mase.toFixed(2)).join(' · ');
   const benchCard = mhMase == null
-    ? { cls:'', label:'vs seasonal-naïve · ' + Math.min(hz, 3) + '-month', value:'N/A',
+    ? { cls:'', label:'vs ' + bench + ' · ' + Math.min(hz, 3) + '-month', value:'N/A',
         sub:'benchmark unavailable' }
-    : { cls:'', label:'vs seasonal-naïve · ' + Math.min(hz, 3) + '-month',
-        value: Math.round((1 - mhMase) * 100) + '% less error',
+    : { cls:'', label:'vs ' + bench + ' · ' + Math.min(hz, 3) + '-month',
+        value: mhMase <= 1 ? Math.round((1 - mhMase) * 100) + '% less error'
+                           : Math.round((mhMase - 1) * 100) + '% more error',
         sub: 'MASE ' + mhMase.toFixed(2) + (maseSub ? ' · ' + maseSub : '') };
 
   const accuracyCard = isConf
     ? { cls:'', label: nomPct + '% band · empirical coverage', value: covPct ?? 'N/A',
         sub: 'honest walk-forward · ' + (mhMase == null ? 'MASE N/A'
-             : Math.round((1 - mhMase) * 100) + '% less error than seasonal-naïve') }
+             : Math.round((1 - mhMase) * 100) + '% less error than ' + bench) }
     : benchCard;
 
   const cards = [
@@ -1785,6 +1792,7 @@ function renderKpis(data, fc, iv, isConf, nomPct, covPct) {
     </div>`).join('');
 }
 
+let showComponents = true;
 function renderTable(fc, cov) {
   // Band width is shown per horizon rather than as one averaged figure: the
   // client's complaint is about width, and width is not constant across the
@@ -1799,14 +1807,15 @@ function renderTable(fc, cov) {
       <td class="num ens">${fmtFull(f.ensemble)}</td>
       <td class="num rng">${fmtFull(f.lower)} – ${fmtFull(f.upper)}</td>
       <td class="num" title="${c != null ? 'empirical coverage ' + Math.round(c * 100) + '%' : 'coverage unavailable'}">±${fmtPct(f.band_pct)}${c != null ? ' <span class="cov-inline">(' + Math.round(c * 100) + '% cov)</span>' : ''}</td>
-      <td class="num">${fmtFull(f.sarimax)}</td>
+      ${showComponents ? `<td class="num">${fmtFull(f.sarimax)}</td>
       <td class="num">${fmtFull(f.trailing3)}</td>
-      <td class="num">${fmtFull(f.lightgbm)}</td>
+      <td class="num">${fmtFull(f.lightgbm)}</td>` : ''}
     </tr>`;
   }).join('');
 }
 
 function renderChart(hist, fc, anchor, data) {
+  lastChart = [hist, fc, anchor, data];
   const labels = hist.map(h => h.month).concat(fc.map(f => f.month));
   const N = hist.length, M = fc.length;
   const anchorIdx = N - 1;
@@ -1837,10 +1846,10 @@ function renderChart(hist, fc, anchor, data) {
       const ctx = c.ctx;
       ctx.save();
       ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(100,116,111,.45)';
+      ctx.strokeStyle = C.divider;
       ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
-      ctx.setLineDash([]); ctx.fillStyle = '#9aa6a2';
-      ctx.font = '600 10px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.setLineDash([]); ctx.fillStyle = C.muted;
+      ctx.font = '500 11.5px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText('Forecast →', x + 6, top + 12);
       ctx.restore();
     }
@@ -1852,20 +1861,20 @@ function renderChart(hist, fc, anchor, data) {
       labels,
       datasets: [
         { label: '_upper', data: upData, borderColor: 'transparent',
-          backgroundColor: C.goldFill, pointRadius: 0, fill: '+1', tension: .3, spanGaps: false },
+          backgroundColor: C.fcFill, pointRadius: 0, fill: '+1', tension: .3, spanGaps: false },
         { label: '_lower', data: loData, borderColor: 'transparent',
           pointRadius: 0, fill: false, tension: .3, spanGaps: false },
-        { label: 'Actual production', data: histData, borderColor: C.teal,
-          backgroundColor: C.tealFill, borderWidth: 2, fill: true, tension: .3,
+        { label: 'Actual production', data: histData, borderColor: C.actual,
+          backgroundColor: C.actualFill, borderWidth: 2, fill: true, tension: .3,
           pointRadius: (ctx) => underFlag[ctx.dataIndex] ? 3.5 : 0,
           pointBackgroundColor: C.under, pointBorderColor: C.under,
           pointHoverRadius: 5, spanGaps: false },
-        { label: 'Forecast', data: fcData, borderColor: C.gold,
-          backgroundColor: C.goldFill, borderWidth: 2.5, borderDash: [6, 4],
+        { label: 'Forecast', data: fcData, borderColor: C.fc,
+          backgroundColor: C.fcFill, borderWidth: 2.5, borderDash: [6, 4],
           fill: false, tension: .3,
           pointRadius: (ctx) => ctx.dataIndex === anchorIdx ? 0 : 4,
           pointHoverRadius: (ctx) => ctx.dataIndex === anchorIdx ? 0 : 6,
-          pointBackgroundColor: C.gold, pointBorderColor: '#fff', pointBorderWidth: 1.5,
+          pointBackgroundColor: C.fc, pointBorderColor: C.surface, pointBorderWidth: 1.5,
           spanGaps: false },
       ],
     },
@@ -1876,8 +1885,7 @@ function renderChart(hist, fc, anchor, data) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#ffffff', borderColor: '#dce4e1', borderWidth: 1,
-          titleColor: '#20312e', bodyColor: '#64746f', padding: 10,
+          ...Theme.tooltip(),
           filter: (item) => !item.dataset.label.startsWith('_'),
           callbacks: {
             title: (items) => items.length ? mLabel(items[0].label) : '',
@@ -1898,10 +1906,10 @@ function renderChart(hist, fc, anchor, data) {
       },
       scales: {
         x: { grid: { color: C.grid },
-          ticks: { color: C.tick, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12,
+          ticks: { color: C.tick, font: { size: 11.5 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12,
             callback(v) { return mShort(this.getLabelForValue(v)); } } },
         y: { grid: { color: C.grid }, beginAtZero: false,
-          ticks: { color: C.tick, font: { size: 10 }, callback: (v) => fmtNum(v) } },
+          ticks: { color: C.tick, font: { size: 11.5 }, callback: (v) => fmtNum(v) } },
       },
     },
     plugins: [dividerPlugin],
@@ -1927,27 +1935,6 @@ function fmtNum(v) {
 }
 function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
 
-/* ── nav pill animation (shared) ──────────────────────────────────── */
-(function(){
-  const nav=document.getElementById('app-nav'),pill=document.getElementById('nav-pill'),clone=document.getElementById('nav-clone');
-  if(!nav||!pill)return;
-  function movePill(el,instant){
-    const nr=nav.getBoundingClientRect(),er=el.getBoundingClientRect();
-    const l=er.left-nr.left,t=er.top-nr.top,w=er.width,h=er.height;
-    if(instant){pill.style.transition='none';if(clone)clone.style.transition='none';}
-    pill.style.left=l+'px';pill.style.top=t+'px';pill.style.width=w+'px';pill.style.height=h+'px';
-    if(clone){const nw=nav.offsetWidth,nh=nav.offsetHeight;clone.style.clipPath=`inset(${t}px ${nw-l-w}px ${nh-t-h}px ${l}px round 99px)`;}
-    if(instant)requestAnimationFrame(()=>{pill.style.transition='';if(clone)clone.style.transition='';});
-  }
-  const active=nav.querySelector('.nav-active');
-  if(active){movePill(active,true);requestAnimationFrame(()=>{pill.style.opacity='1';});}
-  nav.querySelectorAll('a:not(.nav-active)').forEach(a=>{
-    a.addEventListener('click',function(e){
-      e.preventDefault();movePill(this,false);
-      setTimeout(()=>{location.href=this.href;},280);
-    });
-  });
-})();
 </script>
 </body>
 </html>

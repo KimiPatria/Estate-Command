@@ -15,6 +15,7 @@ Models come from forecast/lab/registry.py:
             server's env has no Chronos)
 
 Endpoints:
+  GET /experiment/forecast/sources                 the databases the estates are cut from
   GET /experiment/forecast/catalog                 estates, grains, models, build info
   GET /experiment/forecast/data?estate=&grain=     history + every model's 12-step
                                                    forecast; the page slices the horizon
@@ -137,6 +138,44 @@ def _model_result(spec, estate, grain, lab_anchor):
                            f"data runs to {lab_anchor}") if stale else ""}
 
 
+def _served_on_page(estate):
+    """Id of the model the /forecast page serves for this estate, if any.
+
+    Live estates serve the ensemble; staging estates serve whichever arm
+    forecast/lab/select_staging.py picked.
+    """
+    spec = reg.ESTATES[estate]
+    if spec["source"] == "live":
+        return "served_ensemble" if spec["served"] else None
+    try:
+        sel = _load_lab("select_staging").read(reg)
+        return (sel or {}).get("selected")
+    except Exception:
+        return None
+
+
+@router.get("/forecast/sources")
+def lab_sources():
+    """The two databases, for the lab's Database control. A source is offered
+    here as soon as any of its estates has a series, whether or not a model has
+    been selected for the client page yet: the lab is where that choice is made."""
+    try:
+        import forecast_sources as fs
+        rows = fs.sources()
+        for r in rows:
+            ready = any(reg.estate_grain_status(e, g)[0]
+                        for e in reg.estates_of(r["id"]) for g in ("month", "week"))
+            r["available"] = ready
+            if ready:
+                r.pop("reason", None)
+            else:
+                r["reason"] = "No harvest series has been built for this source yet"
+        return {"sources": rows, "default": fs.LIVE}
+    except Exception as exc:
+        log.exception("[lab] sources failed")
+        return JSONResponse(status_code=500, content={"detail": f"Lab sources failed: {exc}"})
+
+
 @router.get("/forecast/catalog")
 def lab_catalog(refresh: bool = False):
     try:
@@ -152,7 +191,7 @@ def lab_catalog(refresh: bool = False):
                     grains[g] = {"available": ok, "reason": reason, "n": n,
                                  "first": reg.period_str(h["period"].iloc[0], g) if n else None,
                                  "last": reg.period_str(h["period"].iloc[-1], g) if n else None}
-                estates.append({"id": eid, "label": spec["label"],
+                estates.append({"id": eid, "label": spec["label"], "source": spec["source"],
                                 "served": bool(spec["served"]), "grains": grains})
         manifest = reg.read_manifest() or {}
         return {
@@ -184,6 +223,8 @@ def lab_data(estate: str = Query(...), grain: str = Query("month"), refresh: boo
         lab_anchor = history[-1]["period"]
         models = [_model_result(m, estate, grain, lab_anchor) for m in reg.MODELS]
         return {"estate": estate, "label": reg.ESTATES[estate]["label"], "grain": grain,
+                "source": reg.ESTATES[estate]["source"],
+                "served_model": _served_on_page(estate),
                 "anchor": lab_anchor, "max_h": reg.MAX_H,
                 "history": history, "models": models}
     except Exception as exc:

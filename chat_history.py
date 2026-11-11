@@ -15,7 +15,10 @@ log = logging.getLogger(__name__)
 
 # Max data rows persisted per turn. Anything beyond this was never shown to
 # the LLM anyway (answer prompt previews 50), so storing more is waste.
-MAX_STORED_ROWS = 50
+# 200 = everything the chat pipeline fetches, so a reopened chat (or a "plot
+# that" follow-up) has the same rows the answer was written from. Prompts
+# replay far fewer (CHAT_HISTORY_MAX_ROWS).
+MAX_STORED_ROWS = 200
 
 _TITLE_LEN = 60
 
@@ -45,6 +48,15 @@ def init_chat_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Added after the table first shipped, so existing databases need it too.
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(chat_turns)")}
+        if "meta" not in columns:
+            conn.execute("ALTER TABLE chat_turns ADD COLUMN meta TEXT")
+        if "feedback" not in columns:
+            conn.execute("ALTER TABLE chat_turns ADD COLUMN feedback TEXT")
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(chat_sessions)")}
+        if "pinned" not in columns:
+            conn.execute("ALTER TABLE chat_sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_turns_session ON chat_turns(session_id, id)"
         )
@@ -76,14 +88,18 @@ def add_turn(
     row_count: int = 0,
     stats: dict | None = None,
     route: str = "sql",
-) -> None:
+    meta: dict | None = None,
+) -> int:
+    """Store one turn and return its id. `meta` holds the conversation state
+    around the answer: estates in play, the question a reply resolved to, the
+    offered buttons, the steps taken and the chart shown."""
     capped = rows[:MAX_STORED_ROWS] if rows else None
     with _connect() as conn:
-        conn.execute(
+        cur = conn.execute(
             """
             INSERT INTO chat_turns
-                (session_id, question, answer, sql, columns, rows, row_count, stats, route)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (session_id, question, answer, sql, columns, rows, row_count, stats, route, meta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session_id,
@@ -95,13 +111,17 @@ def add_turn(
                 row_count,
                 json.dumps(stats, default=str) if stats else None,
                 route,
+                json.dumps(meta, default=str) if meta else None,
             ),
         )
         conn.commit()
+        return cur.lastrowid
 
 
 def _parse_turn(r) -> dict:
     return {
+        "id": r["id"],
+        "feedback": r["feedback"],
         "question": r["question"],
         "answer": r["answer"],
         "sql": r["sql"],
@@ -110,6 +130,7 @@ def _parse_turn(r) -> dict:
         "row_count": r["row_count"] or 0,
         "stats": json.loads(r["stats"]) if r["stats"] else {},
         "route": r["route"] or "sql",
+        "meta": json.loads(r["meta"]) if r["meta"] else {},
         "created_at": r["created_at"],
     }
 
@@ -125,22 +146,70 @@ def get_turns(session_id: str, limit: int = 20) -> list[dict]:
     return [_parse_turn(r) for r in rows]
 
 
-def list_sessions(limit: int = 50) -> list[dict]:
+def list_sessions(limit: int = 200) -> list[dict]:
     with _connect() as conn:
         rows = conn.execute(
             """
-            SELECT s.id, s.title, s.created_at, s.updated_at,
+            SELECT s.id, s.title, s.created_at, s.updated_at, s.pinned,
                    COUNT(t.id) AS turn_count
             FROM chat_sessions s
             LEFT JOIN chat_turns t ON t.session_id = s.id
             GROUP BY s.id
             HAVING turn_count > 0
-            ORDER BY s.updated_at DESC
+            ORDER BY s.pinned DESC, s.updated_at DESC
             LIMIT ?
             """,
             (limit,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def update_session(session_id: str, title: str | None = None,
+                   pinned: bool | None = None) -> bool:
+    """Rename and/or pin a chat. Leaves updated_at alone: tidying the sidebar
+    should not move a chat to the top of it."""
+    sets, args = [], []
+    if title is not None:
+        title = " ".join(title.split())[:_TITLE_LEN]
+        if title:
+            sets.append("title = ?")
+            args.append(title)
+    if pinned is not None:
+        sets.append("pinned = ?")
+        args.append(1 if pinned else 0)
+    if not sets:
+        return False
+    with _connect() as conn:
+        cur = conn.execute(f"UPDATE chat_sessions SET {', '.join(sets)} WHERE id = ?",
+                           (*args, session_id))
+        conn.commit()
+    return cur.rowcount > 0
+
+
+def delete_last_turn(session_id: str) -> bool:
+    """Drop the newest turn of a chat: the user is regenerating the answer or
+    has edited their last message, and the old exchange must not stay in the
+    history the next answer is written from."""
+    with _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM chat_turns WHERE id = (SELECT MAX(id) FROM chat_turns WHERE session_id = ?)",
+            (session_id,),
+        )
+        conn.commit()
+    return cur.rowcount > 0
+
+
+def set_feedback(session_id: str, turn_id: int, rating: str | None) -> dict | None:
+    """Store a thumbs up/down on an answer. Returns the turn's meta, or None
+    if that turn is not in that chat."""
+    with _connect() as conn:
+        row = conn.execute("SELECT meta FROM chat_turns WHERE id = ? AND session_id = ?",
+                           (turn_id, session_id)).fetchone()
+        if row is None:
+            return None
+        conn.execute("UPDATE chat_turns SET feedback = ? WHERE id = ?", (rating, turn_id))
+        conn.commit()
+    return json.loads(row["meta"]) if row["meta"] else {}
 
 
 def delete_session(session_id: str) -> bool:

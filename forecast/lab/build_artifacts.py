@@ -29,6 +29,15 @@ Rebuild whenever the estate data changes (the page flags artifacts whose anchor
 no longer matches the latest data; forecast/lab/shadow.py --rebuild runs this):
     C:\\Users\\DP\\anaconda3\\envs\\chronos-rd-py313\\python.exe forecast/lab/build_artifacts.py
     ... --models chronos2_blocks --estates k3 ec --grains week --no-backtest
+    ... --source staging                  # only the staging-database estates
+    ... --source staging --remote         # the model step as one SageMaker GPU job
+    ... --source staging --recover-job chronos2-lab-build-<timestamp>
+
+--remote needs a live `aws login` session and this same Python 3.13 env (the job
+image is matched to it; see chronos_finetune_sagemaker.remote_job). It uploads
+the series being forecast (bunch counts per block and week) to the account's
+SageMaker bucket. Only the model step moves: inputs are built and artifacts
+written here either way, so a local and a remote build give the same files.
 """
 
 import argparse
@@ -50,6 +59,7 @@ CHECKPOINT = "amazon/chronos-2"
 QUANTILE_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 MIN_BLOCK_WEEKS = 4
 BAND_80 = "80% interval (model's 10th-90th percentile)"
+JOB_PREFIX = "chronos2-lab-build"
 
 
 def _load_by_path(name, path):
@@ -68,28 +78,123 @@ class Skip(Exception):
     """This model cannot run on this estate/grain; the message says why."""
 
 
-_PIPE = None
+class _Deferred(Exception):
+    """Raised by _predict while requests are being collected for one model run."""
 
 
-def _pipeline():
-    global _PIPE
-    if _PIPE is None:
-        from chronos import Chronos2Pipeline
-        _PIPE = Chronos2Pipeline.from_pretrained(CHECKPOINT, device_map="cpu")
-    return _PIPE
+# -- the model step ----------------------------------------------------------------------
+# Everything around the model is pandas and runs here; only this function needs
+# Chronos. A build collects every forecast request first, runs them all through
+# ONE call of it, then writes the artifacts -- so the same code serves a local
+# build (the call runs in this process) and a SageMaker build (--remote: the
+# call runs as a GPU training job and its return value comes back).
+def _chronos_job(requests, checkpoint, quantile_levels, batch_size=256):
+    """Zero-shot Chronos-2 quantiles for a list of requests.
+
+    requests  [(inputs, horizon)]: inputs is a list of series (arrays, or dicts
+              with target/past_covariates/future_covariates), as
+              Chronos2Pipeline.predict_quantiles takes them.
+    Returns {"device", "seconds", "n_series", "quantiles"}, quantiles[k][j] an
+    array (horizon, len(quantile_levels)) for request k's series j.
+
+    Self-contained on purpose (imports inside, no module globals): with --remote
+    it is shipped by value to the job, which has none of this repo's modules.
+    """
+    import time as _time
+
+    import numpy as _np
+    import torch
+    from chronos import Chronos2Pipeline
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    pipe = Chronos2Pipeline.from_pretrained(checkpoint, device_map=device)
+    t0, out, n = _time.perf_counter(), [], 0
+    for k, (inputs, horizon) in enumerate(requests):
+        q, _ = pipe.predict_quantiles(
+            inputs, prediction_length=horizon, quantile_levels=quantile_levels,
+            batch_size=batch_size, cross_learning=False)
+        out.append([t[0].float().cpu().numpy().astype(_np.float32) for t in q])
+        n += len(inputs)
+        print(f"  request {k + 1}/{len(requests)}: {len(inputs)} series x {horizon} steps, "
+              f"{_time.perf_counter() - t0:.0f}s elapsed", flush=True)
+    return {"device": device, "seconds": round(_time.perf_counter() - t0, 1),
+            "n_series": n, "quantiles": out}
+
+
+class _Batch:
+    """The two passes around one model run.
+
+    collect  _predict files the request under the current artifact key and
+             raises _Deferred, so the producer stops right where the model
+             would have run.
+    replay   _predict hands back that key's quantiles and the producer carries
+             on to the end. Inputs are rebuilt on the second pass (cheap) and
+             checked against what was sent.
+    """
+    mode = None            # None = no batch: _predict runs the model directly
+    key = None
+    requests = {}
+    results = {}
+
+
+def _post(quantiles):
+    """(mean, q10, q90) per series, each (horizon,), clipped at zero."""
+    return [tuple(np.clip(a, 0.0, None) for a in
+                  (cm._mean_from_quantiles(m), m[:, 0], m[:, -1])) for m in quantiles]
 
 
 def _predict(inputs, horizon):
     """[(mean, q10, q90)] per input, each (horizon,), clipped at zero."""
-    q, _ = _pipeline().predict_quantiles(
-        inputs, prediction_length=horizon, quantile_levels=QUANTILE_LEVELS,
-        batch_size=256, cross_learning=False)
-    out = []
-    for t in q:
-        m = t[0].float().numpy()
-        out.append(tuple(np.clip(a, 0.0, None) for a in
-                         (cm._mean_from_quantiles(m), m[:, 0], m[:, -1])))
-    return out
+    if _Batch.mode == "collect":
+        _Batch.requests[_Batch.key] = (inputs, horizon)
+        raise _Deferred()
+    if _Batch.mode == "replay":
+        got = _Batch.results[_Batch.key]
+        if len(got) != len(inputs) or (got and got[0].shape[0] != horizon):
+            raise RuntimeError(f"{_Batch.key}: the model run returned {len(got)} series, "
+                               f"this pass built {len(inputs)} (horizon {horizon})")
+        return _post(got)
+    return _post(_chronos_job([(inputs, horizon)], CHECKPOINT, QUANTILE_LEVELS)["quantiles"][0])
+
+
+def _sagemaker():
+    """chronos_finetune_sagemaker.py: the one @remote job configuration proven to work."""
+    return _load_by_path("epms_chronos_sagemaker",
+                         os.path.join(_FORECAST, "chronos_finetune_sagemaker.py"))
+
+
+def run_remote(requests, args):
+    """Run _chronos_job as a SageMaker training job; blocks until it returns."""
+    v1 = _sagemaker()
+    s3_root = (args.s3_bucket or f"{v1.DEFAULT_S3_ROOT}/chronos2-lab").rstrip("/")
+    fn = v1.remote_job(_chronos_job, args.role_arn or v1.DEFAULT_ROLE_ARN, s3_root,
+                       instance_type=args.instance_type, region=args.region or v1.DEFAULT_REGION,
+                       max_runtime_in_seconds=args.max_runtime_s,
+                       job_name_prefix=JOB_PREFIX)
+    print(f"Launching SageMaker job on {args.instance_type} (blocks until done). If this "
+          f"process dies while it runs, collect it with --recover-job <job name>.", flush=True)
+    return fn(requests, CHECKPOINT, QUANTILE_LEVELS)
+
+
+def recover_remote(job_name, args):
+    """Return value of a finished job whose local call died (expired `aws login`).
+
+    The job keeps running on AWS regardless; @remote leaves its return value
+    under jobs/<job>/results, checksum-verified on read.
+    """
+    import boto3
+    from sagemaker.core.helper.session_helper import Session as SageMakerSession
+    from sagemaker.core.remote_function.core.serialization import deserialize_obj_from_s3
+
+    v1 = _sagemaker()
+    region = args.region or v1.DEFAULT_REGION
+    status = boto3.client("sagemaker", region_name=region).describe_training_job(
+        TrainingJobName=job_name)["TrainingJobStatus"]
+    if status != "Completed":
+        raise SystemExit(f"{job_name} is {status}, not Completed")
+    s3_root = (args.s3_bucket or f"{v1.DEFAULT_S3_ROOT}/chronos2-lab").rstrip("/")
+    session = SageMakerSession(boto_session=boto3.Session(region_name=region))
+    return deserialize_obj_from_s3(session, f"{s3_root}/jobs/{job_name}/results")
 
 
 # -- inputs at a history position ------------------------------------------------------
@@ -252,13 +357,35 @@ def main():
     ap.add_argument("--grains", nargs="+", default=["month", "week"], choices=["month", "week"])
     ap.add_argument("--no-backtest", action="store_true",
                     help="forward forecasts only (backtests take a few minutes)")
+    ap.add_argument("--source", choices=list(reg.SOURCES), default=None,
+                    help="only the estates cut from this source (default: every estate)")
+    ap.add_argument("--remote", action="store_true",
+                    help="run the model step as one SageMaker GPU job instead of on this machine")
+    ap.add_argument("--recover-job", default=None, metavar="JOB_NAME",
+                    help="collect a finished --remote job whose local call died; pass the "
+                         "same --models/--estates/--grains/--source as the launch")
+    ap.add_argument("--instance-type", default="ml.g5.xlarge")
+    ap.add_argument("--role-arn", default=None, help="default: chronos_finetune_sagemaker's")
+    ap.add_argument("--s3-bucket", default=None, help="default: <account bucket>/chronos2-lab")
+    ap.add_argument("--region", default=None, help="default: chronos_finetune_sagemaker's")
+    ap.add_argument("--max-runtime-s", type=int, default=3600)
     args = ap.parse_args()
+    estates = [e for e in args.estates
+               if args.source is None or reg.ESTATES[e]["source"] == args.source]
 
     manifest = reg.read_manifest() or {"entries": {}}
     jobs = [("forward", forward)] + ([] if args.no_backtest else [("backtest", backtest)])
     t_all = time.perf_counter()
+
+    def note(key, status, reason):
+        manifest["entries"][key] = {"status": status, "reason": reason}
+
+    # Pass 1: build every producer's inputs, stopping where the model would run.
+    todo = []
+    _Batch.requests, _Batch.results = {}, {}
+    _Batch.mode = "collect"
     for model in args.models:
-        for estate in args.estates:
+        for estate in estates:
             for grain in args.grains:
                 for kind, fn in jobs:
                     key = f"{'' if kind == 'forward' else 'backtest/'}{model}/{estate}_{grain}"
@@ -268,34 +395,73 @@ def main():
                     if not ok:
                         if os.path.exists(path):
                             os.remove(path)
-                        manifest["entries"][key] = {"status": "skipped", "reason": reason}
+                        note(key, "skipped", reason)
                         continue
-                    t0 = time.perf_counter()
+                    _Batch.key = key
                     try:
-                        out = fn(model, estate, grain)
+                        fn(model, estate, grain)
+                    except _Deferred:
+                        todo.append((key, kind, fn, model, estate, grain, path))
                     except Skip as exc:
-                        manifest["entries"][key] = {"status": "skipped", "reason": str(exc)}
+                        note(key, "skipped", str(exc))
                         print(f"  skip  {key}: {exc}")
-                        continue
                     except Exception as exc:
-                        manifest["entries"][key] = {"status": "error",
-                                                    "reason": f"{type(exc).__name__}: {exc}"}
+                        note(key, "error", f"{type(exc).__name__}: {exc}")
                         print(f"  ERROR {key}: {type(exc).__name__}: {exc}", file=sys.stderr)
-                        continue
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    if kind == "forward":
-                        with open(path, "w", encoding="utf-8") as fh:
-                            json.dump(out, fh, indent=1)
-                        info = f"anchor {out['anchor']['period']}"
-                    else:
-                        out.to_csv(path, index=False)
-                        info = f"{out['origin'].nunique()} origins, {len(out)} rows"
-                    manifest["entries"][key] = {"status": "ok",
-                                                "generated_at": datetime.now().isoformat(timespec="seconds")}
-                    print(f"  ok    {key}: {info}, {time.perf_counter() - t0:.1f}s", flush=True)
+    _Batch.mode = None
+
+    # The model run: every request in one call, here or on SageMaker.
+    run_info = {"where": "local"}
+    if todo:
+        requests = [_Batch.requests[t[0]] for t in todo]
+        n_series = sum(len(r[0]) for r in requests)
+        print(f"{len(requests)} artifacts to build, {n_series:,} series in all "
+              f"(inputs ready in {time.perf_counter() - t_all:.0f}s)", flush=True)
+        if args.recover_job:
+            res = recover_remote(args.recover_job, args)
+            run_info = {"where": "sagemaker", "job": args.recover_job, "recovered": True}
+        elif args.remote:
+            res = run_remote(requests, args)
+            run_info = {"where": "sagemaker", "instance_type": args.instance_type}
+        else:
+            res = _chronos_job(requests, CHECKPOINT, QUANTILE_LEVELS)
+        if len(res["quantiles"]) != len(requests):
+            raise SystemExit(f"the model run returned {len(res['quantiles'])} results for "
+                             f"{len(requests)} requests: not the build this command describes")
+        run_info.update({k: res[k] for k in ("device", "seconds", "n_series")})
+        print(f"model run: {res['n_series']:,} series on {res['device']} in {res['seconds']:.0f}s",
+              flush=True)
+        _Batch.results = {t[0]: q for t, q in zip(todo, res["quantiles"])}
+
+    # Pass 2: carry each producer through with its results and write the artifact.
+    _Batch.mode = "replay"
+    for key, kind, fn, model, estate, grain, path in todo:
+        _Batch.key = key
+        try:
+            out = fn(model, estate, grain)
+        except Skip as exc:
+            note(key, "skipped", str(exc))
+            print(f"  skip  {key}: {exc}")
+            continue
+        except Exception as exc:
+            note(key, "error", f"{type(exc).__name__}: {exc}")
+            print(f"  ERROR {key}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            continue
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if kind == "forward":
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(out, fh, indent=1)
+            info = f"anchor {out['anchor']['period']}"
+        else:
+            out.to_csv(path, index=False)
+            info = f"{out['origin'].nunique()} origins, {len(out)} rows"
+        manifest["entries"][key] = {"status": "ok",
+                                    "generated_at": datetime.now().isoformat(timespec="seconds")}
+        print(f"  ok    {key}: {info}", flush=True)
+    _Batch.mode = None
 
     manifest.update({"built_at": datetime.now().isoformat(timespec="seconds"),
-                     "checkpoint": CHECKPOINT, "cross_learning": False})
+                     "checkpoint": CHECKPOINT, "cross_learning": False, "last_run": run_info})
     os.makedirs(reg.ARTIFACT_DIR, exist_ok=True)
     with open(os.path.join(reg.ARTIFACT_DIR, "manifest.json"), "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=1)

@@ -1,0 +1,11 @@
+An oil-palm estate manager just asked an analyst a question and got an answer. Write the three questions they are most likely to want to ask next.
+
+Rules:
+- Each one must be answerable by something on the CAN ANSWER list. If it is not on the list, do not suggest it.
+- Each one goes one step further than the answer: the cause, the cost, a comparison, what to do next, or the same reading for another period. Do not reword the question just asked, and do not ask something the answer already settled.
+- Only this one estate is available. Never suggest comparing with other estates.
+- Write them as the manager would say them: short, plain, under 12 words, in the same language as the question.
+- Refer to blocks by the labels in the answer, or as "those blocks". Use no figure that is not in the question or the answer.
+- Never mention a tool, a parameter, the map or this list.
+
+Reply with JSON only: {"suggestions": ["...", "...", "..."]}

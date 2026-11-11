@@ -1,0 +1,1511 @@
+{
+  "run": "20261110_115359",
+  "runs_per_case": 3,
+  "overall_pass_rate": 0.75,
+  "cases": [
+    {
+      "id": "sd_001",
+      "category": "soft_delete",
+      "query": "Total harvest in 2025",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          2814445.0
+        ],
+        [
+          "K3",
+          1345499.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          2818075.0
+        ],
+        [
+          "K3",
+          1351557.0
+        ]
+      ],
+      "pass_rate": 0.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT \n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_approved_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "The total harvest in 2025 was **3,191,804** bunches.\n\n**Bernam** led with 2,106,027 bunches, while **K3** harvested 1,085,777 bunches. Bernam contributed about 66% of the total harvest, with a significant gap of 1,020,250 bunches more than K3. Notably, all unripe bunches (38,527) came from Bernam, whereas K3 had none.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [
+            "SQL lacks /oph_created_date/",
+            "SQL has /oph_approved_date/",
+            "BA: expected 2,814,445.00, not in the rows",
+            "K3: expected 1,345,499.00, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 10.7
+        },
+        {
+          "sql": "SELECT \n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_approved_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "The total harvest in 2025 was **3,191,804** bunches.\n\n**BA** led with 2.1 million bunches, while **K3** contributed 1.1 million bunches. Notably, all unripe bunches (38,527) came from BA, with K3 reporting none.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [
+            "SQL lacks /oph_created_date/",
+            "SQL has /oph_approved_date/",
+            "BA: expected 2,814,445.00, not in the rows",
+            "K3: expected 1,345,499.00, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 3.4
+        },
+        {
+          "sql": "SELECT \n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_approved_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "The total harvest in 2025 was **3,191,804** bunches.\n\n**BA** leads with 2.1 million bunches, while **K3** contributed 1.1 million bunches. Notably, all unripe bunches (38,527) came from BA, with K3 reporting none.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [
+            "SQL lacks /oph_created_date/",
+            "SQL has /oph_approved_date/",
+            "BA: expected 2,814,445.00, not in the rows",
+            "K3: expected 1,345,499.00, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 4.0
+        }
+      ]
+    },
+    {
+      "id": "sd_002",
+      "category": "soft_delete",
+      "query": "Compare total harvest in 2025 between estate BA and estate K3",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          2814445.0
+        ],
+        [
+          "K3",
+          1345499.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          2818075.0
+        ],
+        [
+          "K3",
+          1351557.0
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT \n    EXTRACT(MONTH FROM oph_created_date) AS month,\n    oph_estate_code AS estate_code,\n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_created_date) = 2025\n    AND oph_estate_code IN ('BA', 'K3')\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)\nGROUP BY \n    EXTRACT(MONTH FROM oph_created_date), oph_estate_code\nORDER BY \n    month, estate_code",
+          "answer": "**Estate BA harvested 2,814,445 bunches, well ahead of K3's 1,345,499 bunches.**\n\n- BA's total is 2.1 times K3's.\n- BA had unripe bunches every month, while K3 had none except for 58 in January.",
+          "row_count": 24,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [
+            "SQL has /oph_estate_code\\s*(=|IN|LIKE)/"
+          ],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 6.4
+        },
+        {
+          "sql": "SELECT \n    EXTRACT(MONTH FROM oph_created_date) AS month,\n    oph_estate_code AS estate_code,\n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_created_date) = 2025\n    AND oph_estate_code IN ('BA', 'K3')\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)\nGROUP BY \n    EXTRACT(MONTH FROM oph_created_date), oph_estate_code\nORDER BY \n    month, estate_code",
+          "answer": "**Estate BA harvested 2,814,445 bunches, while K3 harvested 1,345,499 bunches in 2025.** BA's total is 2.1 times K3's. BA also had 49,446 unripe bunches, while K3 had none.",
+          "row_count": 24,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [
+            "SQL has /oph_estate_code\\s*(=|IN|LIKE)/"
+          ],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 4.1
+        },
+        {
+          "sql": "SELECT \n    EXTRACT(MONTH FROM oph_created_date) AS month,\n    oph_estate_code AS estate_code,\n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_created_date) = 2025\n    AND oph_estate_code IN ('BA', 'K3')\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)\nGROUP BY \n    EXTRACT(MONTH FROM oph_created_date), oph_estate_code\nORDER BY \n    month, estate_code",
+          "answer": "**Estate BA harvested 1,468,946 bunches more than estate K3 in 2025.**\n\n- BA's total was **2,814,445 bunches** while K3's was **1,345,499 bunches**.\n- BA's highest monthly harvest was **291,846 bunches** in January, significantly higher than K3's highest of **128,016 bunches** in November.\n- K3 had no unripe or rotten bunches throughout the year, unlike BA which had up to **11,777 unripe bunches** in June and **5,444 rotten bunches** in January.",
+          "row_count": 24,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [
+            "SQL has /oph_estate_code\\s*(=|IN|LIKE)/"
+          ],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 4.5
+        }
+      ]
+    },
+    {
+      "id": "sd_003",
+      "category": "soft_delete",
+      "query": "Total ripe bunches in estate BA in 2025",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          2588623.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          2591980.0
+        ]
+      ],
+      "pass_rate": 0.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT \n    SUM(t_oph.bunches_ripe) AS total_ripe_bunches\nFROM \n    t_oph\nWHERE \n    t_oph.oph_created_date >= '2025-01-01' \n    AND t_oph.oph_created_date < '2026-01-01'",
+          "answer": "**2,591,980 ripe bunches** were harvested in estate BA in 2025.\n\nThis figure represents the complete count for the year, showing a robust performance across the entire period.",
+          "row_count": 1,
+          "estates": [
+            "BA"
+          ],
+          "problems": [
+            "SQL lacks /oph_is_deleted/",
+            "BA: expected 2,588,623.00, got the trap figure 2,591,980.00"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2588623.0,
+              "ok": false,
+              "matches_trap": 2591980.0
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 3.2
+        },
+        {
+          "sql": "SELECT \n    SUM(t_oph.bunches_ripe) AS total_ripe_bunches\nFROM \n    t_oph\nWHERE \n    t_oph.oph_created_date >= '2025-01-01' \n    AND t_oph.oph_created_date < '2026-01-01'",
+          "answer": "**2,591,980 ripe bunches** were harvested in estate BA in 2025.\n\nThis figure represents the complete count for the year, as we only have the aggregated total for BA and no further breakdown by month or block within the estate.",
+          "row_count": 1,
+          "estates": [
+            "BA"
+          ],
+          "problems": [
+            "SQL lacks /oph_is_deleted/",
+            "BA: expected 2,588,623.00, got the trap figure 2,591,980.00"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2588623.0,
+              "ok": false,
+              "matches_trap": 2591980.0
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 3.6
+        },
+        {
+          "sql": "SELECT \n    SUM(t_oph.bunches_ripe) AS total_ripe_bunches\nFROM \n    t_oph\nWHERE \n    t_oph.oph_created_date >= '2025-01-01' \n    AND t_oph.oph_created_date < '2026-01-01'",
+          "answer": "**2,591,980 ripe bunches** were harvested in estate BA in 2025.\n\nThis figure represents the complete count for the year, as we only have data for BA and no other estates are included in this query.",
+          "row_count": 1,
+          "estates": [
+            "BA"
+          ],
+          "problems": [
+            "SQL lacks /oph_is_deleted/",
+            "BA: expected 2,588,623.00, got the trap figure 2,591,980.00"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2588623.0,
+              "ok": false,
+              "matches_trap": 2591980.0
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 3.3
+        }
+      ]
+    },
+    {
+      "id": "sd_004",
+      "category": "soft_delete",
+      "query": "berapa total janjang panen di kebun 3 pada tahun 2025?",
+      "database": "live",
+      "expected": [
+        [
+          "K3",
+          1345499.0
+        ]
+      ],
+      "trap": [
+        [
+          "K3",
+          1351557.0
+        ]
+      ],
+      "pass_rate": 0.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT \n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_approved_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "**1.085.777 janjang panen** tercatat di kebun 3 pada tahun 2025.\n\n- **Kebun 3** memiliki total janjang panen sebesar **1.085.777**, dengan mayoritas janjang matang (**1.085.337**), dan hanya sedikit janjang tidak matang (**228** janjang lebih matang dan **180** janjang kurang matang). \n- Tidak ada janjang busuk tercatat di kebun ini.",
+          "row_count": 1,
+          "estates": [
+            "K3"
+          ],
+          "problems": [
+            "SQL lacks /oph_created_date/",
+            "SQL has /oph_approved_date/",
+            "K3: expected 1,345,499.00, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 4.2
+        },
+        {
+          "sql": "SELECT \n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_approved_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "**1.085.777 janjang panen** tercatat di kebun 3 pada tahun 2025.\n\n- Sebagian besar janjang panen adalah janjang matang (**1.085.337**), dengan sedikit janjang lebih matang (**228**) dan janjang kurang matang (**180**).\n- Tidak ada janjang busuk tercatat di kebun ini.",
+          "row_count": 1,
+          "estates": [
+            "K3"
+          ],
+          "problems": [
+            "SQL lacks /oph_created_date/",
+            "SQL has /oph_approved_date/",
+            "K3: expected 1,345,499.00, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 3.6
+        },
+        {
+          "sql": "SELECT \n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_approved_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "**1.085.777 janjang panen** tercatat di kebun 3 pada tahun 2025.\n\nYang menonjol adalah jumlah janjang matang yang sangat tinggi, hampir seluruh total janjang, sementara janjang busuk dan janjang tidak matang sangat sedikit.",
+          "row_count": 1,
+          "estates": [
+            "K3"
+          ],
+          "problems": [
+            "SQL lacks /oph_created_date/",
+            "SQL has /oph_approved_date/",
+            "K3: expected 1,345,499.00, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 3.7
+        }
+      ]
+    },
+    {
+      "id": "sd_005",
+      "category": "soft_delete",
+      "query": "How many harvest records (OPH) were there in 2025 for each estate?",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          39733.0
+        ],
+        [
+          "K3",
+          42611.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          39799.0
+        ],
+        [
+          "K3",
+          42772.0
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT \n    m_estate.estate_code,\n    COUNT(t_oph.oph_id) AS total_harvest_records\nFROM \n    t_oph\nJOIN \n    m_estate ON t_oph.oph_estate_code = m_estate.estate_code\nWHERE \n    EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025\n    AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)\nGROUP BY \n    m_estate.estate_code\nORDER BY \n    m_estate.estate_code",
+          "answer": "**There were 82,344 harvest records (OPH) in 2025 across the two estates.**\n\n- **K3** led with 42,611 records.\n- **BA** followed with 39,733 records.\n\nThe difference between the two estates is 2,878 records, with K3 having a slightly higher volume.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 39733.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 42611.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.2
+        },
+        {
+          "sql": "SELECT \n    m_estate.estate_code,\n    COUNT(t_oph.oph_id) AS total_harvest_records\nFROM \n    t_oph\nJOIN \n    m_estate ON t_oph.oph_estate_code = m_estate.estate_code\nWHERE \n    EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025\n    AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)\nGROUP BY \n    m_estate.estate_code\nORDER BY \n    m_estate.estate_code",
+          "answer": "**There were 82,344 harvest records (OPH) in 2025 across the two estates.**\n\n- **K3** led with 42,611 records.\n- **BA** followed with 39,733 records.\n\nThe difference between the two estates is 2,878 records, with K3 having a slight edge.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 39733.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 42611.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.7
+        },
+        {
+          "sql": "SELECT \n    m_estate.estate_code,\n    COUNT(t_oph.oph_id) AS total_harvest_records\nFROM \n    t_oph\nJOIN \n    m_estate ON t_oph.oph_estate_code = m_estate.estate_code\nWHERE \n    EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025\n    AND (t_oph.oph_is_deleted = 0 OR t_oph.oph_is_deleted IS NULL)\nGROUP BY \n    m_estate.estate_code\nORDER BY \n    m_estate.estate_code",
+          "answer": "**There were 82,344 harvest records (OPH) in 2025 across the two estates.**\n\n- **K3** led with 42,611 records.\n- **BA** followed with 39,733 records.\n\nThe difference between the two estates is 2,878 records, with K3 having a slight edge.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 39733.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 42611.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.7
+        }
+      ]
+    },
+    {
+      "id": "sd_006",
+      "category": "soft_delete",
+      "query": "Total bunches harvested in the first quarter of 2025",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          755312.0
+        ],
+        [
+          "K3",
+          313014.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          757473.0
+        ],
+        [
+          "K3",
+          314467.0
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT SUM(bunches_total) AS total_bunches\nFROM t_oph\nWHERE oph_created_date >= '2025-01-01'::date \n  AND oph_created_date < '2025-04-01'::date \n  AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "**1,068,326 bunches** were harvested in the first quarter of 2025.\n\n- **BA** led with 755,312 bunches, making up 70.7% of the total.\n- **K3** harvested 313,014 bunches, accounting for 29.3% of the total.\n\nBA's harvest was **2.4 times** larger than K3's, highlighting a significant difference in production between the two estates.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 755312.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 313014.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.2
+        },
+        {
+          "sql": "SELECT SUM(bunches_total) AS total_bunches\nFROM t_oph\nWHERE oph_created_date >= '2025-01-01'::date \n  AND oph_created_date < '2025-04-01'::date \n  AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "The total bunches harvested in the first quarter of 2025 is **1,068,326 bunches**.\n\n- **BA** harvested 755,312 bunches, which is 70.7% of the total.\n- **K3** harvested 313,014 bunches, which is 29.3% of the total.\n\nBA significantly outperformed K3, harvesting about 2.4 times more bunches.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 755312.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 313014.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.1
+        },
+        {
+          "sql": "SELECT SUM(bunches_total) AS total_bunches\nFROM t_oph\nWHERE oph_created_date >= '2025-01-01'::date \n  AND oph_created_date < '2025-04-01'::date \n  AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)",
+          "answer": "The total bunches harvested in the first quarter of 2025 is **1,068,326 bunches**.\n\n- **BA** harvested 755,312 bunches, which is 70.7% of the total.\n- **K3** harvested 313,014 bunches, which is 29.3% of the total.\n\nBA significantly outperformed K3, harvesting about 2.4 times more bunches.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 755312.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 313014.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.2
+        }
+      ]
+    },
+    {
+      "id": "sd_007",
+      "category": "deleted_on_purpose",
+      "query": "How many harvest records were deleted in 2025?",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          66.0
+        ],
+        [
+          "K3",
+          161.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          39733.0
+        ],
+        [
+          "K3",
+          42611.0
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT \n    COUNT(t_oph.oph_id) AS deleted_harvest_records\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025\n    AND t_oph.oph_is_deleted = 1",
+          "answer": "**227 harvest records** were deleted in 2025.\n\n- **K3** leads with 161 deletions, almost 2.5 times more than **BA**, which had 66 deletions.\n- The difference between the estates is 95 records, showing a significant gap in deletions.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 66.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 161.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.3
+        },
+        {
+          "sql": "SELECT \n    COUNT(t_oph.oph_id) AS deleted_harvest_records\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025\n    AND t_oph.oph_is_deleted = 1",
+          "answer": "**227 harvest records** were deleted in 2025.\n\n- **K3** leads with 161 deletions, almost 2.5 times more than **BA**, which had 66 deletions.\n- The gap between the estates is 95 records, showing a significant disparity in deletions.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 66.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 161.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.4
+        },
+        {
+          "sql": "SELECT \n    COUNT(t_oph.oph_id) AS deleted_harvest_records\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM t_oph.oph_created_date) = 2025\n    AND t_oph.oph_is_deleted = 1",
+          "answer": "**227 harvest records** were deleted in 2025.\n\n- **K3** leads with 161 deletions, almost 2.5 times more than **BA**, which had only 66 deletions.\n- The gap between the two estates is 95 records, showing a significant disparity in deletions.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 66.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 161.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.5
+        }
+      ]
+    },
+    {
+      "id": "sd_008",
+      "category": "soft_delete_other_table",
+      "query": "Total tonnage delivered to the mill, all time",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          13664300.0
+        ],
+        [
+          "K3",
+          0.0
+        ]
+      ],
+      "trap": [
+        [
+          "BA",
+          13707140.0
+        ],
+        [
+          "K3",
+          10420.0
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT\n    SUM(fdn_actual_tonnage) AS total_mill_tonnage\nFROM\n    t_fdn\nWHERE\n    (fdn_is_deleted = 0 OR fdn_is_deleted IS NULL)",
+          "answer": "**13,664,300 tonnes** have been delivered to the mill in total.\n\n- **Belawan** is the sole contributor, accounting for all deliveries.\n- **K3** shows zero deliveries, indicating no recorded activity.\n\nThis highlights that all historical mill deliveries come exclusively from Belawan.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 13664300.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 0.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 3.1
+        },
+        {
+          "sql": "SELECT\n    SUM(fdn_actual_tonnage) AS total_mill_tonnage\nFROM\n    t_fdn\nWHERE\n    (fdn_is_deleted = 0 OR fdn_is_deleted IS NULL)",
+          "answer": "**13,664,300 tonnes** have been delivered to the mill in total.\n\n- **Belawan** is the sole contributor, accounting for all deliveries.\n- **K3** shows zero deliveries, indicating no recorded activity.\n\nThis highlights that all historical mill deliveries come exclusively from Belawan.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 13664300.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 0.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 3.3
+        },
+        {
+          "sql": "SELECT\n    SUM(fdn_actual_tonnage) AS total_mill_tonnage\nFROM\n    t_fdn\nWHERE\n    (fdn_is_deleted = 0 OR fdn_is_deleted IS NULL)",
+          "answer": "**13,664,300 tonnes** have been delivered to the mill in total.\n\n- **Belawan** is the sole contributor, accounting for all deliveries.\n- **K3** shows zero deliveries, indicating no recorded activity.\n\nThis highlights a complete disparity between the two estates in mill deliveries.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 13664300.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 0.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 3.3
+        }
+      ]
+    },
+    {
+      "id": "st_001",
+      "category": "tonnage_once_per_trip",
+      "query": "How many tonnes were delivered to the mill per estate in October 2026?",
+      "database": "staging",
+      "expected": [
+        [
+          "ESTATE A",
+          4063.22
+        ],
+        [
+          "ESTATE B",
+          971.56
+        ],
+        [
+          "ESTATE C",
+          4100.54
+        ],
+        [
+          "PLASMA 1",
+          805.9076
+        ],
+        [
+          "PLASMA 2",
+          4165.0248
+        ]
+      ],
+      "trap": [
+        [
+          "ESTATE A",
+          78981.81
+        ],
+        [
+          "ESTATE B",
+          31536.01
+        ],
+        [
+          "ESTATE C",
+          130019.08
+        ],
+        [
+          "PLASMA 1",
+          26561.5121
+        ],
+        [
+          "PLASMA 2",
+          90049.3971
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(t.w) / 1000.0 AS tonnes_october_2026\nFROM (\n    SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w\n    FROM FDN\n    WHERE BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01'\n    GROUP BY ESTNR, SPB\n) t\nJOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'\nWHERE t.w > 0\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**14,106 tonnes** were delivered to the mill in October 2026.\n\n- **Plasma 2** led with **4,165 tonnes**, closely followed by **Estate C** at **4,101 tonnes**.\n- **Plasma 1** was the laggard with **806 tonnes**, amounting to just **5.7%** of the total.\n- **Estate A** and **Estate B** contributed **4,063 tonnes** and **972 tonnes**, respectively, summing to **5,035 tonnes** together.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 4063.22,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 971.56,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 4100.54,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 805.9076,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 4165.0248,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.8
+        },
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(t.w) / 1000.0 AS tonnes_october_2026\nFROM (\n    SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w\n    FROM FDN\n    WHERE BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01'\n    GROUP BY ESTNR, SPB\n) t\nJOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'\nWHERE t.w > 0\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**14,106 tonnes** were delivered to the mill in October 2026.\n\n- **Plasma 2** led with **4,165 tonnes**, closely followed by **Estate C** at **4,101 tonnes**.\n- **Plasma 1** was the laggard with **806 tonnes**, a distant last.\n- **Estate A** contributed **4,063 tonnes**, almost matching Plasma 2 and Estate C. \n- **Estate B** delivered **972 tonnes**, the smallest share among the estates.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 4063.22,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 971.56,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 4100.54,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 805.9076,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 4165.0248,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.6
+        },
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(t.w) / 1000.0 AS tonnes_october_2026\nFROM (\n    SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w\n    FROM FDN\n    WHERE BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01'\n    GROUP BY ESTNR, SPB\n) t\nJOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'\nWHERE t.w > 0\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**14,106 tonnes** were delivered to the mill in October 2026.\n\n- **Plasma 2** led with **4,165 tonnes**, closely followed by **Estate C** at **4,101 tonnes**.\n- **Plasma 1** was the laggard with **806 tonnes**, a distant last.\n- **Estate A** contributed **4,063 tonnes**, almost matching Plasma 2 and Estate C. \n- **Estate B** delivered **972 tonnes**, the smallest share among the estates.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 4063.22,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 971.56,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 4100.54,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 805.9076,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 4165.0248,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 4.0
+        }
+      ]
+    },
+    {
+      "id": "st_002",
+      "category": "harvest",
+      "query": "Total ripe bunches harvested per estate in September 2026",
+      "database": "staging",
+      "expected": [
+        [
+          "ESTATE A",
+          567380.0
+        ],
+        [
+          "ESTATE B",
+          944228.0
+        ],
+        [
+          "ESTATE C",
+          753159.0
+        ],
+        [
+          "PLASMA 1",
+          82262.0
+        ],
+        [
+          "PLASMA 2",
+          433980.0
+        ]
+      ],
+      "trap": null,
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches_september_2026\nFROM OPH o\nJOIN EST e ON e.WERKS = o.WERKS\nWHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01'\n  AND e.WERKS IS NOT NULL\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**2,781,009 ripe bunches** were harvested across the estates in September 2026.\n\n- **Estate B** led with **944,228 bunches**, far ahead of the rest.\n- **Plasma 1** was the laggard with **82,262 bunches**, only about 3% of the total.\n- Estate A contributed **567,380 bunches** (20.4% of the total), while Plasma 2 added **433,980 bunches** (15.6%).\n- Estate C fell in between with **753,159 bunches** (27.1% of the total). \n\nEstate B\u2019s output was **11.5 times** that of Plasma 1.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 567380.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 944228.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 753159.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 82262.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 433980.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.9
+        },
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches_september_2026\nFROM OPH o\nJOIN EST e ON e.WERKS = o.WERKS\nWHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01'\n  AND e.WERKS IS NOT NULL\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**2,781,009 ripe bunches** were harvested across the estates in September 2026.\n\n- **Estate B** led with **944,228 bunches**, far ahead of the rest.\n- **Plasma 1** was the laggard with **82,262 bunches**, only about **11.5 times** less than Estate B.\n- Estate A contributed **567,380 bunches**, while Estate C followed closely with **753,159 bunches**.\n- Plasma 2 harvested **433,980 bunches**, showing a solid middle performance. \n\nEstate B\u2019s output was notably higher than the others, showcasing a significant production advantage.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 567380.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 944228.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 753159.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 82262.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 433980.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.9
+        },
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches_september_2026\nFROM OPH o\nJOIN EST e ON e.WERKS = o.WERKS\nWHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01'\n  AND e.WERKS IS NOT NULL\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**2,781,009 ripe bunches** were harvested across the estates in September 2026.\n\n- **Estate B** led with **944,228 bunches**, far ahead of the rest.\n- **Plasma 1** was the laggard with only **82,262 bunches**, just **3%** of the total.\n- Estate A contributed **20.4%**, Estate C **27.1%**, and Plasma 2 **15.6%** of the total.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 567380.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 944228.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 753159.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 82262.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 433980.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 3.6
+        }
+      ]
+    },
+    {
+      "id": "st_003",
+      "category": "attendance",
+      "query": "How many people were absent without leave (mangkir) per estate in October 2026?",
+      "database": "staging",
+      "expected": [
+        [
+          "ESTATE A",
+          247.0
+        ],
+        [
+          "ESTATE B",
+          269.0
+        ],
+        [
+          "ESTATE C",
+          404.0
+        ],
+        [
+          "ESTATE PLASMA 1",
+          85.0
+        ],
+        [
+          "ESTATE PLASMA 2",
+          193.0
+        ]
+      ],
+      "trap": [
+        [
+          "ESTATE A",
+          442.0
+        ],
+        [
+          "ESTATE B",
+          588.0
+        ],
+        [
+          "ESTATE C",
+          845.0
+        ],
+        [
+          "ESTATE PLASMA 1",
+          353.0
+        ],
+        [
+          "ESTATE PLASMA 2",
+          651.0
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT TOP 100 a.PRFNR AS estate_name,\n       COUNT(DISTINCT a.EMPNR) AS mangkir_count\nFROM ATD a\nWHERE a.BUDAT >= '2026-10-01' AND a.BUDAT < '2026-11-01'\n  AND a.ATDCD = 'M'\nGROUP BY a.PRFNR\nORDER BY a.PRFNR",
+          "answer": "**1,198 people were absent without leave (mangkir) across all estates in October 2026.**\n\n- **ESTATE C** led with **404** absentees, nearly **5 times** the count of **ESTATE PLASMA 1**, which had the lowest at **85**.\n- **ESTATE B** followed with **269**, and **ESTATE A** reported **247**.\n- **ESTATE PLASMA 2** recorded **193** absentees.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 247.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 269.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 404.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE PLASMA 1",
+              "expected": 85.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE PLASMA 2",
+              "expected": 193.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.7
+        },
+        {
+          "sql": "SELECT TOP 100 a.PRFNR AS estate_name,\n       COUNT(DISTINCT a.EMPNR) AS mangkir_count\nFROM ATD a\nWHERE a.BUDAT >= '2026-10-01' AND a.BUDAT < '2026-11-01'\n  AND a.ATDCD = 'M'\nGROUP BY a.PRFNR\nORDER BY a.PRFNR",
+          "answer": "**1,198 people were absent without leave (mangkir) across all estates in October 2026.**\n\n- **ESTATE C** led with **404** absentees, nearly **5 times** the count of **ESTATE PLASMA 1**, which had the lowest at **85**.\n- **ESTATE B** followed with **269**, and **ESTATE A** reported **247**.\n- **ESTATE PLASMA 2** recorded **193** absentees.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 247.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 269.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 404.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE PLASMA 1",
+              "expected": 85.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE PLASMA 2",
+              "expected": 193.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.5
+        },
+        {
+          "sql": "SELECT TOP 100 a.PRFNR AS estate_name,\n       COUNT(DISTINCT a.EMPNR) AS mangkir_count\nFROM ATD a\nWHERE a.BUDAT >= '2026-10-01' AND a.BUDAT < '2026-11-01'\n  AND a.ATDCD = 'M'\nGROUP BY a.PRFNR\nORDER BY a.PRFNR",
+          "answer": "**1,198 people were absent without leave (mangkir) across all estates in October 2026.**\n\n- **ESTATE C** led with **404** absentees, nearly **5 times** the count of **ESTATE PLASMA 1**, which had the lowest at **85**.\n- **ESTATE B** followed with **269**, and **ESTATE A** reported **247**.\n- **ESTATE PLASMA 2** recorded **193** absentees.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE A",
+              "expected": 247.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 269.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 404.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE PLASMA 1",
+              "expected": 85.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE PLASMA 2",
+              "expected": 193.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.3
+        }
+      ]
+    },
+    {
+      "id": "st_004",
+      "category": "estate_scope",
+      "query": "Ripe bunches harvested in estate EC in October 2026",
+      "database": "staging",
+      "expected": [
+        [
+          "ESTATE C",
+          710152.0
+        ]
+      ],
+      "trap": null,
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches_october_2026\nFROM OPH o\nJOIN EST e ON e.WERKS = o.WERKS\nWHERE o.BUDAT >= '2026-10-01' AND o.BUDAT < '2026-11-01'\n  AND e.WERKS = '00EC'\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**710,152 ripe bunches** were harvested in Estate C (EC) in October 2026.\n\n- This is the only estate in the query, so no comparison is available.\n- The figure represents the total for the entire month of October 2026.",
+          "row_count": 1,
+          "estates": [
+            "Estate C (EC)"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE C",
+              "expected": 710152.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.7
+        },
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches_october_2026\nFROM OPH o\nJOIN EST e ON e.WERKS = o.WERKS\nWHERE o.BUDAT >= '2026-10-01' AND o.BUDAT < '2026-11-01'\n  AND e.WERKS = '00EC'\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**710,152 ripe bunches** were harvested in Estate C (EC) in October 2026.\n\n- This is the only estate in the query, so no comparison is available.\n- The figure represents the total for the entire month of October 2026.",
+          "row_count": 1,
+          "estates": [
+            "Estate C (EC)"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE C",
+              "expected": 710152.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.5
+        },
+        {
+          "sql": "SELECT TOP 100 e.WERKS AS estate_code,\n       e.NAME1 AS estate_name,\n       SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches_october_2026\nFROM OPH o\nJOIN EST e ON e.WERKS = o.WERKS\nWHERE o.BUDAT >= '2026-10-01' AND o.BUDAT < '2026-11-01'\n  AND e.WERKS = '00EC'\nGROUP BY e.WERKS, e.NAME1\nORDER BY e.WERKS",
+          "answer": "**710,152 ripe bunches** were harvested in Estate C (EC) in October 2026.\n\n- This is the only estate in the query, so no comparison is available.\n- The figure represents the total for the entire month of October 2026.",
+          "row_count": 1,
+          "estates": [
+            "Estate C (EC)"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE C",
+              "expected": 710152.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.4
+        }
+      ]
+    }
+  ]
+}

@@ -304,7 +304,7 @@ def fire_brief(assessment: dict, estate: str, refresh: bool = False) -> dict:
     parsed, meta = reasoning.json_chat(
         load_prompt("estate_fire_brief_system"),
         "Write the fire brief.\n\n" + reasoning.clip(grounding),
-        tier="main", max_tokens=1200, temperature=0.2, task="estate_fire_brief")
+        tier="reasoning", max_tokens=1200, temperature=0.2, task="estate_fire_brief")
     if parsed is None:
         return reasoning.unavailable(
             meta.get("error", "The model did not return usable JSON."),
@@ -410,7 +410,7 @@ def handover(estate: str = "EC", refresh: bool = False) -> dict:
     parsed, meta = reasoning.json_chat(
         load_prompt("estate_handover_system"),
         "Write the handover note.\n\n" + reasoning.clip(grounding),
-        tier="main", max_tokens=1100, temperature=0.25, task="estate_handover")
+        tier="reasoning", max_tokens=1100, temperature=0.25, task="estate_handover")
     if parsed is None:
         return reasoning.unavailable(
             meta.get("error", "The model did not return usable JSON."),

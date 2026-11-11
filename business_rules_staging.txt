@@ -1,0 +1,48 @@
+BUSINESS RULES (apply to every query on the EPMS staging database):
+
+1. ESTATES: One database holds every estate. The estate is the WERKS plant code, and it is the same code in every transaction table: 00EA = Estate A (EA), 00EB = Estate B (EB), 00EC = Estate C (EC), 00P1 = Plasma 1, 00P2 = Plasma 2. EST maps it: EST.WERKS -> EST.NAME1 ('ESTATE A', ...). When the question names an estate, filter on WERKS. With no estate named, cover all of them and group by estate. When listing estates show their NAME1 (JOIN EST e ON e.WERKS = o.WERKS), not only the code. Always exclude rows with WERKS IS NULL.
+
+2. HIERARCHY: Estate (EST) -> Division (DIV) -> Block (BLK). The estate code inside master tables is ESTNR ('EA', 'EB', 'EC', 'P1', 'P2'), which is the last two characters of WERKS: RIGHT(WERKS, 2) = ESTNR. A block code is unique only inside its estate, so a block is always identified by ESTNR + BLOCK, and a division by ESTNR + DIVNR.
+
+3. MASTER DATA HAS HISTORY: BLK, DIV, EMP, EST and MEM keep one row per validity period (KDATB = valid from, KDATE = valid to; 9999-12-31 means still valid). For the current state add KDATE = '9999-12-31'. Join a transaction to its block like this:
+   FROM OPH o JOIN BLK b ON b.ESTNR = RIGHT(o.WERKS, 2) AND b.BLOCK = o.BLOCK AND b.KDATE = '9999-12-31'
+   JOIN DIV d ON d.ESTNR = b.ESTNR AND d.DIVNR = b.DIVNR AND d.KDATE = '9999-12-31'
+   Employees: JOIN EMP e ON e.EMPNR = o.EMPNR AND o.BUDAT BETWEEN e.KDATB AND e.KDATE (the employee as they were on that day; this never duplicates a row).
+
+4. HARVEST = OPH. One OPH row is one harvest ticket of one harvester at one harvest point (TPH) on one day. The harvest date is BUDAT (a date column). The count columns are: ZMASAK = ripe bunches (janjang masak) and ZBRONDOLAN = loose fruit (brondolan), stored as TEXT, so use TRY_CAST(ZBRONDOLAN AS decimal(18,2)). There is no unripe/overripe split and NO WEIGHT in OPH. "Harvest", "bunches", "janjang" and "yield" in bunches all mean SUM(OPH.ZMASAK). A harvester's output is SUM(ZMASAK) per EMPNR per BUDAT.
+
+5. TONNAGE = FDN, NEVER OPH. FDN is the delivery note (SPB = surat pengantar buah) that sends harvest tickets to the mill, one row per OPH ticket on the trip. WB_QTY_TOTAL is the weighbridge net weight of the WHOLE trip in kg, repeated on every row of that SPB. Summing it row by row multiplies the weight many times over. Always take it once per SPB:
+   SELECT e.NAME1 AS estate, YEAR(t.d) AS year, MONTH(t.d) AS month, SUM(t.w) / 1000.0 AS tonnes
+   FROM (SELECT ESTNR, SPB, MIN(BUDAT) AS d, MAX(WB_QTY_TOTAL) AS w FROM FDN WHERE BUDAT >= '2026-01-01' AND BUDAT < '2026-11-01' GROUP BY ESTNR, SPB) t
+   JOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'
+   WHERE t.w > 0 GROUP BY e.NAME1, YEAR(t.d), MONTH(t.d)
+   The inner query is the ONLY place FDN appears: it yields one row per trip with its date (d) and weight (w). Everything else (estate, day, month, truck) is grouped from that one-row-per-trip result. NEVER join it back to FDN and never join FDN to OPH when summing weight: either repeats the trip weight. Drop the year/month columns for a single total, or use t.d for a daily series.
+   A trip with WB_QTY_TOTAL = 0 has not been weighed; leave it out of weight figures. FDN uses ESTNR ('EC'), not WERKS; its date is BUDAT. FDN.OPH = OPH.OPH links a delivery to the harvest tickets it carried (about half of recent tickets are not yet on a delivery note).
+
+6. ATTENDANCE = ATD, one row per employee per day: ATDCD is the attendance code, described in ATC (join ATD.ATDCD = ATC.CODE; description is ATC.[DESC], Indonesian, mixed case). K = Kerja (worked), M = Mangkir (absent without leave), C = Cuti (leave), S1/S2 = sick, P1..P4 = permitted absence. "Present" or "worked" means ATDCD IN ('K', 'KS', 'KT'); "mangkir" / "absent" means ATDCD = 'M'. Filter on the code (ATDCD = 'M'), not on the description text. ATD has NO WERKS: its estate is PRFNR, the estate NAME as text: 'ESTATE A', 'ESTATE B', 'ESTATE C', 'ESTATE PLASMA 1', 'ESTATE PLASMA 2' (note the ESTATE prefix on plasma; EST.NAME1 alone says 'PLASMA 1'). Group by ATD.PRFNR to count per estate; count people with COUNT(DISTINCT ATD.EMPNR), rows (person-days) with COUNT(*). EMPNR_M on ATD is the employee's mandor. EMP, MEM, GWO and OVT also carry PRFNR.
+
+7. WORK DONE = GWO, one row per employee per activity per day. ACTVT_NO joins ACT (ACTVT_NAME is the activity name, uppercase, descriptive: use LIKE '%KEYWORD%'). MENGE = quantity done, in unit AMEIN (HA = hectare, P = palms, KG, TON, BAG, ...; different activities use different units, so never add MENGE across activities), HKINP = man-days (hari kerja). Man-days of a period = SUM(GWO.HKINP). BLOCK may be empty for general work.
+
+8. OVERTIME = OVT: NHOUR = overtime hours per employee per day (BUDAT).
+
+9. EMPLOYEES = EMP: JBCDE is the job (HARVESTERS, MANDOR PANEN, CHECKER, DRIVER, UPKEEP, ...), SEX is MALE/FEMALE, STATS the employment status, ENAME the name. EMPNR is the same code used in OPH, ATD, GWO and OVT. Count people with COUNT(DISTINCT EMPNR) and only current rows (KDATE = '9999-12-31') unless a past date is meant.
+
+10. TIME: filter dates with a range on the bare date column (never wrap BUDAT in a function) and write the date expressions INLINE in the WHERE clause (do not define helper CTEs for dates). Copy these exactly, replacing BUDAT with the table's date column:
+   - "this month":     BUDAT >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AND BUDAT < DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+   - "last month" / "previous month" (the calendar month BEFORE the current one, NOT the current month): BUDAT >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+   - "this year":      BUDAT >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+   - "last N days":    BUDAT >= DATEADD(day, -N, CAST(GETDATE() AS date))
+   - "last week":      BUDAT >= DATEADD(day, -7, CAST(GETDATE() AS date)) AND BUDAT < CAST(GETDATE() AS date)
+   - "yesterday":      BUDAT = DATEADD(day, -1, CAST(GETDATE() AS date))
+   - a named month (e.g. "September 2026"): BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01'
+   - NO PERIOD GIVEN (a total, average, ratio or comparison with no date, month or year in the question): the last 12 full months, BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1). Not a calendar year: Estate A, Estate B and Plasma 1 have data only from June 2025, so calendar 2025 compares 7 of their months with 12 of Estate C's. A list of records or the master data (blocks, employees) needs no period.
+   For "the latest" or "most recent" day use MAX(BUDAT) of the table. Group by month with YEAR(BUDAT), MONTH(BUDAT). The data is loaded in batches, so the newest days may be missing; that is not an error.
+
+11. AREA AND PER HECTARE: the area is BLK.BHA, in hectares, one row per block (current rows: KDATE = '9999-12-31'). Only MATURE blocks carry an area; immature and land-clearing blocks show 0. NEVER sum BHA over a join to OPH, FDN, GWO, ATD or OVT: the block's area repeats on every ticket of that block. Sum the area and the measure in separate subqueries, then divide. Bunches per hectare per estate:
+   SELECT e.NAME1 AS estate, h.bunches, a.ha, h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha
+   FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS bunches FROM OPH WHERE WERKS IS NOT NULL AND BUDAT >= ... AND BUDAT < ... GROUP BY WERKS) h
+   JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a ON a.ESTNR = RIGHT(h.WERKS, 2)
+   JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+   The same shape works per division (group both sides by ESTNR and DIVNR, the OPH side through BLK) or per block.
+
+12. LANGUAGE: janjang/tandan = bunches, panen = harvest, blok = block, kebun = estate, divisi = division, pemanen = harvester, mandor = foreman, kerani = checker, hadir/kerja = present, mangkir = absent, lembur = overtime, tonase = tonnage. Answer figures from the data only.

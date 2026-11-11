@@ -1,0 +1,1572 @@
+{
+ "run_at": "2026-10-13T19:50:51",
+ "model": "amazon.nova-pro-v1:0",
+ "seconds": 297,
+ "settings": [
+  {
+   "key": "with_checks",
+   "label": "With the checks",
+   "runs": 3,
+   "cases": 12,
+   "planted_cases": 9,
+   "decoy_cases": 3,
+   "median_correct": 10,
+   "median_planted_correct": 9,
+   "median_decoys_ok": 1,
+   "median_true_ruled_out": 0,
+   "unverified": 0,
+   "invalid": 0,
+   "tokens_per_run": 25801,
+   "per_run": [
+    {
+     "correct": 9,
+     "planted_correct": 9,
+     "decoys_ok": 0,
+     "true_ruled_out": 0,
+     "invalid": 0,
+     "unverified": 0,
+     "tokens": 25933
+    },
+    {
+     "correct": 10,
+     "planted_correct": 9,
+     "decoys_ok": 1,
+     "true_ruled_out": 0,
+     "invalid": 0,
+     "unverified": 0,
+     "tokens": 25801
+    },
+    {
+     "correct": 10,
+     "planted_correct": 9,
+     "decoys_ok": 1,
+     "true_ruled_out": 0,
+     "invalid": 0,
+     "unverified": 0,
+     "tokens": 25795
+    }
+   ]
+  },
+  {
+   "key": "without_checks",
+   "label": "Checks withheld",
+   "runs": 3,
+   "cases": 12,
+   "planted_cases": 9,
+   "decoy_cases": 3,
+   "median_correct": 11,
+   "median_planted_correct": 8,
+   "median_decoys_ok": 3,
+   "median_true_ruled_out": 0,
+   "unverified": 0,
+   "invalid": 0,
+   "tokens_per_run": 20710,
+   "per_run": [
+    {
+     "correct": 11,
+     "planted_correct": 8,
+     "decoys_ok": 3,
+     "true_ruled_out": 0,
+     "invalid": 0,
+     "unverified": 0,
+     "tokens": 20819
+    },
+    {
+     "correct": 11,
+     "planted_correct": 8,
+     "decoys_ok": 3,
+     "true_ruled_out": 0,
+     "invalid": 0,
+     "unverified": 0,
+     "tokens": 20710
+    },
+    {
+     "correct": 10,
+     "planted_correct": 7,
+     "decoys_ok": 3,
+     "true_ruled_out": 1,
+     "invalid": 0,
+     "unverified": 0,
+     "tokens": 20280
+    }
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "id": "fuel_tr04",
+   "unit": "transport:vehicle:TR-04",
+   "month": "2025-03",
+   "true_cause": "siphoning",
+   "results": {
+    "with_checks": [
+     "siphoning",
+     "siphoning",
+     "siphoning"
+    ],
+    "without_checks": [
+     "siphoning",
+     "siphoning",
+     "siphoning"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "siphoning",
+      "confidence": "likely",
+      "ruled_out": [
+       "tank_leak",
+       "unrecorded_work",
+       "worn_engine",
+       "within_norm"
+      ],
+      "headline": "Most likely, fuel siphoned off from TR-04.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2675,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "siphoning",
+      "confidence": "likely",
+      "ruled_out": [
+       "tank_leak",
+       "unrecorded_work",
+       "worn_engine",
+       "within_norm"
+      ],
+      "headline": "Most likely, fuel siphoned off on TR-04 in March 2025.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2650,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "siphoning",
+      "confidence": "likely",
+      "ruled_out": [
+       "tank_leak",
+       "unrecorded_work",
+       "worn_engine",
+       "within_norm"
+      ],
+      "headline": "Most likely, fuel siphoned off on TR-04 this March.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2688,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "siphoning",
+      "confidence": "possible",
+      "ruled_out": [
+       "tank_leak",
+       "unrecorded_work",
+       "worn_engine",
+       "within_norm"
+      ],
+      "headline": "Most likely: fuel siphoned off by one driver.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1966,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "siphoning",
+      "confidence": "possible",
+      "ruled_out": [
+       "tank_leak",
+       "unrecorded_work",
+       "worn_engine",
+       "within_norm"
+      ],
+      "headline": "Most likely: fuel siphoned off by one driver.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1942,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "siphoning",
+      "confidence": "possible",
+      "ruled_out": [
+       "tank_leak",
+       "unrecorded_work",
+       "worn_engine",
+       "within_norm"
+      ],
+      "headline": "Most likely: fuel siphoned off by one driver.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1942,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "ot_g302",
+   "unit": "workforce:crew:G3-02",
+   "month": "2025-04",
+   "true_cause": "standing_overtime",
+   "results": {
+    "with_checks": [
+     "standing_overtime",
+     "standing_overtime",
+     "standing_overtime"
+    ],
+    "without_checks": [
+     "standing_overtime",
+     "standing_overtime",
+     "standing_overtime"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "standing_overtime",
+      "confidence": "likely",
+      "ruled_out": [
+       "rounds_too_big",
+       "late_start",
+       "rain_mornings",
+       "within_norm"
+      ],
+      "headline": "Most likely, overtime as habit on Gang 3-02.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2351,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "standing_overtime",
+      "confidence": "likely",
+      "ruled_out": [
+       "rounds_too_big",
+       "late_start",
+       "rain_mornings"
+      ],
+      "headline": "Most likely, overtime as habit on Gang 3-02.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2330,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "standing_overtime",
+      "confidence": "likely",
+      "ruled_out": [
+       "rounds_too_big",
+       "late_start",
+       "rain_mornings"
+      ],
+      "headline": "Most likely, Gang 3-02's overtime is a habit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2293,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "standing_overtime",
+      "confidence": "likely",
+      "ruled_out": [
+       "rounds_too_big",
+       "late_start",
+       "rain_mornings",
+       "within_norm"
+      ],
+      "headline": "Most likely, Gang 3-02's overtime is a habit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1919,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "standing_overtime",
+      "confidence": "possible",
+      "ruled_out": [
+       "rounds_too_big",
+       "late_start",
+       "rain_mornings",
+       "within_norm"
+      ],
+      "headline": "Most likely: Overtime as habit on Gang 3-02.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1906,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "standing_overtime",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely, overtime as habit on this gang.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1661,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "pay_u402",
+   "unit": "workforce:crew:U4-02",
+   "month": "2025-04",
+   "true_cause": "ghost_names",
+   "results": {
+    "with_checks": [
+     "ghost_names",
+     "ghost_names",
+     "ghost_names"
+    ],
+    "without_checks": [
+     "ghost_names",
+     "ghost_names",
+     "ghost_names"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "ghost_names",
+      "confidence": "likely",
+      "ruled_out": [
+       "muster_not_recorded",
+       "contract_labour",
+       "within_norm"
+      ],
+      "headline": "Most likely ghost names on Upkeep 4-02's payroll.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2024,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "ghost_names",
+      "confidence": "likely",
+      "ruled_out": [
+       "muster_not_recorded",
+       "contract_labour"
+      ],
+      "headline": "Most likely ghost names on Upkeep 4-02's payroll.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1954,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "ghost_names",
+      "confidence": "likely",
+      "ruled_out": [
+       "muster_not_recorded",
+       "contract_labour",
+       "within_norm"
+      ],
+      "headline": "Most likely ghost names on the payroll.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2043,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "ghost_names",
+      "confidence": "possible",
+      "ruled_out": [
+       "muster_not_recorded",
+       "contract_labour",
+       "within_norm"
+      ],
+      "headline": "Most likely ghost names on Upkeep 4-02's payroll.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1746,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "ghost_names",
+      "confidence": "possible",
+      "ruled_out": [
+       "muster_not_recorded",
+       "contract_labour",
+       "within_norm"
+      ],
+      "headline": "Most likely ghost names on the payroll.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1729,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "ghost_names",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely ghost names on the payroll.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1597,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "fert_app_d5",
+   "unit": "group:fertiliser:5:application_labour",
+   "month": "2025-04",
+   "true_cause": "padded_timesheets",
+   "results": {
+    "with_checks": [
+     "padded_timesheets",
+     "padded_timesheets",
+     "padded_timesheets"
+    ],
+    "without_checks": [
+     "padded_timesheets",
+     "padded_timesheets",
+     "padded_timesheets"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "likely",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets on Division 5.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2240,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "likely",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets in Division 5.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2233,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "likely",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets on Division 5.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2220,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "likely",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing"
+      ],
+      "headline": "Most likely padded timesheets on Division 5.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1784,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "likely",
+      "ruled_out": [],
+      "headline": "Most likely padded timesheets on Division 5.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1708,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely padded timesheets on Division 5.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1710,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "price_urea",
+   "unit": "stores:material:FE-002",
+   "month": "2025-03",
+   "true_cause": "vendor_over_contract",
+   "results": {
+    "with_checks": [
+     "vendor_over_contract",
+     "vendor_over_contract",
+     "vendor_over_contract"
+    ],
+    "without_checks": [
+     "vendor_over_contract",
+     "vendor_over_contract",
+     "within_norm"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "vendor_over_contract",
+      "confidence": "likely",
+      "ruled_out": [
+       "rush_buy",
+       "standard_outdated",
+       "within_norm"
+      ],
+      "headline": "Most likely, supplier invoicing above the PO for Urea (FE-002).",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2041,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "vendor_over_contract",
+      "confidence": "likely",
+      "ruled_out": [
+       "rush_buy",
+       "standard_outdated",
+       "within_norm"
+      ],
+      "headline": "Most likely, supplier invoicing above the PO for Urea (FE-002).",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2057,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "vendor_over_contract",
+      "confidence": "likely",
+      "ruled_out": [
+       "rush_buy",
+       "standard_outdated",
+       "within_norm"
+      ],
+      "headline": "Most likely, supplier invoicing above the PO.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1998,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "vendor_over_contract",
+      "confidence": "possible",
+      "ruled_out": [
+       "rush_buy",
+       "standard_outdated",
+       "within_norm"
+      ],
+      "headline": "Most likely: supplier invoicing above the PO.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1787,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "vendor_over_contract",
+      "confidence": "possible",
+      "ruled_out": [
+       "rush_buy",
+       "standard_outdated",
+       "within_norm"
+      ],
+      "headline": "Most likely: supplier invoicing above the PO",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1754,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [
+       "rush_buy",
+       "vendor_over_contract",
+       "standard_outdated"
+      ],
+      "headline": "Most likely, nothing unusual with Urea (FE-002) in March 2025.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1755,
+      "correct": false,
+      "true_ruled_out": true,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "fleet_du01",
+   "unit": "fleet:vehicle:DU-01",
+   "month": "2025-03",
+   "true_cause": "repeat_fault",
+   "results": {
+    "with_checks": [
+     "repeat_fault",
+     "repeat_fault",
+     "repeat_fault"
+    ],
+    "without_checks": [
+     "within_norm",
+     "within_norm",
+     "within_norm"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "repeat_fault",
+      "confidence": "likely",
+      "ruled_out": [
+       "end_of_life",
+       "overloading",
+       "rough_roads",
+       "within_norm"
+      ],
+      "headline": "Most likely, the same fault, badly repaired on DU-01.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2214,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "repeat_fault",
+      "confidence": "likely",
+      "ruled_out": [
+       "end_of_life",
+       "overloading",
+       "rough_roads",
+       "within_norm"
+      ],
+      "headline": "Most likely, the same fault, badly repaired on DU-01.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2219,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "repeat_fault",
+      "confidence": "likely",
+      "ruled_out": [
+       "end_of_life",
+       "overloading",
+       "rough_roads",
+       "within_norm"
+      ],
+      "headline": "Most likely repeat fault on dump truck DU-01.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2233,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual with Dump truck DU-01.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1585,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual with Dump truck DU-01.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1598,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual for this unit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1587,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "culvert_repeat",
+   "unit": "roads:segment:RS-0152",
+   "month": "2025-03",
+   "true_cause": "poor_repair",
+   "results": {
+    "with_checks": [
+     "poor_repair",
+     "poor_repair",
+     "poor_repair"
+    ],
+    "without_checks": [
+     "poor_repair",
+     "poor_repair",
+     "poor_repair"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "poor_repair",
+      "confidence": "likely",
+      "ruled_out": [
+       "drainage",
+       "traffic",
+       "within_norm"
+      ],
+      "headline": "Most likely patched, not fixed, on Road RS-0152.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1874,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "poor_repair",
+      "confidence": "likely",
+      "ruled_out": [
+       "drainage",
+       "traffic",
+       "within_norm"
+      ],
+      "headline": "Most likely: Patched, not fixed on Road RS-0152.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1910,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "poor_repair",
+      "confidence": "likely",
+      "ruled_out": [
+       "drainage",
+       "traffic",
+       "within_norm"
+      ],
+      "headline": "Most likely: Patched, not fixed on Road RS-0152.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1876,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "poor_repair",
+      "confidence": "possible",
+      "ruled_out": [
+       "drainage",
+       "traffic",
+       "within_norm"
+      ],
+      "headline": "Most likely patched, not fixed, on Road RS-0152.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1544,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "poor_repair",
+      "confidence": "possible",
+      "ruled_out": [
+       "drainage",
+       "traffic",
+       "within_norm"
+      ],
+      "headline": "Most likely patched, not fixed, on Road RS-0152.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1547,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "poor_repair",
+      "confidence": "possible",
+      "ruled_out": [
+       "drainage",
+       "traffic",
+       "within_norm"
+      ],
+      "headline": "Most likely: Patched, not fixed on Road RS-0152.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1546,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "grading_d6",
+   "unit": "group:roads:6:billing_over_length",
+   "month": "2025-04",
+   "true_cause": "contractor_overbilling",
+   "results": {
+    "with_checks": [
+     "contractor_overbilling",
+     "contractor_overbilling",
+     "contractor_overbilling"
+    ],
+    "without_checks": [
+     "contractor_overbilling",
+     "contractor_overbilling",
+     "contractor_overbilling"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "contractor_overbilling",
+      "confidence": "likely",
+      "ruled_out": [
+       "length_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely contractor billing extra km on Division 6 roads.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2041,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "contractor_overbilling",
+      "confidence": "likely",
+      "ruled_out": [
+       "length_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely contractor billing extra km on Division 6 roads.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2019,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "contractor_overbilling",
+      "confidence": "likely",
+      "ruled_out": [
+       "length_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely: Contractor billing extra km on Division 6 roads.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2028,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "contractor_overbilling",
+      "confidence": "possible",
+      "ruled_out": [
+       "length_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely contractor billing extra km on roads.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1791,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "contractor_overbilling",
+      "confidence": "possible",
+      "ruled_out": [
+       "length_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely: Contractor billing extra km on Division 6.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1811,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "contractor_overbilling",
+      "confidence": "possible",
+      "ruled_out": [
+       "length_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely contractor billing extra km on Division 6 roads.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1786,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "shrink_d07",
+   "unit": "transport:driver:D-07",
+   "month": "2025-03",
+   "true_cause": "theft_in_transit",
+   "results": {
+    "with_checks": [
+     "theft_in_transit",
+     "theft_in_transit",
+     "theft_in_transit"
+    ],
+    "without_checks": [
+     "theft_in_transit",
+     "theft_in_transit",
+     "theft_in_transit"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "theft_in_transit",
+      "confidence": "likely",
+      "ruled_out": [
+       "left_on_platform",
+       "weighing_error",
+       "abw_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely fruit taken in transit by Driver D-07.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2139,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "theft_in_transit",
+      "confidence": "likely",
+      "ruled_out": [
+       "left_on_platform",
+       "weighing_error",
+       "abw_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely fruit taken in transit by Driver D-07.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2145,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "theft_in_transit",
+      "confidence": "likely",
+      "ruled_out": [
+       "left_on_platform",
+       "weighing_error",
+       "abw_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely fruit taken in transit by Driver D-07.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2195,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "theft_in_transit",
+      "confidence": "possible",
+      "ruled_out": [
+       "left_on_platform",
+       "weighing_error",
+       "abw_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely: Fruit taken in transit by Driver D-07.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1781,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "theft_in_transit",
+      "confidence": "possible",
+      "ruled_out": [
+       "left_on_platform",
+       "weighing_error",
+       "abw_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely: Fruit taken in transit by Driver D-07.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1806,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "theft_in_transit",
+      "confidence": "possible",
+      "ruled_out": [
+       "left_on_platform",
+       "weighing_error",
+       "abw_wrong",
+       "within_norm"
+      ],
+      "headline": "Most likely: Fruit taken in transit by Driver D-07.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1782,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "decoy_terrain",
+   "unit": "harvesting:block:6|208",
+   "month": "2025-01",
+   "true_cause": "within_norm",
+   "results": {
+    "with_checks": [
+     "slow_crew",
+     "thin_crop",
+     "thin_crop"
+    ],
+    "without_checks": [
+     "within_norm",
+     "within_norm",
+     "within_norm"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "slow_crew",
+      "confidence": "likely",
+      "ruled_out": [
+       "thin_crop",
+       "long_walk",
+       "paths_overdue",
+       "rain"
+      ],
+      "headline": "Most likely, the gang's pace is below its own speed.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2386,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "thin_crop",
+      "confidence": "likely",
+      "ruled_out": [
+       "long_walk",
+       "paths_overdue",
+       "rain",
+       "slow_crew",
+       "within_norm"
+      ],
+      "headline": "Most likely, the block is thin on the round.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2384,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "thin_crop",
+      "confidence": "likely",
+      "ruled_out": [
+       "long_walk",
+       "paths_overdue",
+       "rain",
+       "slow_crew"
+      ],
+      "headline": "Most likely, thin crop on the round.",
+      "unverified": 0,
+      "retried": true,
+      "tokens": 2307,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual on this unit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1689,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual on this unit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1689,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual on this unit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1690,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "decoy_prescribed",
+   "unit": "fertiliser:block:1|1",
+   "month": "2025-04",
+   "true_cause": "within_norm",
+   "results": {
+    "with_checks": [
+     "padded_timesheets",
+     "within_norm",
+     "within_norm"
+    ],
+    "without_checks": [
+     "padded_timesheets",
+     "padded_timesheets",
+     "padded_timesheets"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "likely",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets on Block 32-51.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2120,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "likely",
+      "ruled_out": [
+       "padded_timesheets",
+       "difficult_terrain",
+       "split_dosing"
+      ],
+      "headline": "Most likely, nothing unusual shows on this unit.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2044,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "likely",
+      "ruled_out": [
+       "padded_timesheets",
+       "difficult_terrain",
+       "split_dosing"
+      ],
+      "headline": "Most likely, nothing unusual shows in Block 32-51.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 2034,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "possible",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets on Block 32-51.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1742,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "possible",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets on Block 32-51 in April 2025.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1719,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "padded_timesheets",
+      "confidence": "possible",
+      "ruled_out": [
+       "difficult_terrain",
+       "split_dosing",
+       "within_norm"
+      ],
+      "headline": "Most likely padded timesheets on Block 32-51 in April 2025.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1724,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  },
+  {
+   "id": "decoy_skipped_upkeep",
+   "unit": "upkeep:block:5|186",
+   "month": "2025-03",
+   "true_cause": "within_norm",
+   "results": {
+    "with_checks": [
+     "overgrown",
+     "overgrown",
+     "overgrown"
+    ],
+    "without_checks": [
+     "within_norm",
+     "within_norm",
+     "within_norm"
+    ]
+   },
+   "runs": {
+    "with_checks": [
+     {
+      "available": true,
+      "cause": "overgrown",
+      "confidence": "likely",
+      "ruled_out": [
+       "slow_crew",
+       "rain_interrupted",
+       "within_norm"
+      ],
+      "headline": "Most likely, round overdue, so the work is heavier.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1828,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "overgrown",
+      "confidence": "likely",
+      "ruled_out": [
+       "slow_crew",
+       "rain_interrupted",
+       "within_norm"
+      ],
+      "headline": "Most likely, round overdue, so the work is heavier.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1856,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "overgrown",
+      "confidence": "likely",
+      "ruled_out": [
+       "slow_crew",
+       "rain_interrupted",
+       "within_norm"
+      ],
+      "headline": "Most likely, round overdue, so the work is heavier.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1880,
+      "correct": false,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ],
+    "without_checks": [
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely, nothing unusual shows on Block 32-30.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1485,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely nothing unusual, but check the crew's output.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1501,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     },
+     {
+      "available": true,
+      "cause": "within_norm",
+      "confidence": "possible",
+      "ruled_out": [],
+      "headline": "Most likely, labour over standard on Block 32-30.",
+      "unverified": 0,
+      "retried": false,
+      "tokens": 1500,
+      "correct": true,
+      "true_ruled_out": false,
+      "invalid": false
+     }
+    ]
+   }
+  }
+ ],
+ "note": "Planted world, in-sample: the cause descriptions were revised once after the first run (the overtime pair). Real leaks mix causes; expect lower on the client's data."
+}

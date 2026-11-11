@@ -109,5 +109,18 @@
         "haul_l_per_t": 1.915
       }
     }
+  },
+  "finance_checks": {
+    "wage_md_posted": 144638.0,
+    "wage_md_paid": 144638.0,
+    "wages_reconcile": true,
+    "materials_mm_idr": 36802437800,
+    "materials_ledger_idr": 36802437800,
+    "materials_reconcile": true,
+    "fuel_store_reconcile": true,
+    "cost_idr_ha_yr": 29047805,
+    "planted_ha": 7231.9,
+    "cost_in_band": true,
+    "other_feeds_unchanged": true
   }
 }

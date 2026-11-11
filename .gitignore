@@ -36,6 +36,9 @@ forecast/*/monthly_results.txt
 # (forecast/<ESTATE>/*), so this nested dir would otherwise be committed --
 # and these artifacts carry real production figures.
 forecast/experiments/
+# Series extracted from the staging database (forecast/build_staging_series.py):
+# two levels deep, so the per-estate rules above miss it too.
+forecast/staging/
 
 
 # Runtime telemetry & experiment tracking (regenerated locally)

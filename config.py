@@ -8,9 +8,28 @@ load_dotenv()
 # "groq" today; "bedrock" once AWS access lands. Business logic never reads
 # this directly — llm_client.py resolves the provider + model from it.
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()
-# Inert until AWS credentials exist. Nova Pro is a placeholder tier; swap for
-# Micro/Lite/Premier once the target tier is decided.
-BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
+# Three Bedrock tiers (see llm_client._TIER_MODELS):
+#   main      DEFAULT. Retrieval-style work: SQL generation, simple answers.
+#             Nova 2 Lite, which Bedrock serves only through an inference
+#             profile ("us." keeps traffic in US regions, "global." may route
+#             anywhere; pick "us." unless the client's residency rules allow more).
+#   reasoning Escalation target for analysis, comparison and tool-calling
+#             agents (copilot, investigator, risk narrative). Nova Pro.
+#   routing   Cheap classifier tier (domain check, table routing).
+BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.amazon.nova-2-lite-v1:0")
+BEDROCK_REASONING_MODEL_ID = os.getenv("BEDROCK_REASONING_MODEL_ID", "amazon.nova-pro-v1:0")
+# Models selectable from the chat page (key -> label + Bedrock id). The page
+# sends the key; the server maps it here, so only these ids can ever be used.
+# A selected model is used for SQL generation, the SQL retry and the answer
+# (no escalation), which makes A/B testing between the two clean.
+CHAT_MODELS = {
+    "nova-2-lite": {"label": "Nova 2 Lite", "id": BEDROCK_MODEL_ID},
+    "nova-pro":    {"label": "Nova Pro",    "id": BEDROCK_REASONING_MODEL_ID},
+}
+CHAT_DEFAULT_MODEL = os.getenv("CHAT_DEFAULT_MODEL", "nova-2-lite")
+# Chat: escalate the answer step to the reasoning tier for analytical questions
+# (see model_routing.py) and retry failed SQL on it. "0" keeps everything on main.
+CHAT_ESCALATE_TO_REASONING = os.getenv("CHAT_ESCALATE_TO_REASONING", "1") == "1"
 # Cheap/fast tier used where ROUTING_MODEL is used under Groq.
 BEDROCK_ROUTING_MODEL_ID = os.getenv("BEDROCK_ROUTING_MODEL_ID", "amazon.nova-lite-v1:0")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
@@ -120,3 +139,23 @@ ESTATES: dict[str, dict] = {
     },
 }
 ESTATE_ORDER = ["ba", "k3"]  # deterministic fan-out / display order
+
+# --- EPMS staging database (SQL Server) --------------------------------------
+# The central staging DB that holds every estate in one database (EA, EB, EC and
+# the plasma schemes P1/P2, told apart by the WERKS column). Optional: without
+# DATABASE_URL_STAGING the app starts as before and the chat/forecast pages
+# simply don't offer it. Connect with a read-only login (db_datareader only):
+# SQL Server has no `default_transaction_read_only`, so permissions are the only
+# write protection. See data_sources.py for how the two databases are switched.
+DATABASE_URL_STAGING = os.getenv("DATABASE_URL_STAGING") or None
+staging_engine = None
+if DATABASE_URL_STAGING:
+    from sqlalchemy import event
+
+    staging_engine = create_engine(DATABASE_URL_STAGING, pool_pre_ping=True)
+
+    @event.listens_for(staging_engine, "connect")
+    def _staging_query_timeout(dbapi_conn, _record):
+        # pyodbc: Connection.timeout is the per-query timeout in seconds (0 = none).
+        # This is the SQL Server counterpart of Postgres' statement_timeout.
+        dbapi_conn.timeout = max(1, STATEMENT_TIMEOUT_MS // 1000)

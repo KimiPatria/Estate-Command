@@ -20,6 +20,8 @@ import { panelCuttingInterval } from './cutting_interval.js';
 import { panelAbwTrend } from './abw_trend.js';
 import { panelPestWarning } from './pest_warning.js';
 import { panelCollection } from './collection.js';
+import { leakagePopup, panelBudget } from './leakage.js';
+import { rp } from './stores.js';
 import { blockList } from './_shared.js';
 import { blockLabelFor } from '../map/blocks.js';
 import { onPopupChange, openPopup, popupKey } from '../shell/popup.js';
@@ -65,6 +67,7 @@ export const PANEL_RENDER = {
   abw_trend:        () => panelAbwTrend(),
   pest_warning:     () => panelPestWarning(),
   collection:       () => panelCollection(),
+  budget:           () => panelBudget(),
 };
 
 /* Features that are a map layer rather than a panel. The manifest lists them
@@ -75,6 +78,7 @@ const METRIC_PANELS = {
   peer_yield: 'peer_index',
   upkeep: 'upkeep_overdue',
   margin: 'margin_per_ha',
+  efficiency_map: 'efficiency_pct',
 };
 
 /* Features that are a drawer the header already opens. */
@@ -125,6 +129,7 @@ const POPUPS = {
   outcomes:     () => outcomesPopup(),
   forecasts:    () => forecastsPopup(),
   stores:       () => storesPopup(),
+  leakage:      () => leakagePopup(),
 };
 export const POPUP_PANELS = Object.keys(POPUPS);
 
@@ -186,6 +191,16 @@ export async function primePanelHints() {
     const st = await fetch('/gis/stores').then(x => x.json());
     if (st.available) {
       S.panelHint.stores = st.to_order ? `${st.to_order} to order` : 'nothing due';
+      refreshRail();
+    }
+  } catch (e) {
+    // As above.
+  }
+  // The cost window prices every unit on its own thread server-side.
+  try {
+    const f = await fetch('/gis/finance/summary').then(x => x.json());
+    if (f.available) {
+      S.panelHint.leakage = `${rp(f.estate.leakage_idr)} leaked`;
       refreshRail();
     }
   } catch (e) {

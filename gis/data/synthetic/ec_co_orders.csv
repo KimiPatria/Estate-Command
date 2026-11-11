@@ -1,0 +1,601 @@
+# SYNTHETIC. Internal orders (AUFK): one per block, vehicle and road segment, the way most SAP plantation setups carry a block. Confirm against the client's CO design.
+aufnr,kind,object,kostl,text
+BLK-1-1,block,1|1,EC-D1,Block 1-1
+BLK-1-2,block,1|2,EC-D1,Block 1-2
+BLK-1-3,block,1|3,EC-D1,Block 1-3
+BLK-1-4,block,1|4,EC-D1,Block 1-4
+BLK-1-5,block,1|5,EC-D1,Block 1-5
+BLK-1-6,block,1|6,EC-D1,Block 1-6
+BLK-1-7,block,1|7,EC-D1,Block 1-7
+BLK-1-8,block,1|8,EC-D1,Block 1-8
+BLK-1-9,block,1|9,EC-D1,Block 1-9
+BLK-1-10,block,1|10,EC-D1,Block 1-10
+BLK-1-11,block,1|11,EC-D1,Block 1-11
+BLK-1-12,block,1|12,EC-D1,Block 1-12
+BLK-1-13,block,1|13,EC-D1,Block 1-13
+BLK-1-14,block,1|14,EC-D1,Block 1-14
+BLK-1-15,block,1|15,EC-D1,Block 1-15
+BLK-1-16,block,1|16,EC-D1,Block 1-16
+BLK-1-17,block,1|17,EC-D1,Block 1-17
+BLK-1-18,block,1|18,EC-D1,Block 1-18
+BLK-1-19,block,1|19,EC-D1,Block 1-19
+BLK-1-20,block,1|20,EC-D1,Block 1-20
+BLK-1-21,block,1|21,EC-D1,Block 1-21
+BLK-1-22,block,1|22,EC-D1,Block 1-22
+BLK-1-23,block,1|23,EC-D1,Block 1-23
+BLK-1-24,block,1|24,EC-D1,Block 1-24
+BLK-1-25,block,1|25,EC-D1,Block 1-25
+BLK-1-26,block,1|26,EC-D1,Block 1-26
+BLK-1-27,block,1|27,EC-D1,Block 1-27
+BLK-1-28,block,1|28,EC-D1,Block 1-28
+BLK-1-29,block,1|29,EC-D1,Block 1-29
+BLK-1-30,block,1|30,EC-D1,Block 1-30
+BLK-1-31,block,1|31,EC-D1,Block 1-31
+BLK-1-32,block,1|32,EC-D1,Block 1-32
+BLK-1-33,block,1|33,EC-D1,Block 1-33
+BLK-1-34,block,1|34,EC-D1,Block 1-34
+BLK-1-35,block,1|35,EC-D1,Block 1-35
+BLK-1-36,block,1|36,EC-D1,Block 1-36
+BLK-1-37,block,1|37,EC-D1,Block 1-37
+BLK-1-38,block,1|38,EC-D1,Block 1-38
+BLK-1-39,block,1|39,EC-D1,Block 1-39
+BLK-2-40,block,2|40,EC-D2,Block 2-40
+BLK-2-41,block,2|41,EC-D2,Block 2-41
+BLK-2-42,block,2|42,EC-D2,Block 2-42
+BLK-2-43,block,2|43,EC-D2,Block 2-43
+BLK-2-44,block,2|44,EC-D2,Block 2-44
+BLK-2-45,block,2|45,EC-D2,Block 2-45
+BLK-2-46,block,2|46,EC-D2,Block 2-46
+BLK-2-47,block,2|47,EC-D2,Block 2-47
+BLK-2-49,block,2|49,EC-D2,Block 2-49
+BLK-2-50,block,2|50,EC-D2,Block 2-50
+BLK-2-51,block,2|51,EC-D2,Block 2-51
+BLK-2-52,block,2|52,EC-D2,Block 2-52
+BLK-2-53,block,2|53,EC-D2,Block 2-53
+BLK-2-54,block,2|54,EC-D2,Block 2-54
+BLK-2-55,block,2|55,EC-D2,Block 2-55
+BLK-2-56,block,2|56,EC-D2,Block 2-56
+BLK-2-57,block,2|57,EC-D2,Block 2-57
+BLK-2-58,block,2|58,EC-D2,Block 2-58
+BLK-2-59,block,2|59,EC-D2,Block 2-59
+BLK-2-60,block,2|60,EC-D2,Block 2-60
+BLK-2-62,block,2|62,EC-D2,Block 2-62
+BLK-2-63,block,2|63,EC-D2,Block 2-63
+BLK-2-64,block,2|64,EC-D2,Block 2-64
+BLK-2-65,block,2|65,EC-D2,Block 2-65
+BLK-2-66,block,2|66,EC-D2,Block 2-66
+BLK-2-67,block,2|67,EC-D2,Block 2-67
+BLK-2-68,block,2|68,EC-D2,Block 2-68
+BLK-2-69,block,2|69,EC-D2,Block 2-69
+BLK-2-70,block,2|70,EC-D2,Block 2-70
+BLK-2-71,block,2|71,EC-D2,Block 2-71
+BLK-2-72,block,2|72,EC-D2,Block 2-72
+BLK-2-73,block,2|73,EC-D2,Block 2-73
+BLK-2-74,block,2|74,EC-D2,Block 2-74
+BLK-2-382,block,2|382,EC-D2,Block 2-382
+BLK-3-75,block,3|75,EC-D3,Block 3-75
+BLK-3-76,block,3|76,EC-D3,Block 3-76
+BLK-3-77,block,3|77,EC-D3,Block 3-77
+BLK-3-78,block,3|78,EC-D3,Block 3-78
+BLK-3-79,block,3|79,EC-D3,Block 3-79
+BLK-3-80,block,3|80,EC-D3,Block 3-80
+BLK-3-81,block,3|81,EC-D3,Block 3-81
+BLK-3-82,block,3|82,EC-D3,Block 3-82
+BLK-3-83,block,3|83,EC-D3,Block 3-83
+BLK-3-84,block,3|84,EC-D3,Block 3-84
+BLK-3-85,block,3|85,EC-D3,Block 3-85
+BLK-3-86,block,3|86,EC-D3,Block 3-86
+BLK-3-87,block,3|87,EC-D3,Block 3-87
+BLK-3-88,block,3|88,EC-D3,Block 3-88
+BLK-3-89,block,3|89,EC-D3,Block 3-89
+BLK-3-90,block,3|90,EC-D3,Block 3-90
+BLK-3-91,block,3|91,EC-D3,Block 3-91
+BLK-3-92,block,3|92,EC-D3,Block 3-92
+BLK-3-93,block,3|93,EC-D3,Block 3-93
+BLK-3-94,block,3|94,EC-D3,Block 3-94
+BLK-3-95,block,3|95,EC-D3,Block 3-95
+BLK-3-96,block,3|96,EC-D3,Block 3-96
+BLK-3-97,block,3|97,EC-D3,Block 3-97
+BLK-3-98,block,3|98,EC-D3,Block 3-98
+BLK-3-99,block,3|99,EC-D3,Block 3-99
+BLK-3-100,block,3|100,EC-D3,Block 3-100
+BLK-3-101,block,3|101,EC-D3,Block 3-101
+BLK-3-102,block,3|102,EC-D3,Block 3-102
+BLK-3-103,block,3|103,EC-D3,Block 3-103
+BLK-3-104,block,3|104,EC-D3,Block 3-104
+BLK-3-105,block,3|105,EC-D3,Block 3-105
+BLK-3-106,block,3|106,EC-D3,Block 3-106
+BLK-3-107,block,3|107,EC-D3,Block 3-107
+BLK-3-108,block,3|108,EC-D3,Block 3-108
+BLK-3-109,block,3|109,EC-D3,Block 3-109
+BLK-3-110,block,3|110,EC-D3,Block 3-110
+BLK-3-111,block,3|111,EC-D3,Block 3-111
+BLK-3-112,block,3|112,EC-D3,Block 3-112
+BLK-3-113,block,3|113,EC-D3,Block 3-113
+BLK-3-114,block,3|114,EC-D3,Block 3-114
+BLK-3-115,block,3|115,EC-D3,Block 3-115
+BLK-3-116,block,3|116,EC-D3,Block 3-116
+BLK-3-117,block,3|117,EC-D3,Block 3-117
+BLK-3-118,block,3|118,EC-D3,Block 3-118
+BLK-3-119,block,3|119,EC-D3,Block 3-119
+BLK-3-120,block,3|120,EC-D3,Block 3-120
+BLK-3-121,block,3|121,EC-D3,Block 3-121
+BLK-3-369,block,3|369,EC-D3,Block 3-369
+BLK-3-370,block,3|370,EC-D3,Block 3-370
+BLK-4-122,block,4|122,EC-D4,Block 4-122
+BLK-4-123,block,4|123,EC-D4,Block 4-123
+BLK-4-124,block,4|124,EC-D4,Block 4-124
+BLK-4-125,block,4|125,EC-D4,Block 4-125
+BLK-4-126,block,4|126,EC-D4,Block 4-126
+BLK-4-127,block,4|127,EC-D4,Block 4-127
+BLK-4-128,block,4|128,EC-D4,Block 4-128
+BLK-4-129,block,4|129,EC-D4,Block 4-129
+BLK-4-130,block,4|130,EC-D4,Block 4-130
+BLK-4-131,block,4|131,EC-D4,Block 4-131
+BLK-4-132,block,4|132,EC-D4,Block 4-132
+BLK-4-133,block,4|133,EC-D4,Block 4-133
+BLK-4-134,block,4|134,EC-D4,Block 4-134
+BLK-4-135,block,4|135,EC-D4,Block 4-135
+BLK-4-136,block,4|136,EC-D4,Block 4-136
+BLK-4-137,block,4|137,EC-D4,Block 4-137
+BLK-4-138,block,4|138,EC-D4,Block 4-138
+BLK-4-139,block,4|139,EC-D4,Block 4-139
+BLK-4-140,block,4|140,EC-D4,Block 4-140
+BLK-4-141,block,4|141,EC-D4,Block 4-141
+BLK-4-142,block,4|142,EC-D4,Block 4-142
+BLK-4-143,block,4|143,EC-D4,Block 4-143
+BLK-4-144,block,4|144,EC-D4,Block 4-144
+BLK-4-145,block,4|145,EC-D4,Block 4-145
+BLK-4-146,block,4|146,EC-D4,Block 4-146
+BLK-4-147,block,4|147,EC-D4,Block 4-147
+BLK-4-148,block,4|148,EC-D4,Block 4-148
+BLK-4-149,block,4|149,EC-D4,Block 4-149
+BLK-4-150,block,4|150,EC-D4,Block 4-150
+BLK-4-151,block,4|151,EC-D4,Block 4-151
+BLK-4-152,block,4|152,EC-D4,Block 4-152
+BLK-4-153,block,4|153,EC-D4,Block 4-153
+BLK-4-154,block,4|154,EC-D4,Block 4-154
+BLK-4-155,block,4|155,EC-D4,Block 4-155
+BLK-4-156,block,4|156,EC-D4,Block 4-156
+BLK-4-157,block,4|157,EC-D4,Block 4-157
+BLK-4-158,block,4|158,EC-D4,Block 4-158
+BLK-4-159,block,4|159,EC-D4,Block 4-159
+BLK-4-160,block,4|160,EC-D4,Block 4-160
+BLK-4-163,block,4|163,EC-D4,Block 4-163
+BLK-4-164,block,4|164,EC-D4,Block 4-164
+BLK-4-165,block,4|165,EC-D4,Block 4-165
+BLK-4-166,block,4|166,EC-D4,Block 4-166
+BLK-5-168,block,5|168,EC-D5,Block 5-168
+BLK-5-169,block,5|169,EC-D5,Block 5-169
+BLK-5-170,block,5|170,EC-D5,Block 5-170
+BLK-5-171,block,5|171,EC-D5,Block 5-171
+BLK-5-172,block,5|172,EC-D5,Block 5-172
+BLK-5-173,block,5|173,EC-D5,Block 5-173
+BLK-5-174,block,5|174,EC-D5,Block 5-174
+BLK-5-176,block,5|176,EC-D5,Block 5-176
+BLK-5-177,block,5|177,EC-D5,Block 5-177
+BLK-5-178,block,5|178,EC-D5,Block 5-178
+BLK-5-179,block,5|179,EC-D5,Block 5-179
+BLK-5-180,block,5|180,EC-D5,Block 5-180
+BLK-5-181,block,5|181,EC-D5,Block 5-181
+BLK-5-182,block,5|182,EC-D5,Block 5-182
+BLK-5-184,block,5|184,EC-D5,Block 5-184
+BLK-5-185,block,5|185,EC-D5,Block 5-185
+BLK-5-186,block,5|186,EC-D5,Block 5-186
+BLK-5-187,block,5|187,EC-D5,Block 5-187
+BLK-5-188,block,5|188,EC-D5,Block 5-188
+BLK-5-189,block,5|189,EC-D5,Block 5-189
+BLK-5-190,block,5|190,EC-D5,Block 5-190
+BLK-5-192,block,5|192,EC-D5,Block 5-192
+BLK-5-193,block,5|193,EC-D5,Block 5-193
+BLK-5-194,block,5|194,EC-D5,Block 5-194
+BLK-5-195,block,5|195,EC-D5,Block 5-195
+BLK-5-196,block,5|196,EC-D5,Block 5-196
+BLK-5-197,block,5|197,EC-D5,Block 5-197
+BLK-5-198,block,5|198,EC-D5,Block 5-198
+BLK-5-199,block,5|199,EC-D5,Block 5-199
+BLK-5-200,block,5|200,EC-D5,Block 5-200
+BLK-5-201,block,5|201,EC-D5,Block 5-201
+BLK-5-202,block,5|202,EC-D5,Block 5-202
+BLK-5-373,block,5|373,EC-D5,Block 5-373
+BLK-6-203,block,6|203,EC-D6,Block 6-203
+BLK-6-204,block,6|204,EC-D6,Block 6-204
+BLK-6-205,block,6|205,EC-D6,Block 6-205
+BLK-6-206,block,6|206,EC-D6,Block 6-206
+BLK-6-207,block,6|207,EC-D6,Block 6-207
+BLK-6-208,block,6|208,EC-D6,Block 6-208
+BLK-6-209,block,6|209,EC-D6,Block 6-209
+BLK-6-210,block,6|210,EC-D6,Block 6-210
+BLK-6-211,block,6|211,EC-D6,Block 6-211
+BLK-6-212,block,6|212,EC-D6,Block 6-212
+BLK-6-213,block,6|213,EC-D6,Block 6-213
+BLK-6-214,block,6|214,EC-D6,Block 6-214
+BLK-6-215,block,6|215,EC-D6,Block 6-215
+BLK-6-216,block,6|216,EC-D6,Block 6-216
+BLK-6-222,block,6|222,EC-D6,Block 6-222
+BLK-6-223,block,6|223,EC-D6,Block 6-223
+BLK-6-230,block,6|230,EC-D6,Block 6-230
+BLK-6-245,block,6|245,EC-D6,Block 6-245
+BLK-6-246,block,6|246,EC-D6,Block 6-246
+BLK-6-247,block,6|247,EC-D6,Block 6-247
+BLK-6-248,block,6|248,EC-D6,Block 6-248
+BLK-6-249,block,6|249,EC-D6,Block 6-249
+BLK-6-250,block,6|250,EC-D6,Block 6-250
+BLK-6-251,block,6|251,EC-D6,Block 6-251
+BLK-6-252,block,6|252,EC-D6,Block 6-252
+BLK-6-253,block,6|253,EC-D6,Block 6-253
+BLK-6-254,block,6|254,EC-D6,Block 6-254
+BLK-6-255,block,6|255,EC-D6,Block 6-255
+BLK-6-256,block,6|256,EC-D6,Block 6-256
+BLK-6-257,block,6|257,EC-D6,Block 6-257
+BLK-6-258,block,6|258,EC-D6,Block 6-258
+BLK-6-259,block,6|259,EC-D6,Block 6-259
+BLK-6-260,block,6|260,EC-D6,Block 6-260
+BLK-6-261,block,6|261,EC-D6,Block 6-261
+BLK-6-262,block,6|262,EC-D6,Block 6-262
+BLK-6-263,block,6|263,EC-D6,Block 6-263
+BLK-6-264,block,6|264,EC-D6,Block 6-264
+BLK-6-265,block,6|265,EC-D6,Block 6-265
+BLK-6-266,block,6|266,EC-D6,Block 6-266
+BLK-6-267,block,6|267,EC-D6,Block 6-267
+BLK-6-268,block,6|268,EC-D6,Block 6-268
+BLK-6-269,block,6|269,EC-D6,Block 6-269
+BLK-6-270,block,6|270,EC-D6,Block 6-270
+BLK-6-271,block,6|271,EC-D6,Block 6-271
+BLK-6-272,block,6|272,EC-D6,Block 6-272
+BLK-6-379,block,6|379,EC-D6,Block 6-379
+BLK-6-380,block,6|380,EC-D6,Block 6-380
+BLK-7-287,block,7|287,EC-D7,Block 7-287
+BLK-7-288,block,7|288,EC-D7,Block 7-288
+BLK-7-289,block,7|289,EC-D7,Block 7-289
+BLK-7-290,block,7|290,EC-D7,Block 7-290
+BLK-7-291,block,7|291,EC-D7,Block 7-291
+BLK-7-292,block,7|292,EC-D7,Block 7-292
+BLK-7-293,block,7|293,EC-D7,Block 7-293
+BLK-7-294,block,7|294,EC-D7,Block 7-294
+BLK-7-295,block,7|295,EC-D7,Block 7-295
+BLK-7-296,block,7|296,EC-D7,Block 7-296
+BLK-7-297,block,7|297,EC-D7,Block 7-297
+BLK-7-298,block,7|298,EC-D7,Block 7-298
+BLK-7-299,block,7|299,EC-D7,Block 7-299
+BLK-7-300,block,7|300,EC-D7,Block 7-300
+BLK-7-301,block,7|301,EC-D7,Block 7-301
+BLK-7-302,block,7|302,EC-D7,Block 7-302
+BLK-7-303,block,7|303,EC-D7,Block 7-303
+BLK-7-304,block,7|304,EC-D7,Block 7-304
+BLK-7-305,block,7|305,EC-D7,Block 7-305
+BLK-7-306,block,7|306,EC-D7,Block 7-306
+BLK-7-307,block,7|307,EC-D7,Block 7-307
+BLK-7-308,block,7|308,EC-D7,Block 7-308
+BLK-7-309,block,7|309,EC-D7,Block 7-309
+BLK-7-310,block,7|310,EC-D7,Block 7-310
+BLK-7-311,block,7|311,EC-D7,Block 7-311
+BLK-7-328,block,7|328,EC-D7,Block 7-328
+BLK-7-329,block,7|329,EC-D7,Block 7-329
+BLK-7-330,block,7|330,EC-D7,Block 7-330
+BLK-7-331,block,7|331,EC-D7,Block 7-331
+BLK-7-332,block,7|332,EC-D7,Block 7-332
+BLK-7-333,block,7|333,EC-D7,Block 7-333
+BLK-7-334,block,7|334,EC-D7,Block 7-334
+BLK-7-335,block,7|335,EC-D7,Block 7-335
+BLK-7-336,block,7|336,EC-D7,Block 7-336
+BLK-7-337,block,7|337,EC-D7,Block 7-337
+BLK-7-338,block,7|338,EC-D7,Block 7-338
+BLK-7-339,block,7|339,EC-D7,Block 7-339
+BLK-7-340,block,7|340,EC-D7,Block 7-340
+BLK-7-341,block,7|341,EC-D7,Block 7-341
+BLK-7-342,block,7|342,EC-D7,Block 7-342
+BLK-7-343,block,7|343,EC-D7,Block 7-343
+BLK-7-344,block,7|344,EC-D7,Block 7-344
+BLK-7-345,block,7|345,EC-D7,Block 7-345
+BLK-7-346,block,7|346,EC-D7,Block 7-346
+BLK-7-347,block,7|347,EC-D7,Block 7-347
+BLK-7-348,block,7|348,EC-D7,Block 7-348
+VEH-DU-01,vehicle,DU-01,EC-TP,dump-truck DU-01
+VEH-DU-02,vehicle,DU-02,EC-TP,dump-truck DU-02
+VEH-DU-03,vehicle,DU-03,EC-TP,dump-truck DU-03
+VEH-DU-04,vehicle,DU-04,EC-TP,dump-truck DU-04
+VEH-DU-05,vehicle,DU-05,EC-TP,dump-truck DU-05
+VEH-MI-01,vehicle,MI-01,EC-TP,mini-truck MI-01
+VEH-MI-02,vehicle,MI-02,EC-TP,mini-truck MI-02
+VEH-MI-03,vehicle,MI-03,EC-TP,mini-truck MI-03
+VEH-MI-04,vehicle,MI-04,EC-TP,mini-truck MI-04
+VEH-TR-01,vehicle,TR-01,EC-TP,tractor-trailer TR-01
+VEH-TR-02,vehicle,TR-02,EC-TP,tractor-trailer TR-02
+VEH-TR-03,vehicle,TR-03,EC-TP,tractor-trailer TR-03
+VEH-TR-04,vehicle,TR-04,EC-TP,tractor-trailer TR-04
+VEH-TR-05,vehicle,TR-05,EC-TP,tractor-trailer TR-05
+VEH-TR-06,vehicle,TR-06,EC-TP,tractor-trailer TR-06
+VEH-TR-07,vehicle,TR-07,EC-TP,tractor-trailer TR-07
+VEH-TR-08,vehicle,TR-08,EC-TP,tractor-trailer TR-08
+RD-RS-0001,road,RS-0001,EC-D1,Road segment RS-0001
+RD-RS-0002,road,RS-0002,EC-D1,Road segment RS-0002
+RD-RS-0003,road,RS-0003,EC-D1,Road segment RS-0003
+RD-RS-0004,road,RS-0004,EC-D1,Road segment RS-0004
+RD-RS-0005,road,RS-0005,EC-D1,Road segment RS-0005
+RD-RS-0006,road,RS-0006,EC-D1,Road segment RS-0006
+RD-RS-0007,road,RS-0007,EC-D1,Road segment RS-0007
+RD-RS-0008,road,RS-0008,EC-D1,Road segment RS-0008
+RD-RS-0009,road,RS-0009,EC-D1,Road segment RS-0009
+RD-RS-0010,road,RS-0010,EC-D1,Road segment RS-0010
+RD-RS-0011,road,RS-0011,EC-D1,Road segment RS-0011
+RD-RS-0012,road,RS-0012,EC-D1,Road segment RS-0012
+RD-RS-0013,road,RS-0013,EC-D1,Road segment RS-0013
+RD-RS-0014,road,RS-0014,EC-D1,Road segment RS-0014
+RD-RS-0015,road,RS-0015,EC-D1,Road segment RS-0015
+RD-RS-0016,road,RS-0016,EC-D1,Road segment RS-0016
+RD-RS-0017,road,RS-0017,EC-D1,Road segment RS-0017
+RD-RS-0018,road,RS-0018,EC-D1,Road segment RS-0018
+RD-RS-0019,road,RS-0019,EC-D1,Road segment RS-0019
+RD-RS-0020,road,RS-0020,EC-D1,Road segment RS-0020
+RD-RS-0021,road,RS-0021,EC-D1,Road segment RS-0021
+RD-RS-0022,road,RS-0022,EC-D1,Road segment RS-0022
+RD-RS-0023,road,RS-0023,EC-D1,Road segment RS-0023
+RD-RS-0024,road,RS-0024,EC-D1,Road segment RS-0024
+RD-RS-0025,road,RS-0025,EC-D1,Road segment RS-0025
+RD-RS-0026,road,RS-0026,EC-D1,Road segment RS-0026
+RD-RS-0027,road,RS-0027,EC-D1,Road segment RS-0027
+RD-RS-0028,road,RS-0028,EC-D1,Road segment RS-0028
+RD-RS-0029,road,RS-0029,EC-D1,Road segment RS-0029
+RD-RS-0030,road,RS-0030,EC-D1,Road segment RS-0030
+RD-RS-0031,road,RS-0031,EC-D1,Road segment RS-0031
+RD-RS-0032,road,RS-0032,EC-D1,Road segment RS-0032
+RD-RS-0033,road,RS-0033,EC-D1,Road segment RS-0033
+RD-RS-0034,road,RS-0034,EC-D1,Road segment RS-0034
+RD-RS-0035,road,RS-0035,EC-D1,Road segment RS-0035
+RD-RS-0036,road,RS-0036,EC-D1,Road segment RS-0036
+RD-RS-0037,road,RS-0037,EC-D1,Road segment RS-0037
+RD-RS-0038,road,RS-0038,EC-D1,Road segment RS-0038
+RD-RS-0039,road,RS-0039,EC-D1,Road segment RS-0039
+RD-RS-0040,road,RS-0040,EC-D2,Road segment RS-0040
+RD-RS-0041,road,RS-0041,EC-D2,Road segment RS-0041
+RD-RS-0042,road,RS-0042,EC-D2,Road segment RS-0042
+RD-RS-0043,road,RS-0043,EC-D2,Road segment RS-0043
+RD-RS-0044,road,RS-0044,EC-D2,Road segment RS-0044
+RD-RS-0045,road,RS-0045,EC-D2,Road segment RS-0045
+RD-RS-0046,road,RS-0046,EC-D2,Road segment RS-0046
+RD-RS-0047,road,RS-0047,EC-D2,Road segment RS-0047
+RD-RS-0048,road,RS-0048,EC-D2,Road segment RS-0048
+RD-RS-0049,road,RS-0049,EC-D2,Road segment RS-0049
+RD-RS-0050,road,RS-0050,EC-D2,Road segment RS-0050
+RD-RS-0051,road,RS-0051,EC-D2,Road segment RS-0051
+RD-RS-0052,road,RS-0052,EC-D2,Road segment RS-0052
+RD-RS-0053,road,RS-0053,EC-D2,Road segment RS-0053
+RD-RS-0054,road,RS-0054,EC-D2,Road segment RS-0054
+RD-RS-0055,road,RS-0055,EC-D2,Road segment RS-0055
+RD-RS-0056,road,RS-0056,EC-D2,Road segment RS-0056
+RD-RS-0057,road,RS-0057,EC-D2,Road segment RS-0057
+RD-RS-0058,road,RS-0058,EC-D2,Road segment RS-0058
+RD-RS-0059,road,RS-0059,EC-D2,Road segment RS-0059
+RD-RS-0060,road,RS-0060,EC-D2,Road segment RS-0060
+RD-RS-0061,road,RS-0061,EC-D2,Road segment RS-0061
+RD-RS-0062,road,RS-0062,EC-D2,Road segment RS-0062
+RD-RS-0063,road,RS-0063,EC-D2,Road segment RS-0063
+RD-RS-0064,road,RS-0064,EC-D2,Road segment RS-0064
+RD-RS-0065,road,RS-0065,EC-D2,Road segment RS-0065
+RD-RS-0066,road,RS-0066,EC-D2,Road segment RS-0066
+RD-RS-0067,road,RS-0067,EC-D2,Road segment RS-0067
+RD-RS-0068,road,RS-0068,EC-D2,Road segment RS-0068
+RD-RS-0069,road,RS-0069,EC-D2,Road segment RS-0069
+RD-RS-0070,road,RS-0070,EC-D2,Road segment RS-0070
+RD-RS-0071,road,RS-0071,EC-D2,Road segment RS-0071
+RD-RS-0072,road,RS-0072,EC-D2,Road segment RS-0072
+RD-RS-0073,road,RS-0073,EC-D2,Road segment RS-0073
+RD-RS-0074,road,RS-0074,EC-D3,Road segment RS-0074
+RD-RS-0075,road,RS-0075,EC-D3,Road segment RS-0075
+RD-RS-0076,road,RS-0076,EC-D3,Road segment RS-0076
+RD-RS-0077,road,RS-0077,EC-D3,Road segment RS-0077
+RD-RS-0078,road,RS-0078,EC-D3,Road segment RS-0078
+RD-RS-0079,road,RS-0079,EC-D3,Road segment RS-0079
+RD-RS-0080,road,RS-0080,EC-D3,Road segment RS-0080
+RD-RS-0081,road,RS-0081,EC-D3,Road segment RS-0081
+RD-RS-0082,road,RS-0082,EC-D3,Road segment RS-0082
+RD-RS-0083,road,RS-0083,EC-D3,Road segment RS-0083
+RD-RS-0084,road,RS-0084,EC-D3,Road segment RS-0084
+RD-RS-0085,road,RS-0085,EC-D3,Road segment RS-0085
+RD-RS-0086,road,RS-0086,EC-D3,Road segment RS-0086
+RD-RS-0087,road,RS-0087,EC-D3,Road segment RS-0087
+RD-RS-0088,road,RS-0088,EC-D3,Road segment RS-0088
+RD-RS-0089,road,RS-0089,EC-D3,Road segment RS-0089
+RD-RS-0090,road,RS-0090,EC-D3,Road segment RS-0090
+RD-RS-0091,road,RS-0091,EC-D3,Road segment RS-0091
+RD-RS-0092,road,RS-0092,EC-D3,Road segment RS-0092
+RD-RS-0093,road,RS-0093,EC-D3,Road segment RS-0093
+RD-RS-0094,road,RS-0094,EC-D3,Road segment RS-0094
+RD-RS-0095,road,RS-0095,EC-D3,Road segment RS-0095
+RD-RS-0096,road,RS-0096,EC-D3,Road segment RS-0096
+RD-RS-0097,road,RS-0097,EC-D3,Road segment RS-0097
+RD-RS-0098,road,RS-0098,EC-D3,Road segment RS-0098
+RD-RS-0099,road,RS-0099,EC-D3,Road segment RS-0099
+RD-RS-0100,road,RS-0100,EC-D3,Road segment RS-0100
+RD-RS-0101,road,RS-0101,EC-D3,Road segment RS-0101
+RD-RS-0102,road,RS-0102,EC-D3,Road segment RS-0102
+RD-RS-0103,road,RS-0103,EC-D3,Road segment RS-0103
+RD-RS-0104,road,RS-0104,EC-D3,Road segment RS-0104
+RD-RS-0105,road,RS-0105,EC-D3,Road segment RS-0105
+RD-RS-0106,road,RS-0106,EC-D3,Road segment RS-0106
+RD-RS-0107,road,RS-0107,EC-D3,Road segment RS-0107
+RD-RS-0108,road,RS-0108,EC-D3,Road segment RS-0108
+RD-RS-0109,road,RS-0109,EC-D3,Road segment RS-0109
+RD-RS-0110,road,RS-0110,EC-D3,Road segment RS-0110
+RD-RS-0111,road,RS-0111,EC-D3,Road segment RS-0111
+RD-RS-0112,road,RS-0112,EC-D3,Road segment RS-0112
+RD-RS-0113,road,RS-0113,EC-D3,Road segment RS-0113
+RD-RS-0114,road,RS-0114,EC-D3,Road segment RS-0114
+RD-RS-0115,road,RS-0115,EC-D3,Road segment RS-0115
+RD-RS-0116,road,RS-0116,EC-D3,Road segment RS-0116
+RD-RS-0117,road,RS-0117,EC-D3,Road segment RS-0117
+RD-RS-0118,road,RS-0118,EC-D3,Road segment RS-0118
+RD-RS-0119,road,RS-0119,EC-D3,Road segment RS-0119
+RD-RS-0120,road,RS-0120,EC-D3,Road segment RS-0120
+RD-RS-0121,road,RS-0121,EC-D3,Road segment RS-0121
+RD-RS-0122,road,RS-0122,EC-D3,Road segment RS-0122
+RD-RS-0123,road,RS-0123,EC-D4,Road segment RS-0123
+RD-RS-0124,road,RS-0124,EC-D4,Road segment RS-0124
+RD-RS-0125,road,RS-0125,EC-D4,Road segment RS-0125
+RD-RS-0126,road,RS-0126,EC-D4,Road segment RS-0126
+RD-RS-0127,road,RS-0127,EC-D4,Road segment RS-0127
+RD-RS-0128,road,RS-0128,EC-D4,Road segment RS-0128
+RD-RS-0129,road,RS-0129,EC-D4,Road segment RS-0129
+RD-RS-0130,road,RS-0130,EC-D4,Road segment RS-0130
+RD-RS-0131,road,RS-0131,EC-D4,Road segment RS-0131
+RD-RS-0132,road,RS-0132,EC-D4,Road segment RS-0132
+RD-RS-0133,road,RS-0133,EC-D4,Road segment RS-0133
+RD-RS-0134,road,RS-0134,EC-D4,Road segment RS-0134
+RD-RS-0135,road,RS-0135,EC-D4,Road segment RS-0135
+RD-RS-0136,road,RS-0136,EC-D4,Road segment RS-0136
+RD-RS-0137,road,RS-0137,EC-D4,Road segment RS-0137
+RD-RS-0138,road,RS-0138,EC-D4,Road segment RS-0138
+RD-RS-0139,road,RS-0139,EC-D4,Road segment RS-0139
+RD-RS-0140,road,RS-0140,EC-D4,Road segment RS-0140
+RD-RS-0141,road,RS-0141,EC-D4,Road segment RS-0141
+RD-RS-0142,road,RS-0142,EC-D4,Road segment RS-0142
+RD-RS-0143,road,RS-0143,EC-D4,Road segment RS-0143
+RD-RS-0144,road,RS-0144,EC-D4,Road segment RS-0144
+RD-RS-0145,road,RS-0145,EC-D4,Road segment RS-0145
+RD-RS-0146,road,RS-0146,EC-D4,Road segment RS-0146
+RD-RS-0147,road,RS-0147,EC-D4,Road segment RS-0147
+RD-RS-0148,road,RS-0148,EC-D4,Road segment RS-0148
+RD-RS-0149,road,RS-0149,EC-D4,Road segment RS-0149
+RD-RS-0150,road,RS-0150,EC-D4,Road segment RS-0150
+RD-RS-0151,road,RS-0151,EC-D4,Road segment RS-0151
+RD-RS-0152,road,RS-0152,EC-D4,Road segment RS-0152
+RD-RS-0153,road,RS-0153,EC-D4,Road segment RS-0153
+RD-RS-0154,road,RS-0154,EC-D4,Road segment RS-0154
+RD-RS-0155,road,RS-0155,EC-D4,Road segment RS-0155
+RD-RS-0156,road,RS-0156,EC-D4,Road segment RS-0156
+RD-RS-0157,road,RS-0157,EC-D4,Road segment RS-0157
+RD-RS-0158,road,RS-0158,EC-D4,Road segment RS-0158
+RD-RS-0159,road,RS-0159,EC-D4,Road segment RS-0159
+RD-RS-0160,road,RS-0160,EC-D4,Road segment RS-0160
+RD-RS-0161,road,RS-0161,EC-D4,Road segment RS-0161
+RD-RS-0162,road,RS-0162,EC-D4,Road segment RS-0162
+RD-RS-0163,road,RS-0163,EC-D4,Road segment RS-0163
+RD-RS-0164,road,RS-0164,EC-D4,Road segment RS-0164
+RD-RS-0165,road,RS-0165,EC-D4,Road segment RS-0165
+RD-RS-0166,road,RS-0166,EC-D5,Road segment RS-0166
+RD-RS-0167,road,RS-0167,EC-D5,Road segment RS-0167
+RD-RS-0168,road,RS-0168,EC-D5,Road segment RS-0168
+RD-RS-0169,road,RS-0169,EC-D5,Road segment RS-0169
+RD-RS-0170,road,RS-0170,EC-D5,Road segment RS-0170
+RD-RS-0171,road,RS-0171,EC-D5,Road segment RS-0171
+RD-RS-0172,road,RS-0172,EC-D5,Road segment RS-0172
+RD-RS-0173,road,RS-0173,EC-D5,Road segment RS-0173
+RD-RS-0174,road,RS-0174,EC-D5,Road segment RS-0174
+RD-RS-0175,road,RS-0175,EC-D5,Road segment RS-0175
+RD-RS-0176,road,RS-0176,EC-D5,Road segment RS-0176
+RD-RS-0177,road,RS-0177,EC-D5,Road segment RS-0177
+RD-RS-0178,road,RS-0178,EC-D5,Road segment RS-0178
+RD-RS-0179,road,RS-0179,EC-D5,Road segment RS-0179
+RD-RS-0180,road,RS-0180,EC-D5,Road segment RS-0180
+RD-RS-0181,road,RS-0181,EC-D5,Road segment RS-0181
+RD-RS-0182,road,RS-0182,EC-D5,Road segment RS-0182
+RD-RS-0183,road,RS-0183,EC-D5,Road segment RS-0183
+RD-RS-0184,road,RS-0184,EC-D5,Road segment RS-0184
+RD-RS-0185,road,RS-0185,EC-D5,Road segment RS-0185
+RD-RS-0186,road,RS-0186,EC-D5,Road segment RS-0186
+RD-RS-0187,road,RS-0187,EC-D5,Road segment RS-0187
+RD-RS-0188,road,RS-0188,EC-D5,Road segment RS-0188
+RD-RS-0189,road,RS-0189,EC-D5,Road segment RS-0189
+RD-RS-0190,road,RS-0190,EC-D5,Road segment RS-0190
+RD-RS-0191,road,RS-0191,EC-D5,Road segment RS-0191
+RD-RS-0192,road,RS-0192,EC-D5,Road segment RS-0192
+RD-RS-0193,road,RS-0193,EC-D5,Road segment RS-0193
+RD-RS-0194,road,RS-0194,EC-D5,Road segment RS-0194
+RD-RS-0195,road,RS-0195,EC-D5,Road segment RS-0195
+RD-RS-0196,road,RS-0196,EC-D5,Road segment RS-0196
+RD-RS-0197,road,RS-0197,EC-D5,Road segment RS-0197
+RD-RS-0198,road,RS-0198,EC-D5,Road segment RS-0198
+RD-RS-0199,road,RS-0199,EC-D6,Road segment RS-0199
+RD-RS-0200,road,RS-0200,EC-D6,Road segment RS-0200
+RD-RS-0201,road,RS-0201,EC-D6,Road segment RS-0201
+RD-RS-0202,road,RS-0202,EC-D6,Road segment RS-0202
+RD-RS-0203,road,RS-0203,EC-D6,Road segment RS-0203
+RD-RS-0204,road,RS-0204,EC-D6,Road segment RS-0204
+RD-RS-0205,road,RS-0205,EC-D6,Road segment RS-0205
+RD-RS-0206,road,RS-0206,EC-D6,Road segment RS-0206
+RD-RS-0207,road,RS-0207,EC-D6,Road segment RS-0207
+RD-RS-0208,road,RS-0208,EC-D6,Road segment RS-0208
+RD-RS-0209,road,RS-0209,EC-D6,Road segment RS-0209
+RD-RS-0210,road,RS-0210,EC-D6,Road segment RS-0210
+RD-RS-0211,road,RS-0211,EC-D6,Road segment RS-0211
+RD-RS-0212,road,RS-0212,EC-D6,Road segment RS-0212
+RD-RS-0213,road,RS-0213,EC-D6,Road segment RS-0213
+RD-RS-0214,road,RS-0214,EC-D6,Road segment RS-0214
+RD-RS-0215,road,RS-0215,EC-D6,Road segment RS-0215
+RD-RS-0216,road,RS-0216,EC-D6,Road segment RS-0216
+RD-RS-0217,road,RS-0217,EC-D6,Road segment RS-0217
+RD-RS-0218,road,RS-0218,EC-D6,Road segment RS-0218
+RD-RS-0219,road,RS-0219,EC-D6,Road segment RS-0219
+RD-RS-0220,road,RS-0220,EC-D6,Road segment RS-0220
+RD-RS-0221,road,RS-0221,EC-D6,Road segment RS-0221
+RD-RS-0222,road,RS-0222,EC-D6,Road segment RS-0222
+RD-RS-0223,road,RS-0223,EC-D6,Road segment RS-0223
+RD-RS-0224,road,RS-0224,EC-D6,Road segment RS-0224
+RD-RS-0225,road,RS-0225,EC-D6,Road segment RS-0225
+RD-RS-0226,road,RS-0226,EC-D6,Road segment RS-0226
+RD-RS-0227,road,RS-0227,EC-D6,Road segment RS-0227
+RD-RS-0228,road,RS-0228,EC-D6,Road segment RS-0228
+RD-RS-0229,road,RS-0229,EC-D6,Road segment RS-0229
+RD-RS-0230,road,RS-0230,EC-D6,Road segment RS-0230
+RD-RS-0231,road,RS-0231,EC-D6,Road segment RS-0231
+RD-RS-0232,road,RS-0232,EC-D6,Road segment RS-0232
+RD-RS-0233,road,RS-0233,EC-D6,Road segment RS-0233
+RD-RS-0234,road,RS-0234,EC-D6,Road segment RS-0234
+RD-RS-0235,road,RS-0235,EC-D6,Road segment RS-0235
+RD-RS-0236,road,RS-0236,EC-D6,Road segment RS-0236
+RD-RS-0237,road,RS-0237,EC-D6,Road segment RS-0237
+RD-RS-0238,road,RS-0238,EC-D6,Road segment RS-0238
+RD-RS-0239,road,RS-0239,EC-D6,Road segment RS-0239
+RD-RS-0240,road,RS-0240,EC-D6,Road segment RS-0240
+RD-RS-0241,road,RS-0241,EC-D6,Road segment RS-0241
+RD-RS-0242,road,RS-0242,EC-D6,Road segment RS-0242
+RD-RS-0243,road,RS-0243,EC-D6,Road segment RS-0243
+RD-RS-0244,road,RS-0244,EC-D6,Road segment RS-0244
+RD-RS-0245,road,RS-0245,EC-D6,Road segment RS-0245
+RD-RS-0246,road,RS-0246,EC-D7,Road segment RS-0246
+RD-RS-0247,road,RS-0247,EC-D7,Road segment RS-0247
+RD-RS-0248,road,RS-0248,EC-D7,Road segment RS-0248
+RD-RS-0249,road,RS-0249,EC-D7,Road segment RS-0249
+RD-RS-0250,road,RS-0250,EC-D7,Road segment RS-0250
+RD-RS-0251,road,RS-0251,EC-D7,Road segment RS-0251
+RD-RS-0252,road,RS-0252,EC-D7,Road segment RS-0252
+RD-RS-0253,road,RS-0253,EC-D7,Road segment RS-0253
+RD-RS-0254,road,RS-0254,EC-D7,Road segment RS-0254
+RD-RS-0255,road,RS-0255,EC-D7,Road segment RS-0255
+RD-RS-0256,road,RS-0256,EC-D7,Road segment RS-0256
+RD-RS-0257,road,RS-0257,EC-D7,Road segment RS-0257
+RD-RS-0258,road,RS-0258,EC-D7,Road segment RS-0258
+RD-RS-0259,road,RS-0259,EC-D7,Road segment RS-0259
+RD-RS-0260,road,RS-0260,EC-D7,Road segment RS-0260
+RD-RS-0261,road,RS-0261,EC-D7,Road segment RS-0261
+RD-RS-0262,road,RS-0262,EC-D7,Road segment RS-0262
+RD-RS-0263,road,RS-0263,EC-D7,Road segment RS-0263
+RD-RS-0264,road,RS-0264,EC-D7,Road segment RS-0264
+RD-RS-0265,road,RS-0265,EC-D7,Road segment RS-0265
+RD-RS-0266,road,RS-0266,EC-D7,Road segment RS-0266
+RD-RS-0267,road,RS-0267,EC-D7,Road segment RS-0267
+RD-RS-0268,road,RS-0268,EC-D7,Road segment RS-0268
+RD-RS-0269,road,RS-0269,EC-D7,Road segment RS-0269
+RD-RS-0270,road,RS-0270,EC-D7,Road segment RS-0270
+RD-RS-0271,road,RS-0271,EC-D7,Road segment RS-0271
+RD-RS-0272,road,RS-0272,EC-D7,Road segment RS-0272
+RD-RS-0273,road,RS-0273,EC-D7,Road segment RS-0273
+RD-RS-0274,road,RS-0274,EC-D7,Road segment RS-0274
+RD-RS-0275,road,RS-0275,EC-D7,Road segment RS-0275
+RD-RS-0276,road,RS-0276,EC-D7,Road segment RS-0276
+RD-RS-0277,road,RS-0277,EC-D7,Road segment RS-0277
+RD-RS-0278,road,RS-0278,EC-D7,Road segment RS-0278
+RD-RS-0279,road,RS-0279,EC-D7,Road segment RS-0279
+RD-RS-0280,road,RS-0280,EC-D7,Road segment RS-0280
+RD-RS-0281,road,RS-0281,EC-D7,Road segment RS-0281
+RD-RS-0282,road,RS-0282,EC-D7,Road segment RS-0282
+RD-RS-0283,road,RS-0283,EC-D7,Road segment RS-0283
+RD-RS-0284,road,RS-0284,EC-D7,Road segment RS-0284
+RD-RS-0285,road,RS-0285,EC-D7,Road segment RS-0285
+RD-RS-0286,road,RS-0286,EC-D7,Road segment RS-0286
+RD-RS-0287,road,RS-0287,EC-D7,Road segment RS-0287
+RD-RS-0288,road,RS-0288,EC-D7,Road segment RS-0288
+RD-RS-0289,road,RS-0289,EC-D7,Road segment RS-0289
+RD-RS-0290,road,RS-0290,EC-D7,Road segment RS-0290
+RD-RS-0291,road,RS-0291,EC-D7,Road segment RS-0291

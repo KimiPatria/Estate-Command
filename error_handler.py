@@ -2,15 +2,23 @@
 
 import json
 import logging
+import re
 from pathlib import Path
+
+from estates import detect_estate_mentions
 
 log = logging.getLogger(__name__)
 
-_DOMAIN_KEYWORDS = frozenset({
-    "harvest", "block", "division", "estate", "employee", "attendance",
-    "bunches", "ffb", "palm", "yield", "tonnage", "worker", "mandor",
-    "workplan", "overtime",
-})
+# Whole words with their plurals and common forms, in English and Indonesian.
+# Matching on space-separated tokens missed "bunches?", "blocks" and
+# "employees", and those questions were then refused by the routing model.
+_DOMAIN_TERMS = re.compile(
+    r"\b(?:harvest\w*|blocks?|divisions?|estates?|employees?|workers?|attendance"
+    r"|bunch(?:es)?|ffb|palms?|yields?|tonnage|mandor|workplans?|overtime"
+    r"|ripe|ripeness|unripe|gangs?"
+    r"|blok|divisi|kebun|karyawan|pegawai|pekerja|kehadiran|absen\w*|tandan|tbs"
+    r"|sawit|tonase|lembur|panen\w*|pemanen|memanen|matang|mentah)\b",
+    re.IGNORECASE)
 
 # High-traffic daily transaction tables — descriptions drive the Case B suggestion list.
 _SUGGESTION_TABLES = [
@@ -78,8 +86,7 @@ def is_off_domain(query: str) -> bool:
     Fast path: any domain keyword match → return False immediately (no LLM call).
     Slow path: routing-model YES/NO classification for edge cases.
     """
-    tokens = set(query.lower().split())
-    if tokens & _DOMAIN_KEYWORDS:
+    if _DOMAIN_TERMS.search(query) or detect_estate_mentions(query):
         return False  # keyword hit — definitely on-domain
 
     # No keyword match — ask the routing model

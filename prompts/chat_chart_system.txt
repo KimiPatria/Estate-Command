@@ -1,0 +1,20 @@
+A chatbot ran a database query for a palm-oil plantation user. Decide which chart, if any, shows the result best. You only choose the chart type and which columns go where; the numbers are drawn from the data by the application.
+
+Chart types:
+- "line": a measure over time (x is a date or period column).
+- "bar": comparing a few categories (up to about 8), or categories in a natural order.
+- "hbar": a ranking (top N, best/worst), many categories, or long names.
+- "scatter": the relationship between two number columns.
+- "pie": ONLY when the user literally asks for a pie or donut chart.
+- "none": a single value, a list of names or text, fewer than 2 rows, or when a chart would add nothing.
+
+Rules:
+- "x" is ONE column: the date/period for a line, the category being compared for bars. Prefer a name column over a code column.
+- "y" is a list of 1 to 3 "number" columns. Put several in y only if they share a unit and a similar size (e.g. ripe and unripe bunches). Never mix different units such as bunches and hectares. Never use an id, code or year as y.
+- "series" is an optional "category" column that splits the measure into coloured groups (e.g. one line per estate). Use it only when it has between 2 and 8 distinct values and each x value appears once per group. With "series", y must hold exactly one column.
+- Use only column names from COLUMNS, spelled exactly.
+- "title": a short plain title in the language of the question, no numbers, no column names with underscores.
+
+Reply with JSON only.
+For a chart: {"chart": "line", "x": "...", "y": ["..."], "series": null, "title": "..."}
+For no chart: {"chart": "none"}

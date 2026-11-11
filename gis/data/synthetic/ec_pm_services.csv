@@ -1,0 +1,74 @@
+# SYNTHETIC. Workshop jobs beside the breakdown orders (ec_pm_orders.csv): routine services and outside repairs, with cost and downtime.
+job_id,date,vehicle_id,vehicle_class,kind,fault,lifnr,cost_idr,downtime_h
+SV-00009,2025-01-01,DU-03,dump-truck,service,,V402,3211919,3.3
+SV-00036,2025-01-01,TR-01,tractor-trailer,service,,V402,2342699,4.9
+SV-00005,2025-01-03,DU-02,dump-truck,service,,V402,2808977,4.2
+SV-00016,2025-01-03,DU-05,dump-truck,service,,V402,3270723,5.3
+SV-00048,2025-01-09,TR-04,tractor-trailer,service,,V402,2080121,5.1
+SV-00060,2025-01-10,TR-07,tractor-trailer,service,,V402,2847303,3.3
+SV-00001,2025-01-14,DU-01,dump-truck,service,,V402,2775646,3.1
+SV-00032,2025-01-17,MI-04,mini-truck,service,,V402,1446242,5.5
+SV-00052,2025-01-18,TR-05,tractor-trailer,service,,V402,2116387,3.1
+SV-00020,2025-01-19,MI-01,mini-truck,service,,V402,1277917,4.8
+SV-00040,2025-01-19,TR-02,tractor-trailer,service,,V402,2489122,4.9
+SV-00056,2025-01-19,TR-06,tractor-trailer,service,,V402,2634343,5.7
+SV-00028,2025-01-22,MI-03,mini-truck,service,,V402,1200622,5.6
+SV-00024,2025-01-23,MI-02,mini-truck,service,,V402,1277316,5.9
+SV-00044,2025-01-23,TR-03,tractor-trailer,service,,V402,2212098,4.3
+SV-00013,2025-01-28,DU-04,dump-truck,service,,V402,3015491,4.6
+SV-00064,2025-01-28,TR-08,tractor-trailer,service,,V402,2566891,4.5
+SV-00067,2025-02-03,DU-01,dump-truck,repair,injector pump,V403,8586953,17.8
+SV-00037,2025-02-08,TR-01,tractor-trailer,service,,V402,2553070,5.2
+SV-00006,2025-02-10,DU-02,dump-truck,service,,V402,3183254,4.1
+SV-00010,2025-02-11,DU-03,dump-truck,service,,V402,3485636,3.7
+SV-00017,2025-02-13,DU-05,dump-truck,service,,V402,2368189,4.2
+SV-00061,2025-02-18,TR-07,tractor-trailer,service,,V402,2406755,5.1
+SV-00049,2025-02-19,TR-04,tractor-trailer,service,,V402,2398006,4.0
+SV-00041,2025-02-20,TR-02,tractor-trailer,service,,V402,2376549,5.1
+SV-00002,2025-02-22,DU-01,dump-truck,service,,V402,3992194,5.1
+SV-00068,2025-02-22,DU-01,dump-truck,repair,injector pump,V403,10757236,13.0
+SV-00029,2025-02-22,MI-03,mini-truck,service,,V402,1590120,5.9
+SV-00057,2025-02-23,TR-06,tractor-trailer,service,,V402,1904124,4.4
+SV-00045,2025-02-26,TR-03,tractor-trailer,service,,V402,2271784,4.0
+SV-00021,2025-02-28,MI-01,mini-truck,service,,V402,1197702,5.2
+SV-00065,2025-02-28,TR-08,tractor-trailer,service,,V402,2445275,5.1
+SV-00033,2025-03-02,MI-04,mini-truck,service,,V402,1617546,3.3
+SV-00053,2025-03-03,TR-05,tractor-trailer,service,,V402,2146949,3.3
+SV-00025,2025-03-08,MI-02,mini-truck,service,,V402,1494694,4.8
+SV-00014,2025-03-09,DU-04,dump-truck,service,,V402,2844137,4.9
+SV-00007,2025-03-12,DU-02,dump-truck,service,,V402,2914791,4.5
+SV-00069,2025-03-14,DU-01,dump-truck,repair,injector pump,V403,9372759,14.5
+SV-00018,2025-03-16,DU-05,dump-truck,service,,V402,3364841,5.4
+SV-00038,2025-03-24,TR-01,tractor-trailer,service,,V402,2492128,4.1
+SV-00050,2025-03-24,TR-04,tractor-trailer,service,,V402,2383321,5.3
+SV-00003,2025-03-25,DU-01,dump-truck,service,,V402,2532532,5.1
+SV-00030,2025-03-25,MI-03,mini-truck,service,,V402,1083586,4.0
+SV-00062,2025-03-25,TR-07,tractor-trailer,service,,V402,1973639,5.6
+SV-00011,2025-03-28,DU-03,dump-truck,service,,V402,3498524,5.1
+SV-00042,2025-03-28,TR-02,tractor-trailer,service,,V402,2495344,3.0
+SV-00070,2025-04-02,DU-01,dump-truck,repair,injector pump,V403,8457024,15.8
+SV-00046,2025-04-03,TR-03,tractor-trailer,service,,V402,2183346,4.1
+SV-00054,2025-04-03,TR-05,tractor-trailer,service,,V402,2330528,6.0
+SV-00034,2025-04-04,MI-04,mini-truck,service,,V402,1335737,4.4
+SV-00022,2025-04-07,MI-01,mini-truck,service,,V402,1566026,5.8
+SV-00058,2025-04-08,TR-06,tractor-trailer,service,,V402,2078799,3.9
+SV-00026,2025-04-11,MI-02,mini-truck,service,,V402,1273549,3.3
+SV-00066,2025-04-11,TR-08,tractor-trailer,service,,V402,2140933,5.8
+SV-00008,2025-04-19,DU-02,dump-truck,service,,V402,3157635,3.6
+SV-00015,2025-04-19,DU-04,dump-truck,service,,V402,3390072,5.3
+SV-00071,2025-04-22,DU-01,dump-truck,repair,injector pump,V403,10538279,17.0
+SV-00019,2025-04-28,DU-05,dump-truck,service,,V402,2956736,4.0
+SV-00051,2025-04-28,TR-04,tractor-trailer,service,,V402,2008590,4.8
+SV-00063,2025-04-28,TR-07,tractor-trailer,service,,V402,2012327,4.0
+SV-00004,2025-05-01,DU-01,dump-truck,service,,V402,3559555,4.0
+SV-00012,2025-05-03,DU-03,dump-truck,service,,V402,3015846,4.9
+SV-00031,2025-05-03,MI-03,mini-truck,service,,V402,1338226,3.8
+SV-00039,2025-05-05,TR-01,tractor-trailer,service,,V402,2841687,4.6
+SV-00047,2025-05-05,TR-03,tractor-trailer,service,,V402,2332194,5.9
+SV-00043,2025-05-09,TR-02,tractor-trailer,service,,V402,2826312,6.0
+SV-00035,2025-05-11,MI-04,mini-truck,service,,V402,1233416,4.0
+SV-00023,2025-05-13,MI-01,mini-truck,service,,V402,1380972,4.7
+SV-00072,2025-05-14,DU-01,dump-truck,repair,injector pump,V403,8214133,13.1
+SV-00055,2025-05-17,TR-05,tractor-trailer,service,,V402,2722261,3.8
+SV-00059,2025-05-17,TR-06,tractor-trailer,service,,V402,2487981,5.8
+SV-00027,2025-05-18,MI-02,mini-truck,service,,V402,1392435,4.3

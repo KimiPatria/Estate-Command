@@ -1,0 +1,724 @@
+{
+  "run": "20261110_135924",
+  "runs_per_case": 3,
+  "overall_pass_rate": 0.8333333333333334,
+  "cases": [
+    {
+      "id": "st_005",
+      "category": "estate_scope",
+      "query": "run it",
+      "database": "staging",
+      "expected": [
+        [
+          "PLASMA 1",
+          986.223489
+        ],
+        [
+          "ESTATE B",
+          1587.693377
+        ],
+        [
+          "ESTATE C",
+          1821.22899
+        ],
+        [
+          "ESTATE A",
+          1502.581944
+        ],
+        [
+          "PLASMA 2",
+          2047.406052
+        ]
+      ],
+      "trap": [
+        [
+          "ESTATE A",
+          0.81726
+        ],
+        [
+          "ESTATE B",
+          0.677675
+        ],
+        [
+          "ESTATE C",
+          0.717393
+        ],
+        [
+          "PLASMA 1",
+          0.703309
+        ],
+        [
+          "PLASMA 2",
+          1.145557
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 2,
+      "runs": [
+        {
+          "sql": "WITH m0 AS (\n    SELECT DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS period_start,\n           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS period_end\n),\nh AS (\n    SELECT o.WERKS, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    CROSS JOIN m0\n    WHERE o.BUDAT >= m0.period_start\n      AND o.BUDAT < m0.period_end\n      AND o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR, SUM(b.BHA) AS ha\n    FROM BLK b\n    WHERE b.KDATE = '9999-12-31'\n      AND b.BSTATE = 'MATURE'\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 \n    e.NAME1 AS estate,\n    ISNULL(h.bunches, 0) AS total_bunches,\n    ISNULL(a.ha, 0) AS total_hectares,\n    CASE WHEN a.ha > 0 THEN h.bunches / a.ha ELSE NULL END AS bunches_per_hectare\nFROM EST e\nLEFT JOIN h ON h.WERKS = e.WERKS\nLEFT JOIN a ON a.ESTNR = RIGHT(e.WERKS, 2)\nWHERE e.KDATE = '9999-12-31'\n  AND e.WERKS IS NOT NULL\nORDER BY estate",
+          "answer": "**Estate C has the second highest total ripe bunches per hectare at 1,821.23 bunches per hectare in the last 12 months.**\n\n- Estate C is well ahead of the other estates in bunches per hectare, except for Plasma 2 which leads with **2,047.41 bunches per hectare**.\n- The gap between Estate C and Plasma 2 is 226.18 bunches per hectare, while the gap between Estate C and the third-highest, Estate B, is much larger at 233.53 bunches per hectare.\n- Here's a quick comparison of the top three estates:\n  - Estate C: 1,821.23 bunches per hectare\n  - Estate B: 1,587.69 bunches per hectare\n  - Plasma 2: 2,047.41 bunches per hectare",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "PLASMA 1",
+              "expected": 986.223489,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 1587.693377,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 1821.22899,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 1502.581944,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 2047.406052,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "conversation": [
+            {
+              "q": "compare the operational efficiency of estate C againts other estates",
+              "a": "Which measure should I use?",
+              "route": "clarify"
+            },
+            {
+              "q": "Total ripe bunches per hectare",
+              "a": "**Estate C has the second highest ripe bunches per hectare at 1,821.23 bunches per hectare, just behind Plasma 2.**\n\n- Plasma 2 leads with 2,047.41 bunches per hectare, which is 226.18 bunches per hectare more than Estate C.\n- Estate B, despite having the highest total bunches, ranks third in bunche",
+              "route": "sql"
+            },
+            {
+              "q": "run it",
+              "a": "**Estate C has the second highest total ripe bunches per hectare at 1,821.23 bunches per hectare in the last 12 months.**\n\n- Estate C is well ahead of the other estates in bunches per hectare, except for Plasma 2 which leads with **2,047.41 bunches per hectare**.\n- The gap between Estate C and Plasm",
+              "route": "sql"
+            }
+          ],
+          "seconds": 22.9
+        },
+        {
+          "sql": "WITH m0 AS (\n    SELECT DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS period_start,\n           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS period_end\n),\nh AS (\n    SELECT o.WERKS, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    CROSS JOIN m0\n    WHERE o.BUDAT >= m0.period_start\n      AND o.BUDAT < m0.period_end\n      AND o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR, SUM(b.BHA) AS ha\n    FROM BLK b\n    WHERE b.KDATE = '9999-12-31'\n      AND b.BSTATE = 'MATURE'\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 \n    e.NAME1 AS estate,\n    ISNULL(h.bunches, 0) AS total_bunches,\n    ISNULL(a.ha, 0) AS total_hectares,\n    CASE WHEN a.ha > 0 THEN h.bunches / a.ha ELSE NULL END AS bunches_per_hectare\nFROM EST e\nLEFT JOIN h ON h.WERKS = e.WERKS\nLEFT JOIN a ON a.ESTNR = RIGHT(e.WERKS, 2)\nWHERE e.KDATE = '9999-12-31'\n  AND e.WERKS IS NOT NULL\nORDER BY estate",
+          "answer": "**Estate C has the second highest total ripe bunches per hectare at 1,821.23 bunches per hectare in the last 12 months.**\n\n- Estate C is well ahead of the other estates in bunches per hectare, except for Plasma 2 which leads with 2,047.41 bunches per hectare.\n- The gap between Estate C and the leader, Plasma 2, is 226.18 bunches per hectare.\n- Estate C's efficiency in ripe bunches per hectare is notably higher than Estate B, which has 1,587.69 bunches per hectare.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "PLASMA 1",
+              "expected": 986.223489,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 1587.693377,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 1821.22899,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 1502.581944,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 2047.406052,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "conversation": [
+            {
+              "q": "compare the operational efficiency of estate C againts other estates",
+              "a": "Which measure should I use?",
+              "route": "clarify"
+            },
+            {
+              "q": "Total ripe bunches per hectare",
+              "a": "**Estate C has the second highest total ripe bunches per hectare at 1,821 bunches per hectare, over the last 12 months.**\n\n- Estate C is well ahead of the other estates in bunches per hectare, except for Plasma 2 which leads with **2,047 bunches per hectare**.\n- The gap between Estate C and Plasma 2",
+              "route": "sql"
+            },
+            {
+              "q": "run it",
+              "a": "**Estate C has the second highest total ripe bunches per hectare at 1,821.23 bunches per hectare in the last 12 months.**\n\n- Estate C is well ahead of the other estates in bunches per hectare, except for Plasma 2 which leads with 2,047.41 bunches per hectare.\n- The gap between Estate C and the leade",
+              "route": "sql"
+            }
+          ],
+          "seconds": 11.1
+        },
+        {
+          "sql": "WITH m0 AS (\n    SELECT DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS period_start,\n           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS period_end\n),\nh AS (\n    SELECT o.WERKS, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    CROSS JOIN m0\n    WHERE o.BUDAT >= m0.period_start\n      AND o.BUDAT < m0.period_end\n      AND o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR, SUM(b.BHA) AS ha\n    FROM BLK b\n    WHERE b.KDATE = '9999-12-31'\n      AND b.BSTATE = 'MATURE'\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 \n    e.NAME1 AS estate,\n    h.bunches AS total_bunches,\n    a.ha AS total_hectares,\n    h.bunches / NULLIF(a.ha, 0) AS bunches_per_hectare\nFROM h\nJOIN EST e ON e.WERKS = h.WERKS\nJOIN a ON a.ESTNR = RIGHT(h.WERKS, 2)\nWHERE e.KDATE = '9999-12-31'\nORDER BY e.NAME1",
+          "answer": "**Estate C has the second highest bunches per hectare at 1,821.23, just behind Plasma 2.**\n\n- Plasma 2 leads with 2,047.41 bunches per hectare, which is 226.18 more than Estate C.\n- Plasma 1 is the least efficient with 986.22 bunches per hectare, well behind the other estates.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "PLASMA 1",
+              "expected": 986.223489,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE B",
+              "expected": 1587.693377,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 1821.22899,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 1502.581944,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 2047.406052,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "conversation": [
+            {
+              "q": "compare the operational efficiency of estate C againts other estates",
+              "a": "Which measure should I use?",
+              "route": "clarify"
+            },
+            {
+              "q": "Total ripe bunches per hectare",
+              "a": "**Estate C has the second highest bunches per hectare at 1,821.23, just behind Plasma 2.**\n\n- Plasma 2 leads with 2,047.41 bunches per hectare, which is 226.18 more than Estate C.\n- Estate B, despite having the highest total bunches, ranks third in bunches per hectare at 1,587.69.",
+              "route": "sql"
+            },
+            {
+              "q": "run it",
+              "a": "**Estate C has the second highest bunches per hectare at 1,821.23, just behind Plasma 2.**\n\n- Plasma 2 leads with 2,047.41 bunches per hectare, which is 226.18 more than Estate C.\n- Plasma 1 is the least efficient with 986.22 bunches per hectare, well behind the other estates.",
+              "route": "sql"
+            }
+          ],
+          "seconds": 10.4
+        }
+      ]
+    },
+    {
+      "id": "st_006",
+      "category": "estate_scope",
+      "query": "How do Estate C's ripe bunches per hectare compare with the other estates?",
+      "database": "staging",
+      "expected": [
+        [
+          "ESTATE B",
+          1587.693377
+        ],
+        [
+          "PLASMA 1",
+          986.223489
+        ],
+        [
+          "ESTATE C",
+          1821.22899
+        ],
+        [
+          "ESTATE A",
+          1502.581944
+        ],
+        [
+          "PLASMA 2",
+          2047.406052
+        ]
+      ],
+      "trap": [
+        [
+          "ESTATE A",
+          0.81726
+        ],
+        [
+          "ESTATE B",
+          0.677675
+        ],
+        [
+          "ESTATE C",
+          0.717393
+        ],
+        [
+          "PLASMA 1",
+          0.703309
+        ],
+        [
+          "PLASMA 2",
+          1.145557
+        ]
+      ],
+      "pass_rate": 0.3333333333333333,
+      "distinct_sql": 3,
+      "runs": [
+        {
+          "sql": "WITH m0 AS (\n    SELECT DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS start_date,\n           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS end_date\n),\nharvest AS (\n    SELECT o.WERKS, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    JOIN m0 ON o.BUDAT >= m0.start_date AND o.BUDAT < m0.end_date\n    WHERE o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\narea AS (\n    SELECT ESTNR, SUM(BHA) AS ha\n    FROM BLK\n    WHERE KDATE = '9999-12-31' AND BHA > 0\n    GROUP BY ESTNR\n),\nestate AS (\n    SELECT e.WERKS, e.NAME1, RIGHT(e.WERKS, 2) AS ESTNR\n    FROM EST e\n    WHERE e.KDATE = '9999-12-31' AND e.WERKS IS NOT NULL\n)\nSELECT TOP 100 e.NAME1 AS estate,\n       h.bunches,\n       a.ha,\n       h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha\nFROM estate e\nJOIN harvest h ON RIGHT(e.WERKS, 2) = h.WERKS\nJOIN area a ON a.ESTNR = e.ESTNR\nORDER BY e.NAME1",
+          "answer": "**No data was found for the last 12 months (01 Nov 2025 to 31 Oct 2026).** Try a wider period, such as the last 24 months. The database holds data only up to 2026-11-05.",
+          "row_count": 0,
+          "estates": [],
+          "problems": [
+            "ESTATE B: expected 1,587.69, not in the rows",
+            "PLASMA 1: expected 986.22, not in the rows",
+            "ESTATE C: expected 1,821.23, not in the rows",
+            "ESTATE A: expected 1,502.58, not in the rows",
+            "PLASMA 2: expected 2,047.41, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE B",
+              "expected": 1587.693377,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 986.223489,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 1821.22899,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 1502.581944,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 2047.406052,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 4.3
+        },
+        {
+          "sql": "WITH m0 AS (\n    SELECT DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS d_start,\n           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS d_end\n),\nh AS (\n    SELECT o.WERKS, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    JOIN m0 ON o.BUDAT >= m0.d_start AND o.BUDAT < m0.d_end\n    WHERE o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR, SUM(b.BHA) AS ha\n    FROM BLK b\n    WHERE b.KDATE = '9999-12-31' AND b.BSTATE = 'MATURE' AND b.BHA > 0\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 e.NAME1 AS estate,\n       ISNULL(h.bunches,0) AS bunches,\n       ISNULL(a.ha,0) AS ha,\n       CASE WHEN a.ha > 0 THEN h.bunches / a.ha ELSE NULL END AS bunches_per_ha\nFROM EST e\nLEFT JOIN h ON RIGHT(e.WERKS, 2) = h.WERKS\nLEFT JOIN a ON a.ESTNR = RIGHT(e.WERKS, 2)\nWHERE e.WERKS IS NOT NULL AND e.KDATE = '9999-12-31'\nORDER BY e.NAME1",
+          "answer": "**Estate C's ripe bunches per hectare are not available for the last 12 full months (01 Nov 2025 to 31 Oct 2026).**\n\n- This is true for all estates: the database holds no ripe bunches data after 05 Nov 2026.\n- The hectares of mature blocks are available, with Estate C having the second-highest at 7,231.95 ha, after Estate B's 8,729.69 ha.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [
+            "ESTATE B: expected 1,587.69, not in the rows",
+            "PLASMA 1: expected 986.22, not in the rows",
+            "ESTATE C: expected 1,821.23, not in the rows",
+            "ESTATE A: expected 1,502.58, not in the rows",
+            "PLASMA 2: expected 2,047.41, not in the rows"
+          ],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE B",
+              "expected": 1587.693377,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 986.223489,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 1821.22899,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 1502.581944,
+              "ok": false,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 2047.406052,
+              "ok": false,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": false,
+          "seconds": 5.0
+        },
+        {
+          "sql": "WITH m0 AS (\n    SELECT DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS start_date,\n           DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS end_date\n),\nharvest AS (\n    SELECT o.WERKS,\n           SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    JOIN m0 ON o.BUDAT >= m0.start_date AND o.BUDAT < m0.end_date\n    WHERE o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\narea AS (\n    SELECT ESTNR,\n           SUM(BHA) AS ha\n    FROM BLK\n    WHERE KDATE = '9999-12-31' AND BHA > 0\n    GROUP BY ESTNR\n),\nestate_data AS (\n    SELECT e.WERKS,\n           e.NAME1 AS estate,\n           h.bunches,\n           a.ha,\n           h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha\n    FROM harvest h\n    JOIN area a ON a.ESTNR = RIGHT(h.WERKS, 2)\n    JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'\n)\nSELECT TOP 100 estate,\n       bunches,\n       ha,\n       bunches_per_ha\nFROM estate_data\nORDER BY estate",
+          "answer": "**Estate C has the second-highest ripe bunches per hectare at 1,821.23 bunches per ha, after Plasma 2.**\n\n- Plasma 2 leads with **2,047.41 bunches per ha**, making it **226.18 bunches per ha** ahead of Estate C.\n- Estate B, despite having the highest total bunches harvested, ranks third in bunches per hectare with **1,587.69 bunches per ha**.\n- Plasma 1 is the lowest with **986.22 bunches per ha**.\n\n| Estate   | Bunches per ha |\n|----------|----------------|\n| Plasma 2 | 2,047.41       |\n| Estate C  | 1,821.23       |\n| Estate B  | 1,587.69       |\n| Estate A  | 1,502.58       |\n| Plasma 1 | 986.22         |",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE B",
+              "expected": 1587.693377,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 986.223489,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 1821.22899,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 1502.581944,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 2047.406052,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 5.4
+        }
+      ]
+    },
+    {
+      "id": "st_007",
+      "category": "area_once_per_block",
+      "query": "Ripe bunches per hectare for each estate in September 2026",
+      "database": "staging",
+      "expected": [
+        [
+          "ESTATE B",
+          108.162832
+        ],
+        [
+          "ESTATE A",
+          117.817577
+        ],
+        [
+          "PLASMA 2",
+          126.442943
+        ],
+        [
+          "PLASMA 1",
+          67.20532
+        ],
+        [
+          "ESTATE C",
+          104.14328
+        ]
+      ],
+      "trap": [
+        [
+          "ESTATE A",
+          0.774817
+        ],
+        [
+          "ESTATE B",
+          0.59063
+        ],
+        [
+          "ESTATE C",
+          0.520068
+        ],
+        [
+          "PLASMA 1",
+          0.529153
+        ],
+        [
+          "PLASMA 2",
+          0.87099
+        ]
+      ],
+      "pass_rate": 1.0,
+      "distinct_sql": 1,
+      "runs": [
+        {
+          "sql": "WITH m0 AS (\n    SELECT CAST('2026-09-01' AS date) AS month_start,\n           CAST('2026-10-01' AS date) AS month_end\n),\nh AS (\n    SELECT o.WERKS,\n           SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    CROSS JOIN m0\n    WHERE o.BUDAT >= m0.month_start\n      AND o.BUDAT < m0.month_end\n      AND o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR,\n           SUM(b.BHA) AS ha\n    FROM BLK b\n    JOIN EST e ON e.ESTNR = b.ESTNR\n    WHERE b.KDATE = '9999-12-31'\n      AND e.KDATE = '9999-12-31'\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 e.NAME1 AS estate,\n       h.bunches,\n       a.ha,\n       h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha\nFROM h\nJOIN EST e ON e.WERKS = h.WERKS\nJOIN a ON a.ESTNR = RIGHT(h.WERKS, 2)\nORDER BY e.NAME1",
+          "answer": "In September 2026, **ESTATE B** led with 944,228 bunches per hectare, while **PLASMA 1** lagged at 82,262 bunches per hectare.\n\nESTATE B had the highest total bunches at 944,228, almost 12 times PLASMA 1's 82,262 bunches. PLASMA 2 showed the highest bunches per hectare at 126.44, nearly twice PLASMA 1's 67.21 bunches per hectare. ESTATE A and ESTATE C fell in the middle, with ESTATE A at 117.82 and ESTATE C at 104.14 bunches per hectare.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE B",
+              "expected": 108.162832,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 117.817577,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 126.442943,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 67.20532,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 104.14328,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 6.1
+        },
+        {
+          "sql": "WITH m0 AS (\n    SELECT CAST('2026-09-01' AS date) AS month_start,\n           CAST('2026-10-01' AS date) AS month_end\n),\nh AS (\n    SELECT o.WERKS,\n           SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    CROSS JOIN m0\n    WHERE o.BUDAT >= m0.month_start\n      AND o.BUDAT < m0.month_end\n      AND o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR,\n           SUM(b.BHA) AS ha\n    FROM BLK b\n    JOIN EST e ON e.ESTNR = b.ESTNR\n    WHERE b.KDATE = '9999-12-31'\n      AND e.KDATE = '9999-12-31'\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 e.NAME1 AS estate,\n       h.bunches,\n       a.ha,\n       h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha\nFROM h\nJOIN EST e ON e.WERKS = h.WERKS\nJOIN a ON a.ESTNR = RIGHT(h.WERKS, 2)\nORDER BY e.NAME1",
+          "answer": "In September 2026, **ESTATE B** led with 944,228 bunches per hectare, while **PLASMA 1** lagged at 82,262 bunches per hectare.\n\nESTATE B had the highest total bunches at 944,228, almost 12 times PLASMA 1's 82,262 bunches. PLASMA 2 showed the highest bunches per hectare at 126.44, nearly double PLASMA 1's 67.21 bunches per hectare. ESTATE A and ESTATE C fell in between, with ESTATE A at 117.82 and ESTATE C at 104.14 bunches per hectare.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE B",
+              "expected": 108.162832,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 117.817577,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 126.442943,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 67.20532,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 104.14328,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 4.5
+        },
+        {
+          "sql": "WITH m0 AS (\n    SELECT CAST('2026-09-01' AS date) AS month_start,\n           CAST('2026-10-01' AS date) AS month_end\n),\nh AS (\n    SELECT o.WERKS,\n           SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches\n    FROM OPH o\n    CROSS JOIN m0\n    WHERE o.BUDAT >= m0.month_start\n      AND o.BUDAT < m0.month_end\n      AND o.WERKS IS NOT NULL\n    GROUP BY o.WERKS\n),\na AS (\n    SELECT b.ESTNR,\n           SUM(b.BHA) AS ha\n    FROM BLK b\n    JOIN EST e ON e.ESTNR = b.ESTNR\n    WHERE b.KDATE = '9999-12-31'\n      AND e.KDATE = '9999-12-31'\n    GROUP BY b.ESTNR\n)\nSELECT TOP 100 e.NAME1 AS estate,\n       h.bunches,\n       a.ha,\n       h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha\nFROM h\nJOIN EST e ON e.WERKS = h.WERKS\nJOIN a ON a.ESTNR = RIGHT(h.WERKS, 2)\nORDER BY e.NAME1",
+          "answer": "In September 2026, **ESTATE B** led with 944,228 bunches per hectare, while **PLASMA 1** lagged at 82,262 bunches per hectare.\n\nESTATE B had the highest total bunches at 944,228, almost 12 times PLASMA 1's 82,262 bunches. PLASMA 2 showed the highest bunches per hectare at 126.44, nearly twice PLASMA 1's 67.21 bunches per hectare. ESTATE A and ESTATE C fell in the middle, with ESTATE A at 117.82 and ESTATE C at 104.14 bunches per hectare.",
+          "row_count": 5,
+          "estates": [],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "ESTATE B",
+              "expected": 108.162832,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE A",
+              "expected": 117.817577,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 2",
+              "expected": 126.442943,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "PLASMA 1",
+              "expected": 67.20532,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "ESTATE C",
+              "expected": 104.14328,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": false,
+          "pass": true,
+          "seconds": 4.5
+        }
+      ]
+    },
+    {
+      "id": "sd_009",
+      "category": "estate_scope",
+      "query": "How did estate BA's total harvest in 2025 compare with the other estates?",
+      "database": "live",
+      "expected": [
+        [
+          "BA",
+          2814445.0
+        ],
+        [
+          "K3",
+          1345499.0
+        ]
+      ],
+      "trap": null,
+      "pass_rate": 1.0,
+      "distinct_sql": 2,
+      "runs": [
+        {
+          "sql": "SELECT \n    oph_estate_code AS estate_code,\n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_created_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)\nGROUP BY \n    oph_estate_code\nORDER BY \n    estate_code",
+          "answer": "**Estate BA harvested 2,814,445 bunches in 2025, well ahead of K3's 1,345,499 bunches.**\n\n- BA's total is **1,468,946 bunches** more than K3's.\n- BA also leads in ripe bunches, with **1,243,732 bunches** more than K3.\n- BA has a significant lead in unripe bunches, with **49,388 bunches** more than K3.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 3.9
+        },
+        {
+          "sql": "SELECT \n    oph_estate_code AS estate_code,\n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_created_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)\nGROUP BY \n    oph_estate_code\nORDER BY \n    total_bunches DESC",
+          "answer": "**Estate BA harvested 2,814,445 bunches in 2025, well ahead of K3's 1,345,499 bunches.**\n\n- BA's total is **1,468,946 bunches** more than K3's, and **2.1 times** K3's total.\n- BA also leads in ripe bunches, with **1,243,732 more** than K3.\n- BA has **49,388 more** unripe bunches than K3.\n- Note: Only two estates are compared here.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 4.0
+        },
+        {
+          "sql": "SELECT \n    oph_estate_code AS estate_code,\n    SUM(bunches_total) AS total_bunches,\n    SUM(bunches_ripe) AS ripe_bunches,\n    SUM(bunches_unripe) AS unripe_bunches,\n    SUM(bunches_overripe) AS overripe_bunches,\n    SUM(bunches_underripe) AS underripe_bunches,\n    SUM(bunches_rotten) AS rotten_bunches\nFROM \n    t_oph\nWHERE \n    EXTRACT(YEAR FROM oph_created_date) = 2025\n    AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)\nGROUP BY \n    oph_estate_code\nORDER BY \n    estate_code",
+          "answer": "**Estate BA harvested 2,814,445 bunches in 2025, well ahead of K3's 1,345,499 bunches.**\n\n- BA's total is **1,468,946 bunches** more than K3's, and **2.1 times** larger.\n- BA also leads in ripe bunches, with **1,243,732 bunches** more than K3.\n- K3 had no rotten bunches, while BA had 23,153.",
+          "row_count": 2,
+          "estates": [
+            "BA",
+            "K3"
+          ],
+          "problems": [],
+          "warnings": [],
+          "figures": [
+            {
+              "key": "BA",
+              "expected": 2814445.0,
+              "ok": true,
+              "matches_trap": null
+            },
+            {
+              "key": "K3",
+              "expected": 1345499.0,
+              "ok": true,
+              "matches_trap": null
+            }
+          ],
+          "answer_has_figures": true,
+          "pass": true,
+          "seconds": 4.2
+        }
+      ]
+    }
+  ]
+}

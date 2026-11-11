@@ -44,6 +44,11 @@ SOURCES = {
     "EC": os.path.join(_REPO, "gis", "data", "estates", "EC", "oph.csv"),
     "EB": os.path.join(_REPO, "gis", "data", "estates", "EB", "oph.csv"),
     "EA": os.path.join(_REPO, "gis", "data", "estates", "EA", "oph.csv"),
+    # The same estates read from the staging database (build_staging_series.py):
+    # a longer, newer window than the live snapshots above.
+    "stg_EC": os.path.join(_DIR, "staging", "EC", "oph.csv"),
+    "stg_EB": os.path.join(_DIR, "staging", "EB", "oph.csv"),
+    "stg_EA": os.path.join(_DIR, "staging", "EA", "oph.csv"),
 }
 
 

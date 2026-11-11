@@ -1,0 +1,300 @@
+{
+  "_meta": {
+    "schema_version": 2,
+    "generated_at": "2026-11-10",
+    "generator": "hand-written from EPMSStagingDB (SQL Server), checked against the data",
+    "note": "Only tables described here are indexed for retrieval; the other staging tables (CPT, FNP, FLD, HPA, VRA, VHC, MEA, MAT, WCT, WTY, WBS, DES, FHG, FGC, tblweighings ...) are not understood well enough to describe and are left out on purpose."
+  },
+  "tables": {
+    "OPH": {
+      "description": "Harvest tickets (OPH = output per harvest): one row per harvester per harvest point (TPH) per day, with the number of ripe bunches (ZMASAK) and loose fruit (ZBRONDOLAN, text). The core harvest fact for every estate (WERKS 00EA/00EB/00EC/00P1/00P2), about 3 million rows from 2025-01. Holds bunch counts only, no weight: tonnage comes from FDN.",
+      "domain_tags": ["transaction", "harvesting", "fact", "daily"],
+      "synonyms": ["OPH", "harvest", "harvest record", "harvest ticket", "output per harvest", "panen", "hasil panen", "janjang", "bunches", "ripe bunches", "janjang masak", "tandan", "FFB", "TBS", "brondolan", "loose fruit", "harvester output", "produksi panen", "yield", "kebun", "estate harvest"],
+      "example_questions": [
+        "How many ripe bunches were harvested per estate last month?",
+        "Top 10 blocks by ripe bunches in estate EC this year",
+        "Which harvesters harvested the most bunches yesterday?",
+        "Total harvest per day for the last 30 days in EB",
+        "Berapa janjang yang dipanen per divisi bulan lalu?"
+      ],
+      "key_columns": {
+        "WERKS": "Estate / plant code: 00EA, 00EB, 00EC, 00P1, 00P2 (join EST.WERKS). Filter on this for an estate; ignore rows where it is NULL",
+        "BUDAT": "Harvest date (date type) - use for ALL time filters",
+        "BLOCK": "Block code (varchar, e.g. '027'); unique only within the estate. Join BLK on ESTNR = RIGHT(WERKS, 2) AND BLOCK",
+        "EMPNR": "Harvester employee number (join EMP.EMPNR)",
+        "OPH": "OPH ticket id (varchar); also the key FDN.OPH points to",
+        "TPH": "Harvest point code (tempat pengumpulan hasil)",
+        "METHD": "Harvest method (M = manual)",
+        "ZMASAK": "Ripe bunches harvested (int) - 'bunches / janjang / harvest'",
+        "ZBRONDOLAN": "Loose fruit (brondolan) stored as TEXT; use TRY_CAST(ZBRONDOLAN AS decimal(18,2))",
+        "EMPNR_M": "Mandor (foreman) employee number",
+        "EMPNR_K": "Kerani (checker) employee number",
+        "PRFNR": "Estate name as text ('ESTATE C')"
+      },
+      "common_joins": [
+        {"to": "BLK", "on": "BLK.ESTNR = RIGHT(OPH.WERKS, 2) AND BLK.BLOCK = OPH.BLOCK AND BLK.KDATE = '9999-12-31'"},
+        {"to": "EST", "on": "EST.WERKS = OPH.WERKS AND EST.KDATE = '9999-12-31'"},
+        {"to": "EMP", "on": "EMP.EMPNR = OPH.EMPNR AND OPH.BUDAT BETWEEN EMP.KDATB AND EMP.KDATE"},
+        {"to": "FDN", "on": "FDN.OPH = OPH.OPH"}
+      ],
+      "value_hints": {
+        "WERKS": ["00EA=Estate A", "00EB=Estate B", "00EC=Estate C", "00P1=Plasma 1", "00P2=Plasma 2"],
+        "METHD": ["M=manual"]
+      },
+      "row_estimate": "high"
+    },
+    "FDN": {
+      "description": "Delivery notes (SPB, surat pengantar buah) that carry harvest tickets from the field to the mill, with the weighbridge weight of the truck trip (gross BRUTO, tare TARRA, net WB_QTY_TOTAL in kg). One row per OPH ticket on the trip, so the trip weight is repeated on every row of the same SPB: take it once per SPB. The source of all tonnage figures.",
+      "domain_tags": ["transaction", "logistics", "tonnage", "fact", "daily"],
+      "synonyms": ["FDN", "delivery note", "SPB", "surat pengantar buah", "tonnage", "tonase", "tonnes", "weight", "FFB delivered", "mill delivery", "weighbridge", "timbangan", "truck", "trip", "pengiriman TBS", "kirim ke pabrik", "berat", "ton"],
+      "example_questions": [
+        "How many tonnes were delivered to the mill per estate last month?",
+        "Total delivered weight per day in the last 14 days for estate EC",
+        "How many trips were delivered this week?",
+        "Berapa tonase TBS yang dikirim bulan ini per kebun?"
+      ],
+      "key_columns": {
+        "ESTNR": "Estate code in this table: EA, EB, EC, P1, P2 (NOT the WERKS form)",
+        "SPB": "Delivery note / trip id (varchar). One trip = one SPB",
+        "BUDAT": "Delivery date (date type)",
+        "OPH": "Harvest ticket id carried on this trip (join OPH.OPH)",
+        "NOPOLISI": "Truck licence plate",
+        "WB_QTY_TOTAL": "Weighbridge net weight of the WHOLE trip in kg, repeated on every row of the SPB; 0 = not weighed yet. Use MAX(WB_QTY_TOTAL) per SPB, never SUM over rows",
+        "BRUTO": "Gross truck weight (kg)",
+        "TARRA": "Empty truck weight (kg)"
+      },
+      "common_joins": [
+        {"to": "OPH", "on": "FDN.OPH = OPH.OPH"},
+        {"to": "EST", "on": "EST.ESTNR = FDN.ESTNR AND EST.KDATE = '9999-12-31'"}
+      ],
+      "value_hints": {},
+      "row_estimate": "high"
+    },
+    "BLK": {
+      "description": "Block master: every planted block of every estate with its division, status (MATURE, IMMATURE, LC), area in hectares (BHA), planting and maintenance start (INITL / MAINT as yyyymm) and crop. One row per validity period, so filter KDATE = '9999-12-31' for the current state.",
+      "domain_tags": ["master", "block", "area"],
+      "synonyms": ["BLK", "block", "blok", "block master", "area", "hectare", "hektar", "luas", "mature", "immature", "TM", "TBM", "planting year", "tahun tanam", "land clearing"],
+      "example_questions": [
+        "How many hectares of mature area does each estate have?",
+        "List the blocks of division 3 in estate EC with their area",
+        "Berapa luas blok TM per divisi di EC?"
+      ],
+      "key_columns": {
+        "ESTNR": "Estate code (EA, EB, EC, P1, P2)",
+        "DIVNR": "Division number (varchar) - join DIV with ESTNR",
+        "BLOCK": "Block code (varchar); unique only within the estate",
+        "BNAME": "Block name",
+        "BSTATE": "Block status: MATURE, IMMATURE, LC (land clearing)",
+        "BHA": "Block area in hectares (decimal)",
+        "INITL": "Planting period yyyymm (int)",
+        "MAINT": "Maintenance start yyyymm (int)",
+        "CROP_TYPE": "Crop, always PALM",
+        "KDATE": "Valid-to date; 9999-12-31 = current record"
+      },
+      "common_joins": [
+        {"to": "DIV", "on": "DIV.ESTNR = BLK.ESTNR AND DIV.DIVNR = BLK.DIVNR AND DIV.KDATE = '9999-12-31'"},
+        {"to": "EST", "on": "EST.ESTNR = BLK.ESTNR AND EST.KDATE = '9999-12-31'"},
+        {"to": "OPH", "on": "BLK.ESTNR = RIGHT(OPH.WERKS, 2) AND BLK.BLOCK = OPH.BLOCK"}
+      ],
+      "value_hints": {"BSTATE": ["MATURE", "IMMATURE", "LC=land clearing"]},
+      "row_estimate": "medium"
+    },
+    "EST": {
+      "description": "Estate master: the five estates of the group (Estate A/B/C and plasma schemes Plasma 1/2) with the plant code WERKS used by every transaction table.",
+      "domain_tags": ["master", "estate"],
+      "synonyms": ["EST", "estate", "kebun", "plant", "WERKS", "estate name", "plasma", "company"],
+      "example_questions": [
+        "Which estates are there?",
+        "Name of estate 00EC"
+      ],
+      "key_columns": {
+        "ESTNR": "Estate code: EA, EB, EC, P1, P2",
+        "WERKS": "Plant code 00EA..00P2 used by OPH, GWO, OVT",
+        "NAME1": "Estate name: ESTATE A, ESTATE B, ESTATE C, PLASMA 1, PLASMA 2",
+        "KDATE": "Valid-to date; 9999-12-31 = current"
+      },
+      "common_joins": [
+        {"to": "OPH", "on": "EST.WERKS = OPH.WERKS"},
+        {"to": "DIV", "on": "DIV.ESTNR = EST.ESTNR"}
+      ],
+      "value_hints": {"WERKS": ["00EA=Estate A", "00EB=Estate B", "00EC=Estate C", "00P1=Plasma 1", "00P2=Plasma 2"]},
+      "row_estimate": "low"
+    },
+    "DIV": {
+      "description": "Division master: the divisions (afdeling) of each estate, named 'Division 1', 'Division 2', ... Divisions are identified by estate + number.",
+      "domain_tags": ["master", "division"],
+      "synonyms": ["DIV", "division", "divisi", "afdeling", "afd"],
+      "example_questions": [
+        "Ripe bunches per division in estate EC last month",
+        "How many divisions does each estate have?"
+      ],
+      "key_columns": {
+        "ESTNR": "Estate code (EA, EB, EC, P1, P2)",
+        "DIVNR": "Division number (varchar)",
+        "NAME1": "Division name ('Division 3')",
+        "KDATE": "Valid-to date; 9999-12-31 = current"
+      },
+      "common_joins": [
+        {"to": "BLK", "on": "DIV.ESTNR = BLK.ESTNR AND DIV.DIVNR = BLK.DIVNR"},
+        {"to": "EST", "on": "EST.ESTNR = DIV.ESTNR"}
+      ],
+      "value_hints": {},
+      "row_estimate": "low"
+    },
+    "EMP": {
+      "description": "Employee master with history: name, job (JBCDE: HARVESTERS, MANDOR PANEN, CHECKER, DRIVER, UPKEEP, ...), sex, employment status and division. One row per validity period of an employee (KDATB..KDATE); about 12 thousand distinct employees across all estates.",
+      "domain_tags": ["master", "employee", "hr"],
+      "synonyms": ["EMP", "employee", "employees", "karyawan", "pegawai", "pekerja", "worker", "harvester", "pemanen", "mandor", "foreman", "headcount", "job", "jabatan", "staff"],
+      "example_questions": [
+        "How many harvesters does each estate have?",
+        "Headcount per job title in estate EB",
+        "Berapa jumlah karyawan wanita per kebun?"
+      ],
+      "key_columns": {
+        "EMPNR": "Employee number (varchar, e.g. 00/00EC/0825/3180) - same code in OPH, ATD, GWO, OVT",
+        "ENAME": "Employee name",
+        "PRFNR": "Estate name as text ('ESTATE C')",
+        "JBCDE": "Job: HARVESTERS, MANDOR PANEN, CHECKER, DRIVER, OPERATOR, UPKEEP, MANDOR PERAWATAN, STAFF, ASISTEN MANAGER, ...",
+        "SEX": "MALE or FEMALE",
+        "STATS": "Employment status code (KTB, KBT, KONTRAKB, KTH, ...)",
+        "DIVNR": "Division number (often empty)",
+        "KDATB": "Valid-from date",
+        "KDATE": "Valid-to date; 9999-12-31 = current record"
+      },
+      "common_joins": [
+        {"to": "OPH", "on": "EMP.EMPNR = OPH.EMPNR AND OPH.BUDAT BETWEEN EMP.KDATB AND EMP.KDATE"},
+        {"to": "ATD", "on": "EMP.EMPNR = ATD.EMPNR AND ATD.BUDAT BETWEEN EMP.KDATB AND EMP.KDATE"},
+        {"to": "MEM", "on": "EMP.EMPNR = MEM.EMPNR"}
+      ],
+      "value_hints": {"SEX": ["MALE", "FEMALE"]},
+      "row_estimate": "medium"
+    },
+    "MEM": {
+      "description": "Employee-to-mandor assignment over time: which foreman (EMPNR_M) a worker (EMPNR) reported to, per validity period.",
+      "domain_tags": ["master", "employee", "gang"],
+      "synonyms": ["MEM", "mandor", "foreman", "gang", "kemandoran", "team", "member", "anggota", "supervisor"],
+      "example_questions": [
+        "Who is the mandor of employee X?",
+        "How many workers does each mandor have?"
+      ],
+      "key_columns": {
+        "EMPNR": "Worker employee number",
+        "PRFNR": "Estate name as text ('ESTATE A' ... 'ESTATE PLASMA 2')",
+        "EMPNR_M": "The worker's mandor (foreman) employee number",
+        "KDATB": "Valid-from date",
+        "KDATE": "Valid-to date; 9999-12-31 = current"
+      },
+      "common_joins": [
+        {"to": "EMP", "on": "MEM.EMPNR = EMP.EMPNR"}
+      ],
+      "value_hints": {},
+      "row_estimate": "medium"
+    },
+    "ATD": {
+      "description": "Daily attendance: one row per employee per day with the attendance code ATDCD (K worked, KS worked Saturday, M absent without leave, C leave, S1/S2 sick, P1-P4 permitted absence ...), the employee's mandor and the department. About 1.6 million rows.",
+      "domain_tags": ["transaction", "attendance", "hr", "daily"],
+      "synonyms": ["ATD", "attendance", "kehadiran", "absen", "absensi", "hadir", "present", "absent", "mangkir", "leave", "cuti", "sick", "sakit", "worked days", "hari kerja"],
+      "example_questions": [
+        "How many workers were absent without leave (mangkir) yesterday?",
+        "Attendance rate per estate last month",
+        "Berapa orang mangkir per kebun minggu ini?"
+      ],
+      "key_columns": {
+        "EMPNR": "Employee number",
+        "PRFNR": "Estate NAME as text: 'ESTATE A', 'ESTATE B', 'ESTATE C', 'ESTATE PLASMA 1', 'ESTATE PLASMA 2'. ATD has no WERKS: group or filter attendance by estate with this",
+        "BUDAT": "Attendance date (date type)",
+        "ATDCD": "Attendance code, described in ATC.CODE: K worked, KS worked Saturday, KT worked (no HK), KL paid Sunday, M absent, C leave, H1/H2 menstrual/maternity leave, S1/S2 sick, P1-P4 permission",
+        "EMPNR_M": "Employee's mandor",
+        "DEPNR": "Department / cost code"
+      },
+      "common_joins": [
+        {"to": "ATC", "on": "ATD.ATDCD = ATC.CODE"},
+        {"to": "EMP", "on": "ATD.EMPNR = EMP.EMPNR AND ATD.BUDAT BETWEEN EMP.KDATB AND EMP.KDATE"}
+      ],
+      "value_hints": {"ATDCD": ["K=worked", "KS=worked Saturday", "M=absent without leave", "C=leave", "S1=sick at home", "S2=sick in hospital"]},
+      "row_estimate": "high"
+    },
+    "ATC": {
+      "description": "Attendance code lookup: the meaning (Indonesian) of each ATDCD value, e.g. K = Kerja, M = Mangkir, C = Cuti.",
+      "domain_tags": ["lookup", "attendance"],
+      "synonyms": ["ATC", "attendance code", "kode absen", "kode kehadiran"],
+      "example_questions": ["What does attendance code M mean?"],
+      "key_columns": {
+        "CODE": "Attendance code (joins ATD.ATDCD)",
+        "DESC": "Meaning in Indonesian - a reserved word, write it as [DESC]"
+      },
+      "common_joins": [
+        {"to": "ATD", "on": "ATC.CODE = ATD.ATDCD"}
+      ],
+      "value_hints": {},
+      "row_estimate": "low"
+    },
+    "GWO": {
+      "description": "Daily work done (general work orders): one row per employee per activity per day with the activity (ACTVT_NO), block, quantity (MENGE in unit AMEIN), man-days (HKINP) and rate. Covers all non-harvest field work - manuring, spraying, weeding, pruning, upkeep, supervision - for every estate, about 860 thousand rows.",
+      "domain_tags": ["transaction", "workdone", "labour", "daily"],
+      "synonyms": ["GWO", "work done", "workdone", "general work order", "pekerjaan", "aktivitas", "activity", "perawatan", "upkeep", "maintenance work", "manuring", "pemupukan", "spraying", "penyemprotan", "weeding", "man-days", "mandays", "HK", "hari kerja", "labour days", "work hours"],
+      "example_questions": [
+        "How many man-days were spent per activity last month in estate EA?",
+        "Man-days per block for manuring this year",
+        "Total HKINP per estate by month"
+      ],
+      "key_columns": {
+        "EMPNR": "Employee number",
+        "BUDAT": "Work date (date type)",
+        "PRFNR": "Estate name as text ('ESTATE A' ... 'ESTATE PLASMA 2')",
+        "WERKS": "Estate / plant code (00EA ...)",
+        "ACTVT_NO": "Activity number (join ACT.ACTVT_NO)",
+        "BLOCK": "Block code (may be empty for general work)",
+        "MENGE": "Quantity done, in unit AMEIN",
+        "AMEIN": "Unit of MENGE (HA, P, KG, TON, BAG, ...)",
+        "HKINP": "Man-days (hari kerja) booked",
+        "PRATE": "Piece rate",
+        "AUFNR": "Internal order number"
+      },
+      "common_joins": [
+        {"to": "ACT", "on": "GWO.ACTVT_NO = ACT.ACTVT_NO"},
+        {"to": "EMP", "on": "GWO.EMPNR = EMP.EMPNR AND GWO.BUDAT BETWEEN EMP.KDATB AND EMP.KDATE"},
+        {"to": "BLK", "on": "BLK.ESTNR = RIGHT(GWO.WERKS, 2) AND BLK.BLOCK = GWO.BLOCK AND BLK.KDATE = '9999-12-31'"}
+      ],
+      "value_hints": {},
+      "row_estimate": "high"
+    },
+    "ACT": {
+      "description": "Activity master: number and name of each field activity (e.g. 'PUNGUT BRONDOLAN', 'PENGAWASAN PANEN (MANDOR)') with its default unit, used to describe the work in GWO.",
+      "domain_tags": ["master", "activity"],
+      "synonyms": ["ACT", "activity", "activity name", "aktivitas", "jenis pekerjaan", "work type", "kegiatan"],
+      "example_questions": ["Which activities exist for manuring?", "Man-days per activity name"],
+      "key_columns": {
+        "ACTVT_NO": "Activity number (joins GWO.ACTVT_NO)",
+        "ACTVT_NAME": "Activity name in Indonesian, uppercase - match with LIKE '%KEYWORD%'",
+        "AMEIN": "Default unit of measure"
+      },
+      "common_joins": [
+        {"to": "GWO", "on": "ACT.ACTVT_NO = GWO.ACTVT_NO"}
+      ],
+      "value_hints": {},
+      "row_estimate": "low"
+    },
+    "OVT": {
+      "description": "Overtime: one row per employee per day with the overtime hours (NHOUR), start/end time, estate and block.",
+      "domain_tags": ["transaction", "overtime", "labour", "daily"],
+      "synonyms": ["OVT", "overtime", "lembur", "overtime hours", "jam lembur", "extra hours"],
+      "example_questions": [
+        "Total overtime hours per estate last month",
+        "Who worked the most overtime this week?"
+      ],
+      "key_columns": {
+        "EMPNR": "Employee number",
+        "BUDAT": "Overtime date (date type)",
+        "WERKS": "Estate / plant code (00EA ...)",
+        "NHOUR": "Overtime hours (decimal)",
+        "BLOCK": "Block code (may be empty)"
+      },
+      "common_joins": [
+        {"to": "EMP", "on": "OVT.EMPNR = EMP.EMPNR AND OVT.BUDAT BETWEEN EMP.KDATB AND EMP.KDATE"}
+      ],
+      "value_hints": {},
+      "row_estimate": "medium"
+    }
+  }
+}

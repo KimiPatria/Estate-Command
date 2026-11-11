@@ -408,7 +408,7 @@ def _build_user_prompt(forecast: dict, weather: dict, firms: dict, enso: dict) -
 def _call_llm_json(messages: list[dict]) -> tuple[dict, str]:
     result = llm_client.chat(
         messages,
-        tier="main",
+        tier="reasoning",
         temperature=0.3,
         max_tokens=700,
         json_mode=True,

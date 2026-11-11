@@ -1,0 +1,23 @@
+{
+ "run_id": "sqlrun_20261109_112137",
+ "llm_provider": "bedrock",
+ "model": "amazon.nova-pro-v1:0",
+ "with_examples": false,
+ "k": 5,
+ "n_cases": 36,
+ "n_bad_cases": 0,
+ "execution_accuracy": 0.25,
+ "executable_rate": 0.8056,
+ "sql_valid_rate": 1.0,
+ "self_correction_used": 3,
+ "retrieval_precision": 0.1667,
+ "retrieval_recall": 0.7778,
+ "retrieval_mrr": 0.6111,
+ "retrieval_all_found_rate": 0.7778,
+ "mean_retrieval_ms": 819.75,
+ "mean_generation_ms": 2014.8333,
+ "total_tokens_in": 72209,
+ "total_tokens_out": 2523,
+ "total_cost_usd": 0.0658,
+ "generated_at": "2026-11-09T11:24:29"
+}

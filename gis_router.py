@@ -32,8 +32,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from config import FIRMS_MAP_KEY
-from gis import (assumptions, briefings, copilot, decisions, environment, features, forecasts,
-                 fire, layers, ontology, ops, readiness, reasoning, stores, vegetation)
+from gis import (assumptions, briefings, copilot, decisions, diagnosis, environment, features, finance,
+                 forecasts, fire, layers, ontology, ops, readiness, reasoning, stores, vegetation)
 
 log = logging.getLogger("epms-dashboard")
 
@@ -49,6 +49,9 @@ forecasts.warm()
 # The stores models (buildplan_stores.md) warm on their own thread, so the rail's
 # "to order" hint never waits on the forecasts and neither waits on the replay.
 stores.warm()
+# The cost window (buildplan_finance.md) prices every unit on its own thread, then
+# diagnoses the default month's top ten, so the first click on a leak is instant.
+finance.warm()
 
 
 @router.get("/command", include_in_schema=False)
@@ -300,6 +303,8 @@ def gis_reload():
     ops.reload_ops()
     forecasts.reload()
     stores.reload()
+    finance.reload()
+    diagnosis.clear()
     scheduler.clear_cache()
     briefings.clear_caches()
     return {"reloaded": True, "estates": ontology.estate_index()}
@@ -446,6 +451,7 @@ def gis_set_assumption(body: AssumptionIn):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
     forecasts.assumption_changed(body.key)
     stores.assumption_changed(body.key)
+    finance.assumption_changed(body.key)
     scheduler.clear_cache()
     return {"set": True, "assumption": row}
 
@@ -457,6 +463,7 @@ def gis_reset_assumptions(key: str | None = Query(None)):
     n = assumptions.reset(key)
     forecasts.assumption_changed(key)
     stores.assumption_changed(key)
+    finance.assumption_changed(key)
     scheduler.clear_cache()
     return {"reset": n, "key": key}
 
@@ -586,6 +593,111 @@ class DecisionIn(BaseModel):
     order_ref: list[str] | None = None
 
 
+# ── cost efficiency: where the estate loses money ─────────────────────────
+#
+# buildplan_finance.md. Every unit gets spend, crop lost, necessary cost,
+# leakage and efficiency from the CO ledger; lists rank by rupiah. The
+# diagnosis endpoint is the one generated payload here: Nova weighs the
+# server's checks, and every id and figure it returns is validated.
+
+@router.get("/gis/finance/summary")
+def gis_finance_summary(month: str | None = Query(None, description="YYYY-MM, 2025-01..2025-05; default 2025-04"),
+                        top: int = Query(10, ge=1, le=50)):
+    """The headline, the ten biggest leaks, each function's totals and the trend."""
+    return finance.summary(month, top)
+
+
+@router.get("/gis/finance/nodes")
+def gis_finance_nodes(function: str = Query(..., description="harvesting | transport | fleet | fertiliser | upkeep | pest | workforce | stores | roads | overhead"),
+                      month: str | None = Query(None), division: str | None = Query(None)):
+    """Every unit of one function, ranked by leakage."""
+    out = finance.nodes(function, month, division)
+    if not out.get("available") and "functions" in out:
+        return JSONResponse(status_code=404, content=out)
+    return out
+
+
+@router.get("/gis/finance/node")
+def gis_finance_node(id: str = Query(..., description="Unit id, e.g. transport:vehicle:TR-04, or a group id"),
+                     month: str | None = Query(None)):
+    """One unit: the drivers from necessary cost to actual, peers, trend, documents, actions."""
+    out = finance.node(id, month)
+    if not out.get("available") and out.get("reason", "").startswith("No unit"):
+        return JSONResponse(status_code=404, content=out)
+    return out
+
+
+@router.get("/gis/finance/diagnosis")
+def gis_finance_diagnosis(id: str = Query(...), month: str | None = Query(None),
+                          lang: str | None = Query(None, description="en | id"),
+                          refresh: bool = Query(False), checks: bool = Query(True)):
+    """The likely cause and the actions, chosen by Nova from server-run checks and a vetted playbook."""
+    return diagnosis.diagnose(id, month, refresh=refresh, with_checks=checks, lang=lang)
+
+
+@router.get("/gis/finance/checks")
+def gis_finance_checks(id: str = Query(...), month: str | None = Query(None)):
+    """The deterministic checks behind a diagnosis, without calling the model."""
+    res = diagnosis.run_checks(id, month)
+    if not res:
+        return {"available": False, "reason": "No leak on this unit this month."}
+    return {"available": True, "id": id, "month": finance._month(month), "driver": res["driver"],
+            "checks": res["checks"], "template": diagnosis.template(id, month)}
+
+
+@router.get("/gis/finance/ledger")
+def gis_finance_ledger(account: str | None = Query(None, description="GL accounts, comma separated"),
+                       cc: str | None = Query(None), order: str | None = Query(None),
+                       unit: str | None = Query(None, description="A unit id: only its postings"),
+                       date_from: str | None = Query(None, alias="from"), date_to: str | None = Query(None, alias="to"),
+                       limit: int = Query(100, le=1000), offset: int = Query(0, ge=0)):
+    """CO line items, newest first, KSB1-style."""
+    return finance.ledger(account, cc, order, date_from, date_to, unit, limit, offset)
+
+
+@router.get("/gis/finance/budget")
+def gis_finance_budget(month: str | None = Query(None)):
+    """Budget against actual by object and cost-element group: the client's current view."""
+    return finance.budget(month)
+
+
+@router.get("/gis/finance/accuracy")
+def gis_finance_accuracy():
+    """Planted against recovered, the decoys, budget variance against the engine, calibration."""
+    return finance.accuracy()
+
+
+@router.get("/gis/finance/document")
+def gis_finance_document(id: str = Query(...), month: str | None = Query(None),
+                         action: str | None = Query(None)):
+    """The figures a cost_action is drafted from."""
+    return finance.action_document(id, month, action)
+
+
+@router.get("/gis/finance/outcomes")
+def gis_finance_outcomes():
+    """Each accepted cost action's driver, before and after, replayed inside the window."""
+    return finance.outcomes()
+
+
+class CloseActionIn(BaseModel):
+    decision_id: str
+    cause_found: str
+    note: str | None = None
+    saving_seen_idr: float | None = None
+    actor: str = "demo user"
+
+
+@router.post("/gis/finance/actions/close")
+def gis_finance_close_action(body: CloseActionIn):
+    """Record the cause the owner actually found. Later diagnoses read it as a past finding."""
+    row = decisions.close_cost_action(body.decision_id, body.cause_found, body.note,
+                                      body.saving_seen_idr, body.actor)
+    if not row:
+        return JSONResponse(status_code=404, content={"detail": "No cost action with that id."})
+    return {"closed": True, "decision": row}
+
+
 @router.post("/gis/decisions")
 def gis_record_decision(body: DecisionIn):
     """Log an accept / reject / defer, drafting the artifact when accepted.
@@ -697,6 +809,9 @@ class AskIn(BaseModel):
     # Prior Q&A pairs from the same chat, oldest first, so a follow-up
     # question resolves against what was already asked and answered.
     history: list[dict] | None = None
+    # The working set the last response returned: blocks, metric, month and
+    # lookups the chat is about. Validated server-side before use.
+    working_set: dict | None = None
 
 
 @router.post("/gis/ask")
@@ -707,7 +822,8 @@ def gis_ask(body: AskIn):
     the map, and an audit of every figure in the answer against the tool
     results that produced it.
     """
-    result = copilot.ask(body.question, body.estate, body.view, body.history)
+    result = copilot.ask(body.question, body.estate, body.view, body.history,
+                         body.working_set)
     audit = result.get("figure_audit") or {}
     log.info("[gis] ask: %d tool call(s), %s, audit %s",
              len(result.get("trace") or []), result.get("model"),

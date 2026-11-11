@@ -40,6 +40,10 @@ MAX_TURNS = 6          # model turns, not tool calls
 MAX_ROWS = 15          # rows any single tool may return
 DEFAULT_ESTATE = "EC"
 MAX_HISTORY_TURNS = 6  # prior Q&A pairs from the same chat kept as context
+MAX_OPTIONS = 4        # choices offered with a clarifying question
+MAX_SUGGESTIONS = 3    # follow-up questions offered after an answer
+MAX_SET_BLOCKS = 25    # blocks carried forward in the working set
+MAX_SET_QUERIES = 3    # lookups carried forward in the working set
 
 
 # ── tool implementations ───────────────────────────────────────────────────
@@ -79,6 +83,8 @@ def _t_query_blocks(args, ctx) -> dict:
     rows = layers.block_rows(estate, month)
     if rows is None:
         return {"error": f"No block data for estate {estate!r}."}
+    if metric in layers.COST_METRICS:
+        layers._add_cost_metrics(estate, rows, month)
 
     lo, hi = args.get("min_value"), args.get("max_value")
     picked = [r for r in rows if isinstance(r.get(metric), (int, float))]
@@ -904,6 +910,117 @@ _t_collection = _feature_tool("collection")
 _TOP = {"top": {"type": "integer", "description": "How many rows to return, default 10."}}
 
 
+
+# ── cost efficiency (buildplan_finance.md) ─────────────────────────────────
+
+def _finance_meta() -> dict:
+    return {"provenance": ("synthetic: generated SAP FI/CO records posted from the generated operations "
+                           "ledgers; block identity, planted area and the bunch counts underneath are real"),
+            "how_to_quote": ("Quote the rupiah and sentences as given. Leakage ranks; efficiency is necessary "
+                             "cost over spend plus crop lost. A cause from diagnose_leak is a hypothesis until "
+                             "its confirm step is done.")}
+
+
+def _finance_unit(args) -> tuple[str | None, dict | None]:
+    from gis import finance
+    if args.get("unit_id"):
+        return args["unit_id"], None
+    q = args.get("unit") or ""
+    hits = finance.resolve(q, args.get("function") or None)
+    if not hits:
+        return None, {"error": f"No unit like {q!r}.",
+                      "recovery": ("Name a vehicle (TR-04), driver (D-07), crew (G3-02), material (Urea), road "
+                                   "segment (RS-0152) or block label (32-51), or call where_losing_money to list "
+                                   "the leaks with their unit ids."), **_finance_meta()}
+    return hits[0], None
+
+
+def _t_where_losing_money(args, ctx) -> dict:
+    """The month's biggest leaks, with why and do."""
+    from gis import finance
+    from gis import finance_playbook as fpb
+    if not finance.available():
+        return {"error": "No CO ledger.", **_finance_meta()}
+    month = args.get("month") or None
+    if args.get("function"):
+        n = finance.nodes(args["function"], month, args.get("division") or None)
+        if not n.get("available"):
+            return {"error": n.get("reason"), "recovery": f"Use one of {fpb.FUNCTION_ORDER}.", **_finance_meta()}
+        return {"month": n["month_label"], "function": n["label"], "totals": n["totals"],
+                "leaks": [{"unit_id": r["id"], "unit": r["label"], "leakage_idr": r["leakage_idr"],
+                           "efficiency_pct": r["efficiency_pct"], "driver": r["driver_label"], "why": r["why"]}
+                          for r in n["rows"] if r["leakage_idr"] > 0][:MAX_ROWS],
+                "drivers": n["drivers"][:6], **_finance_meta()}
+    s = finance.summary(month, MAX_ROWS)
+    rows = s["top"]
+    if args.get("division"):
+        rows = [r for r in rows if r["division"] == str(args["division"])]
+    return {"month": s["month_label"], "headline": s["headline"], "estate": s["estate"],
+            "leaks": [{"rank": r["rank"], "unit_id": r["id"], "unit": r["label"], "function": r["function_label"],
+                       "leakage_idr": r["leakage_idr"], "driver": r["driver_label"], "why": r["why"],
+                       "do": (r["do"] or {}).get("text"), "owner": (r["do"] or {}).get("owner"),
+                       "likely_cause": r.get("diagnosis_cause")} for r in rows],
+            "functions": [{"function": f["label"], "leakage_idr": f["leakage_idr"],
+                           "efficiency_pct": f["efficiency_pct"]} for f in s["functions"]],
+            **_finance_meta()}
+
+
+def _t_node_efficiency(args, ctx) -> dict:
+    """One unit: spend, crop lost, necessary cost, the drivers, its peers."""
+    from gis import finance
+    uid, err = _finance_unit(args)
+    if err:
+        return err
+    n = finance.node(uid, args.get("month") or None)
+    if not n.get("available"):
+        return {"error": n.get("reason"), **_finance_meta()}
+    if not n.get("active"):
+        return {"unit": n.get("label"), "sentence": n.get("sentence"), "trend": n.get("trend"), **_finance_meta()}
+    return {"unit_id": uid, "unit": n["label"], "month": n["month_label"], "sentence": n["sentence"],
+            "spend_idr": n["spend_idr"], "crop_lost_idr": n["lost_idr"], "necessary_idr": n["necessary_idr"],
+            "leakage_idr": n["leakage_idr"], "efficiency_pct": n["efficiency_pct"],
+            "deferred_idr": n["deferred_idr"],
+            "drivers": [{"driver": d["label"], "idr": d["idr"]} for d in n["drivers"]],
+            "peers": n.get("peer"), "trend": n["trend"], **_finance_meta()}
+
+
+def _t_explain_leak(args, ctx) -> dict:
+    """The postings behind one unit's leak, newest first."""
+    from gis import finance
+    uid, err = _finance_unit(args)
+    if err:
+        return err
+    n = finance.node(uid, args.get("month") or None)
+    if not n.get("available") or not n.get("active"):
+        return {"error": n.get("reason") or n.get("sentence"), **_finance_meta()}
+    return {"unit": n["label"], "month": n["month_label"], "why": n.get("why"),
+            "documents_total": n["documents_total"],
+            "documents": [{"doc": d["belnr"], "date": d["budat"], "account": d["account"], "idr": d["wsl"],
+                           "quantity": d["quantity"], "unit": d["unit"], "source": f"{d['src_type']} {d['src_id']}"}
+                          for d in n["documents"][:MAX_ROWS]], **_finance_meta()}
+
+
+def _t_diagnose_leak(args, ctx) -> dict:
+    """The likely cause and the actions for one leak, as the diagnosis endpoint returns them."""
+    from gis import diagnosis
+    uid, err = _finance_unit(args)
+    if err:
+        return err
+    d = diagnosis.diagnose(uid, args.get("month") or None)
+    if not d.get("available"):
+        t = d.get("template") or {}
+        return {"diagnosed": False, "reason": d.get("reason"), "rule_based_why": t.get("why"),
+                "rule_based_do": (t.get("do") or {}).get("text"), **_finance_meta()}
+    g = d["diagnosis"]
+    return {"diagnosed": True, "unit_id": uid, "month": d["month_label"], "headline": g["headline"],
+            "likely_cause": g["cause"]["label"], "confidence": g["cause"]["confidence"],
+            "why": g["cause"]["sentence"], "evidence": [e["label"] for e in g["cause"]["evidence"]],
+            "ruled_out": [{"cause": r["label"], "why": r["sentence"]} for r in g["ruled_out"]],
+            "confirm": g["confirm"],
+            "actions": [{"action": a["text"], "owner": a["owner"], "when": a["when"],
+                         "saving_idr_month": a["saving_idr_month"]} for a in g["actions"]],
+            "checks": [{"check": c["label"], "finding": c["finding"]} for c in d["checks"]], **_finance_meta()}
+
 _TOOLS = {
     "estate_overview": {
         "fn": _t_estate_overview,
@@ -1196,6 +1313,52 @@ _TOOLS = {
         },
         "required": ["operation", "constraint"],
     },
+    "where_losing_money": {
+        "fn": _t_where_losing_money,
+        "desc": ("Where the estate is losing money: the month's biggest leaks in rupiah across blocks, vehicles, "
+                 "drivers, crews, materials and road segments, each with its driver, the rule-based why and do, "
+                 "and the likely cause where a diagnosis is ready; or every unit of one function. Use for 'where "
+                 "are we losing money', 'what is the biggest leak', 'how efficient is harvesting in Division 3'."),
+        "params": {
+            "month": {"type": "string", "description": "YYYY-MM, 2025-01 to 2025-05; default 2025-04."},
+            "function": {"type": "string", "enum": ["harvesting", "transport", "fleet", "fertiliser", "upkeep",
+                                                    "pest", "workforce", "stores", "roads", "overhead"]},
+            "division": {"type": "string", "description": "Division number, optional."},
+        },
+    },
+    "node_efficiency": {
+        "fn": _t_node_efficiency,
+        "desc": ("One unit's cost efficiency: spend, crop lost, necessary cost at its best peers' rate, leakage, "
+                 "efficiency, deferred cost, the drivers that make up the gap, its peers and its monthly trend. "
+                 "Use for 'how efficient is truck TR-04', 'why is block 32-51 leaking', 'is gang G3-02 costing too much'."),
+        "params": {
+            "unit": {"type": "string", "description": "Vehicle, driver, crew, material, segment or block label."},
+            "unit_id": {"type": "string", "description": "A unit id from where_losing_money, if known."},
+            "function": {"type": "string", "description": "Narrow the match, e.g. fleet for a vehicle's repairs."},
+            "month": {"type": "string", "description": "YYYY-MM, optional."},
+        },
+    },
+    "explain_leak": {
+        "fn": _t_explain_leak,
+        "desc": ("The CO postings behind one unit's leak, newest first, each with its source document (work "
+                 "order, payroll day, goods issue, fuel fill, invoice, contract sheet, job card, road order). "
+                 "Use for 'show me the documents', 'what was posted to TR-04'."),
+        "params": {
+            "unit": {"type": "string"}, "unit_id": {"type": "string"},
+            "function": {"type": "string"}, "month": {"type": "string"},
+        },
+    },
+    "diagnose_leak": {
+        "fn": _t_diagnose_leak,
+        "desc": ("The likely cause of one leak and what to do: chosen by the model from deterministic checks on "
+                 "the records and a vetted action list, with the causes ruled out, the field check that would "
+                 "confirm it, and each action's owner and saving. Relay it; never re-diagnose. Use for 'why is "
+                 "TR-04 using so much fuel', 'what should we do about Division 5 fertiliser'."),
+        "params": {
+            "unit": {"type": "string"}, "unit_id": {"type": "string"},
+            "function": {"type": "string"}, "month": {"type": "string"},
+        },
+    },
     "stock_position": {
         "fn": _t_stock_position,
         "desc": ("The estate store: for every material (fertiliser, herbicide, pest chemicals, diesel, spare "
@@ -1442,6 +1605,234 @@ def infer_focus(answer: str, estate: str) -> dict | None:
     }
 
 
+# ── the conversation around the answer ─────────────────────────────────────
+
+_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+_SET_MONTH = re.compile(r"^[\w -]{1,24}$")
+_OPTION_INSTRUCTION = re.compile(r"^(?:please|silakan|tolong|mohon)\b", re.IGNORECASE)
+_POINTING_WORD = re.compile(
+    r"\b(?:that|this|it|its|them|they|those|these|ones?|itu|ini|tersebut|mereka)\b",
+    re.IGNORECASE)
+
+
+def _parse_clarification(raw) -> dict | None:
+    """The gate's clarifying question, tidied. None when there is nothing to ask."""
+    if not isinstance(raw, dict) or raw.get("clarify") is not True:
+        return None
+    # Underscores because Nova offers metric keys as choices; the manager has
+    # never seen a field name and should not meet one here.
+    question = str(raw.get("question") or "").replace("_", " ").strip()[:240]
+    if not question:
+        return None
+    options = []
+    choices = raw.get("options")
+    for opt in choices if isinstance(choices, list) else []:
+        text = str(opt).replace("_", " ").strip()[:60]
+        # A button sends its own text as the manager's reply, so "Please give
+        # the block label" is not a choice they can make.
+        if _OPTION_INSTRUCTION.match(text):
+            continue
+        if text and text.casefold() not in {o.casefold() for o in options}:
+            options.append(text)
+    options = options[:MAX_OPTIONS]
+    return {"question": question, "options": options if len(options) >= 2 else []}
+
+
+def _clarify_gate(question: str, view: dict | None, prior_turns: list[dict],
+                  prior_set: dict, usage_total: dict) -> tuple[dict | None, str | None]:
+    """One cheap look at the question before the agent starts.
+
+    Separate from the agent on purpose. Teaching the agent to ask back, as a
+    tool or as a text format, made Nova emit malformed tool calls: 6 of 10 on
+    one planning question, against 1 of 10 without. Any failure here means the
+    question simply goes to the agent.
+
+    Only a message with a pointing word can have nothing to point at, so a
+    complete question skips this and cannot be over-asked. The reasoning tier
+    because Nova Lite got 5 of 15 of these right.
+    """
+    import llm_client
+
+    if not _POINTING_WORD.search(question):
+        return None, None
+    chat = "\n".join(
+        f"Q: {str(t.get('question') or '')[:200]}\nA: {str(t.get('answer') or '')[:240]}"
+        for t in prior_turns[-3:]) or "(nothing yet: this is the first message)"
+    selected = (view or {}).get("selected_block") or "none"
+    try:
+        result = llm_client.chat(
+            [{"role": "system", "content": load_prompt("estate_copilot_clarify_system")},
+             {"role": "user", "content": (
+                 f"CHAT SO FAR:\n{chat}\n\nSELECTED BLOCK: {selected}\n"
+                 f"STILL IN PLAY: {working_set_note(prior_set).strip() or 'nothing'}\n\n"
+                 f"MESSAGE: {question}")}],
+            tier="reasoning", temperature=0, max_tokens=160, json_mode=True,
+            task="estate_copilot_clarify",
+        )
+    except Exception as exc:
+        log.warning("[copilot] clarify gate failed: %s", exc)
+        return None, None
+    for k in usage_total:
+        usage_total[k] += (result.usage or {}).get(k, 0) or 0
+    return _parse_clarification(reasoning.parse_json(result.text or "")), result.model_id
+
+
+def _audit_clarification(asked: dict, trace: list[dict], evidence: list) -> dict:
+    """A clarifying question may not carry a figure nobody retrieved.
+
+    The evidence is wider than an answer's: a question can repeat what the
+    manager said or what an earlier answer established. Years are dropped
+    first, because "April 2025 or the whole window?" states no measurement.
+    """
+    text = "\n".join([asked["question"], *asked["options"]])
+    return reasoning.audit_figures(_YEAR.sub(" ", text),
+                                   [t["observation"] for t in trace] + evidence)
+
+
+def _clean_query(query) -> dict | None:
+    """One lookup worth carrying forward, or None."""
+    if not isinstance(query, dict):
+        return None
+    tool, args = query.get("tool"), query.get("args")
+    if tool not in _TOOLS or tool == "focus_map" or not isinstance(args, dict):
+        return None
+    if len(json.dumps(args, default=str)) > 300:
+        return None
+    return {"tool": tool, "args": args}
+
+
+def clean_working_set(raw, estate: str) -> dict:
+    """Validate a working set handed back by the browser.
+
+    It goes into the prompt, so nothing is trusted: blocks must exist on this
+    estate, the metric must be a real one, and a set from another estate is
+    dropped whole, since its blocks mean nothing here.
+    """
+    if not isinstance(raw, dict) or str(raw.get("estate") or "").upper() != estate:
+        return {}
+    out = {"estate": estate}
+    blocks = raw.get("blocks")
+    if isinstance(blocks, list) and blocks:
+        geo = ontology.blocks_geojson(estate) or {"features": []}
+        real = {str(f["properties"].get("block_label")) for f in geo["features"]}
+        kept = [str(b) for b in blocks if str(b) in real][:MAX_SET_BLOCKS]
+        if kept:
+            out["blocks"] = kept
+    if raw.get("metric") in layers.METRICS:
+        out["metric"] = raw["metric"]
+    month = raw.get("month")
+    if isinstance(month, str) and _SET_MONTH.match(month):
+        out["month"] = month
+    queries = raw.get("queries")
+    if isinstance(queries, list):
+        kept = [q for q in map(_clean_query, queries) if q][-MAX_SET_QUERIES:]
+        if kept:
+            out["queries"] = kept
+    return out
+
+
+def update_working_set(prior: dict, estate: str, focus: dict | None,
+                       trace: list[dict]) -> dict:
+    """What the chat is now about, built from what was actually looked up.
+
+    A turn replaces only what it touched, so "what about their cost?" after a
+    list of blocks still knows which blocks.
+    """
+    ws = {**prior, "estate": estate}
+    calls = [t for t in trace if t["ok"] and t["tool"] != "focus_map"]
+    for t in calls:   # oldest first, so the last lookup wins
+        if t["args"].get("metric") in layers.METRICS:
+            ws["metric"] = t["args"]["metric"]
+        if isinstance(t["args"].get("month"), str):
+            ws["month"] = t["args"]["month"]
+    focus = focus or {}
+    if focus.get("block_labels"):
+        ws["blocks"] = list(focus["block_labels"])[:MAX_SET_BLOCKS]
+    if focus.get("metric"):
+        ws["metric"] = focus["metric"]
+    if focus.get("month"):
+        ws["month"] = focus["month"]
+    queries = [q for q in (_clean_query(t) for t in calls) if q][-MAX_SET_QUERIES:]
+    if queries:
+        ws["queries"] = queries
+    return ws
+
+
+def working_set_note(ws: dict) -> str:
+    """The working set as a line the model can resolve "those blocks" against."""
+    bits = []
+    if ws.get("blocks"):
+        bits.append("blocks " + ", ".join(ws["blocks"]))
+    if ws.get("metric"):
+        bits.append(f"metric {ws['metric']}")
+    if ws.get("month"):
+        bits.append(f"month {ws['month']}")
+    if ws.get("queries"):
+        bits.append("last looked up with " + "; ".join(
+            f"{q['tool']} {json.dumps(q['args'], default=str)}" for q in ws["queries"]))
+    if not bits:
+        return ""
+    return ("\n\nStill in play from earlier in this chat: " + "; ".join(bits) + ". "
+            "\"Those blocks\", \"that month\" and \"what about last year\" mean these "
+            "unless the manager says otherwise: repeat the lookup with the one thing "
+            "changed. This says what was discussed and is not evidence, so any figure "
+            "you quote still comes from a tool call now.")
+
+
+def clean_suggestions(raw, question: str, answer: str,
+                      asked: list[str] | None = None) -> list[str]:
+    """Keep only the suggestions safe to put on a button.
+
+    Every number and block label has to appear in the question or the answer,
+    by the same check the figure audit uses, so a chip cannot introduce a
+    figure nobody retrieved.
+    """
+    seen = {q.strip().casefold() for q in [question, *(asked or [])]}
+    out: list[str] = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, str):
+            continue
+        text = re.sub(r"\s+", " ", item).strip()
+        if not 8 <= len(text) <= 100 or text.casefold() in seen:
+            continue
+        if "_" in text or any(name in text for name in _TOOLS):
+            continue
+        if not reasoning.audit_figures(text, [question, answer])["clean"]:
+            continue
+        seen.add(text.casefold())
+        out.append(text)
+    return out[:MAX_SUGGESTIONS]
+
+
+def _suggest_followups(question: str, answer: str, asked: list[str],
+                       usage_total: dict) -> list[str]:
+    """Next questions for the buttons under an answer. Never load-bearing.
+
+    A separate call on the cheap tier, so the suggestions cannot leak into the
+    answer text or trip its figure audit. Any failure means no buttons.
+    """
+    import llm_client
+
+    catalogue = "\n".join("- " + t["desc"].split(". ")[0].rstrip(".")
+                          for t in _TOOLS.values())
+    try:
+        result = llm_client.chat(
+            [{"role": "system", "content": load_prompt("estate_copilot_followups_system")},
+             {"role": "user", "content": (f"CAN ANSWER:\n{catalogue}\n\n"
+                                          f"QUESTION: {question}\n\n"
+                                          f"ANSWER: {answer[:2000]}")}],
+            tier="routing", temperature=0.3, max_tokens=220, json_mode=True,
+            task="estate_copilot_followups",
+        )
+    except Exception as exc:
+        log.warning("[copilot] follow-up suggestions failed: %s", exc)
+        return []
+    for k in usage_total:
+        usage_total[k] += (result.usage or {}).get(k, 0) or 0
+    parsed = reasoning.parse_json(result.text or "") or {}
+    return clean_suggestions(parsed.get("suggestions"), question, answer, asked)
+
+
 # ── the loop ───────────────────────────────────────────────────────────────
 
 def _serialise(result) -> dict:
@@ -1459,13 +1850,21 @@ def _serialise(result) -> dict:
 
 
 def ask(question: str, estate: str = DEFAULT_ESTATE,
-        view: dict | None = None, history: list[dict] | None = None) -> dict:
+        view: dict | None = None, history: list[dict] | None = None,
+        working_set: dict | None = None) -> dict:
     """Answer one question about the estate. Returns answer, trace and focus.
 
     `history` is the prior Q&A pairs from the same chat, oldest first, e.g.
-    [{"question": "...", "answer": "..."}, ...]. It seeds the conversation so
-    a follow-up like "what about last month" resolves against what was
-    already asked and answered, rather than starting cold each time.
+    [{"question": "...", "answer": "...", "kind": "answer"}, ...]. It seeds the
+    conversation so a follow-up like "what about last month" resolves against
+    what was already asked and answered, rather than starting cold each time.
+
+    `working_set` is the one this function returned last turn: the blocks,
+    metric, month and lookups the chat is about.
+
+    The result's `kind` is "answer" or "clarify". A clarification puts its
+    question in `answer` and its choices in `options`; an answer offers next
+    questions in `suggestions`.
     """
     import llm_client
 
@@ -1485,19 +1884,58 @@ def ask(question: str, estate: str = DEFAULT_ESTATE,
             view_note = ("\n\nThe manager is currently looking at: "
                          + ", ".join(bits) + ".")
 
+    prior_set = clean_working_set(working_set, ctx["estate"])
+    prior_turns = (history or [])[-MAX_HISTORY_TURNS:]
+    # One question back, then an answer: a manager who has just replied to a
+    # clarification must not be met with another one.
+    may_clarify = not (prior_turns and prior_turns[-1].get("kind") == "clarify")
+
     messages = [{"role": "system", "content": load_prompt("estate_copilot_system")}]
-    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
+    for turn in prior_turns:
         prior_q = str(turn.get("question") or "").strip()[:600]
         prior_a = str(turn.get("answer") or "").strip()[:2000]
         if prior_q and prior_a:
             messages.append({"role": "user", "content": prior_q})
             messages.append({"role": "assistant", "content": prior_a})
-    messages.append({"role": "user", "content": question + view_note})
+    messages.append({"role": "user",
+                     "content": question + view_note + working_set_note(prior_set)})
 
     trace, usage_total = [], {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     model_id = None
     t0 = time.monotonic()
     answer = ""
+
+    def reply(kind, text, focus, audit, options=(), suggestions=(), ws=None) -> dict:
+        return {
+            "available": True,
+            "kind": kind,
+            "question": question,
+            "estate": ctx["estate"],
+            "answer": text,
+            "options": list(options),
+            "suggestions": list(suggestions),
+            "working_set": ws if ws is not None else prior_set,
+            "focus": focus,
+            "trace": trace,
+            "tools_used": [t["tool"] for t in trace],
+            "figure_audit": audit,
+            "model": model_id,
+            "latency_ms": int((time.monotonic() - t0) * 1000),
+            "usage": usage_total,
+        }
+
+    if may_clarify:
+        asked, gate_model = _clarify_gate(question, view, prior_turns, prior_set,
+                                          usage_total)
+        if asked:
+            audit = _audit_clarification(asked, trace,
+                                         [question, view, prior_turns, prior_set])
+            if audit["clean"]:
+                model_id = gate_model
+                return reply("clarify", asked["question"], None, audit,
+                             options=asked["options"])
+            log.info("[copilot] clarification held back, unverified: %s",
+                     audit["unverified"])
 
     for turn in range(MAX_TURNS):
         last_turn = turn == MAX_TURNS - 1
@@ -1508,7 +1946,7 @@ def ask(question: str, estate: str = DEFAULT_ESTATE,
                                     "have, and say plainly what you could not check."})
         try:
             result = llm_client.chat(
-                msgs, tier="main", temperature=0.15, max_tokens=1400,
+                msgs, tier="reasoning", temperature=0.15, max_tokens=1400,
                 tools=None if last_turn else tool_schemas(),
                 tool_choice=None if last_turn else "auto",
                 task="estate_copilot",
@@ -1590,21 +2028,16 @@ def ask(question: str, estate: str = DEFAULT_ESTATE,
             if audit["clean"]:
                 log.info("[copilot] self-correction cleared the audit")
 
-    focus = ctx["focus"] or infer_focus(answer, ctx["estate"])
+    # The prompt asks for the tool, but a model that looked nothing up and
+    # replied with a question has asked one, whichever way it was delivered.
+    if may_clarify and not trace and answer.endswith("?"):
+        return reply("clarify", answer, None, audit)
 
-    return {
-        "available": True,
-        "question": question,
-        "estate": ctx["estate"],
-        "answer": answer,
-        "focus": focus,
-        "trace": trace,
-        "tools_used": [t["tool"] for t in trace],
-        "figure_audit": audit,
-        "model": model_id,
-        "latency_ms": int((time.monotonic() - t0) * 1000),
-        "usage": usage_total,
-    }
+    focus = ctx["focus"] or infer_focus(answer, ctx["estate"])
+    asked_before = [str(t.get("question") or "") for t in prior_turns]
+    suggestions = _suggest_followups(question, answer, asked_before, usage_total)
+    return reply("answer", answer, focus, audit, suggestions=suggestions,
+                 ws=update_working_set(prior_set, ctx["estate"], focus, trace))
 
 
 def _is_substantive(answer: str) -> bool:
@@ -1632,7 +2065,7 @@ def _force_finding(messages, usage_total) -> str | None:
                     "reading does not settle. Do not refer to the map."),
     }]
     try:
-        result = llm_client.chat(msgs, tier="main", temperature=0.15,
+        result = llm_client.chat(msgs, tier="reasoning", temperature=0.15,
                                  max_tokens=1200, task="estate_copilot_finding")
     except Exception as exc:
         log.warning("[copilot] forced finding failed: %s", exc)
@@ -1658,7 +2091,7 @@ def _self_correct(messages, audit, ctx, trace, usage_total) -> str | None:
     }]
     try:
         result = llm_client.chat(
-            msgs, tier="main", temperature=0.1, max_tokens=1200,
+            msgs, tier="reasoning", temperature=0.1, max_tokens=1200,
             tools=tool_schemas(), tool_choice="auto", task="estate_copilot_fix")
     except Exception as exc:
         log.warning("[copilot] self-correction failed: %s", exc)
@@ -1696,7 +2129,7 @@ def _self_correct(messages, audit, ctx, trace, usage_total) -> str | None:
         msgs.append({"role": "tool", "tool_call_id": tc["id"],
                      "content": reasoning.clip(observation, 6000)})
     try:
-        final = llm_client.chat(msgs, tier="main", temperature=0.1,
+        final = llm_client.chat(msgs, tier="reasoning", temperature=0.1,
                                 max_tokens=1200, task="estate_copilot_fix")
     except Exception as exc:
         log.warning("[copilot] self-correction follow-up failed: %s", exc)

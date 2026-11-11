@@ -1,0 +1,22 @@
+# SYNTHETIC. Chart of accounts (SKA1 / cost elements). `group` is the cost-element group the budget is set by.
+racct,txt,group,kind
+4101000,FFB sales,REVENUE,revenue
+6101000,Harvest wages,HARVEST,wage
+6101100,Harvest premium,HARVEST,wage
+6101200,Overtime,HARVEST,wage
+6102000,Upkeep wages,UPKEEP,wage
+6103000,Pest and disease wages,PEST,wage
+6104000,"Fertiliser application, contract",FERTILISER,service
+6105000,Unassigned labour,LABOUR,wage
+6106000,Driver wages,DRIVERS,wage
+6201000,Fertiliser,FERTILISER,material
+6202000,Herbicide,UPKEEP,material
+6202100,Pest chemicals,PEST,material
+6203000,Diesel,FUEL,material
+6204000,Spare parts,FLEET,material
+6301000,Vehicle repair and service,FLEET,service
+6302000,Road works,ROADS,service
+6401000,Overhead: staff and administration,OVERHEAD,overhead
+6402000,Overhead: housing and welfare,OVERHEAD,overhead
+6501000,Purchase price variance,PRICE,variance
+6502000,Inventory differences,PRICE,variance

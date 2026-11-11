@@ -34,6 +34,7 @@ from typing import Any
 from config import (
     AWS_REGION,
     BEDROCK_MODEL_ID,
+    BEDROCK_REASONING_MODEL_ID,
     BEDROCK_ROUTING_MODEL_ID,
     GROQ_API_KEY,
     GROQ_MODEL,
@@ -48,11 +49,15 @@ _call_log = logging.getLogger("llm.calls")
 _SUPPORTED_PROVIDERS = ("groq", "bedrock")
 
 # Model tiers: call sites that don't care about exact model ids ask for a tier
-# and each provider maps it to its own id. "main" answers/generates SQL;
-# "routing" is the cheap/fast classifier tier.
+# and each provider maps it to its own id. "main" is the default (retrieval,
+# SQL generation, short answers); "reasoning" is the stronger model callers
+# escalate to for analysis and agents; "routing" is the cheap/fast classifier
+# tier. Groq has a single model, so "reasoning" is the same as "main" there.
 _TIER_MODELS = {
-    "groq":    {"main": GROQ_MODEL,       "routing": ROUTING_MODEL},
-    "bedrock": {"main": BEDROCK_MODEL_ID, "routing": BEDROCK_ROUTING_MODEL_ID},
+    "groq":    {"main": GROQ_MODEL,       "reasoning": GROQ_MODEL,
+                "routing": ROUTING_MODEL},
+    "bedrock": {"main": BEDROCK_MODEL_ID, "reasoning": BEDROCK_REASONING_MODEL_ID,
+                "routing": BEDROCK_ROUTING_MODEL_ID},
 }
 
 _model_cache: dict[tuple, Any] = {}
@@ -66,6 +71,23 @@ _cache_lock = Lock()
 # a whole pipeline run without any call site needing to know about it.
 _rag_source_var: ContextVar[str | None] = ContextVar("rag_source", default=None)
 _rag_collector_var: ContextVar[list[dict] | None] = ContextVar("rag_collector", default=None)
+
+
+# Per-request model override (chat page model selector). Applies only to the
+# "main" and "reasoning" tiers, so classifiers on the "routing" tier are
+# untouched, and only under Bedrock (the ids are Bedrock ids). A ContextVar,
+# not a global, so concurrent requests with different choices cannot collide.
+_model_override_var: ContextVar[str | None] = ContextVar("model_override", default=None)
+
+
+@contextmanager
+def model_override(model_id: str | None):
+    """Force every main/reasoning-tier chat() call in this block onto `model_id`."""
+    token = _model_override_var.set(model_id)
+    try:
+        yield
+    finally:
+        _model_override_var.reset(token)
 
 
 @contextmanager
@@ -234,6 +256,8 @@ def chat(
     LangChain translates them to each provider's wire format via bind_tools.
     task: short label for the structured call log (e.g. "sql_generation").
     """
+    if model is None and LLM_PROVIDER == "bedrock" and tier in ("main", "reasoning"):
+        model = _model_override_var.get()
     chat_model = get_chat_model(
         model=model, tier=tier, temperature=temperature,
         max_tokens=max_tokens, json_mode=json_mode, extra_kwargs=extra_kwargs,
@@ -294,4 +318,92 @@ def chat(
         total_tokens=record["total_tokens"],
         latency_ms=latency_ms,
         message=ai_message,
+    )
+
+
+def chat_stream(
+    messages: list[dict],
+    *,
+    on_delta,
+    model: str | None = None,
+    tier: str = "main",
+    temperature: float = 0.0,
+    max_tokens: int = 800,
+    task: str = "general",
+) -> LLMResult:
+    """chat(), but the text is handed to `on_delta(str)` piece by piece as the
+    model writes it. Returns the same LLMResult once the answer is complete.
+
+    If the provider refuses to stream (some accounts lack the streaming
+    permission) the call falls back to a normal one, as long as nothing has
+    been shown yet, so the caller always gets an answer.
+    """
+    if model is None and LLM_PROVIDER == "bedrock" and tier in ("main", "reasoning"):
+        model = _model_override_var.get()
+    chat_model = get_chat_model(model=model, tier=tier, temperature=temperature,
+                                max_tokens=max_tokens)
+    model_id = resolve_model(model, tier)
+    record = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "task": task,
+        "provider": LLM_PROVIDER,
+        "model": model_id,
+        "rag_source": _rag_source_var.get(),
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "latency_ms": 0,
+        "ok": False,
+        "stream": True,
+    }
+    t0 = time.monotonic()
+    parts: list[str] = []
+    merged = None
+    try:
+        for chunk in chat_model.stream(messages):
+            piece = _flatten_content(chunk.content)
+            if piece:
+                parts.append(piece)
+                on_delta(piece)
+            merged = chunk if merged is None else merged + chunk
+    except Exception as exc:
+        if parts:
+            record["latency_ms"] = int((time.monotonic() - t0) * 1000)
+            record["error"] = str(exc)[:300]
+            _log_call(record)
+            raise
+        log.warning("streaming failed before any text (%s), retrying without it", exc)
+        result = chat(messages, model=model, tier=tier, temperature=temperature,
+                      max_tokens=max_tokens, task=task)
+        if result.text:
+            on_delta(result.text)
+        return result
+
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    usage = getattr(merged, "usage_metadata", None) or {}
+    record.update(
+        input_tokens=int(usage.get("input_tokens") or 0),
+        output_tokens=int(usage.get("output_tokens") or 0),
+        total_tokens=int(usage.get("total_tokens") or 0),
+        latency_ms=latency_ms,
+        ok=True,
+    )
+    _log_call(record)
+    collector = _rag_collector_var.get()
+    if collector is not None:
+        collector.append({
+            "task": task,
+            "input_tokens": record["input_tokens"],
+            "output_tokens": record["output_tokens"],
+            "latency_ms": latency_ms,
+        })
+    return LLMResult(
+        text="".join(parts).strip(),
+        provider=LLM_PROVIDER,
+        model_id=model_id,
+        input_tokens=record["input_tokens"],
+        output_tokens=record["output_tokens"],
+        total_tokens=record["total_tokens"],
+        latency_ms=latency_ms,
+        message=merged,
     )

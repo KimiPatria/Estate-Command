@@ -253,6 +253,51 @@ ASSUMPTIONS = [
     _a("bait_kg_per_palm", "Rat bait per palm", 0.015, "kg per palm", "literature",
        "One bait block per palm per baiting round.",
        ["pest chemical per palm"], 0.002, 0.1, group="stores"),
+
+    # ── finance: where money leaks (buildplan_finance.md) ───────────────
+    _a("premi_idr_per_bunch", "Harvest premium per bunch over quota", 250, "IDR per bunch",
+       "assumed",
+       "Paid on every bunch a harvester cuts above the day's quota. Real schemes are tiered by "
+       "bunch count and terrain; agree the estate's own scheme with HR.",
+       ["harvest premium on the ledger"], 0, 2_000, group="finance"),
+    _a("overtime_multiplier", "Overtime multiplier", 1.5, "x the hourly rate", "assumed",
+       "Overtime hours paid at this multiple of the day rate divided by the working day.",
+       ["overtime on the ledger"], 1.0, 3.0, group="finance"),
+    _a("vehicle_hire_idr_per_hour", "Replacement vehicle hire", 350_000, "IDR per hour",
+       "assumed",
+       "What an hour of a broken-down truck costs: a hired replacement at local rates.",
+       ["breakdown downtime cost"], 0, 2_000_000, group="finance"),
+    _a("ffa_idr_per_kg_point", "Mill price per FFA point", 25, "IDR per kg per point",
+       "assumed",
+       "Placeholder, not the mill's tariff: what one point of free fatty acid costs per kg of "
+       "fruit. Prices the queue and afternoon FFA on the FFA panel and the cost window.",
+       ["queue FFA cost", "FFA panel pricing"], 0, 200, group="finance"),
+    _a("transport_idr_per_kg_km", "Haulage per kg-km", 4.6, "IDR per kg per km", "assumed",
+       "Placeholder haulage rate for landed cost on the vendor ranking.",
+       ["vendor landed cost"], 0, 50, group="finance"),
+    _a("fert_kg_per_man_day", "Fertiliser application rate", 300, "kg per man-day",
+       "literature",
+       "Manual broadcast around the palm circle, about 1.2 ha a day at 200-270 kg/ha. The "
+       "application contract is judged against it.",
+       ["necessary application labour"], 100, 800, group="finance"),
+    _a("benchmark_quantile", "Benchmark quantile", 25, "percentile of peers", "assumed",
+       "Necessary cost is what the best quarter of comparable units achieve. Lower is "
+       "stricter.", ["necessary cost on every node"], 5, 50, group="finance"),
+    _a("min_peer_group", "Smallest peer group", 8, "units", "assumed",
+       "A peer group smaller than this drops its weakest dimension (slope, then distance).",
+       ["peer groups"], 3, 30, group="finance"),
+    _a("leak_materiality_idr", "Smallest leak worth listing", 5_000_000, "IDR a month",
+       "assumed", "Leaks under this stay in the node tables but never in the top ten.",
+       ["top leaks"], 0, 100_000_000, group="finance"),
+    _a("part_load_threshold_pct", "Full-load threshold", 80, "% of payload", "assumed",
+       "A trip loaded under this share of the vehicle's payload counts as a part load.",
+       ["part-load cost"], 30, 100, group="finance"),
+    _a("use_leak_diagnosis", "Use the AI diagnosis", 1, "1 on, 0 off", "assumed",
+       "Off shows the rule-based why and do only, and makes no model call: for a demo "
+       "without network.", ["leak diagnosis"], 0, 1, group="finance"),
+    _a("diagnosis_in_bahasa", "Diagnosis in Bahasa Indonesia", 0, "1 on, 0 off", "assumed",
+       "Write the diagnosis in Bahasa Indonesia. Figures stay in the server's format.",
+       ["leak diagnosis"], 0, 1, group="finance"),
 ]
 
 _BY_KEY = {a["key"]: a for a in ASSUMPTIONS}
@@ -360,7 +405,8 @@ def catalogue() -> dict:
     for r in rows:
         by_source[r["source_in_force"]] = by_source.get(r["source_in_force"], 0) + 1
     groups = []
-    for g in ("pricing", "harvest", "upkeep", "pest", "transport", "scheduling", "forecasting", "stores"):
+    for g in ("pricing", "harvest", "upkeep", "pest", "transport", "scheduling", "forecasting", "stores",
+              "finance"):
         rs = [r for r in rows if r["group"] == g]
         if rs:
             groups.append({"group": g, "assumptions": rs})

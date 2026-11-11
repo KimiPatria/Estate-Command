@@ -382,7 +382,7 @@ def _build_graph(ctx):
     import llm_client
     from config import INVESTIGATOR_MODEL
 
-    model_id = llm_client.resolve_model(INVESTIGATOR_MODEL, tier="main")
+    model_id = llm_client.resolve_model(INVESTIGATOR_MODEL, tier="reasoning")
 
     def _call_model(messages, with_tools=True):
 

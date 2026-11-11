@@ -1396,6 +1396,11 @@ def build() -> dict:
     counts.update({k: v for k, v in mat.items() if k != "checks"})
     counts["materials_checks"] = mat["checks"]
 
+    # The CO ledger: posted from everything above (buildplan_finance.md). Last
+    # of all, on its own seed; it rewrites only ec_block_costs.csv's window.
+    from gis import build_finance
+    fin = build_finance.build()
+
     manifest = {
         "generated_for": "EC",
         "seed": SEED,
@@ -1408,6 +1413,7 @@ def build() -> dict:
             "cost_idr_ha_yr": sum(COST_IDR_HA_YR.values()),
         },
         "files": counts,
+        "finance_checks": fin["checks"],
     }
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return manifest

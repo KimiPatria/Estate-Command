@@ -1,0 +1,75 @@
+# Leak diagnosis eval cases (buildplan_finance.md §5).
+#
+# One case per planted leak and per decoy unit. `key` names the row in
+# gis/data/synthetic/ec_fi_leak_key.csv whose true_cause the case is scored
+# against; the runner reads it there, so the answer lives in one place.
+# Decoys pass on "within_norm", or on a cause held only as "possible".
+#
+# Run: python evals/run_leak_diagnosis.py [--runs 3]
+
+cases:
+  - id: fuel_tr04
+    key: fuel_tr04
+    unit: transport:vehicle:TR-04
+    month: "2025-03"
+  - id: ot_g302
+    key: ot_g302
+    unit: workforce:crew:G3-02
+    month: "2025-04"
+  - id: pay_u402
+    key: pay_u402
+    unit: workforce:crew:U4-02
+    month: "2025-04"
+  - id: fert_app_d5
+    key: fert_app_d5
+    unit: group:fertiliser:5:application_labour
+    month: "2025-04"
+  - id: price_urea
+    key: price_urea
+    unit: stores:material:FE-002
+    month: "2025-03"
+  - id: fleet_du01
+    key: fleet_du01
+    unit: fleet:vehicle:DU-01
+    month: "2025-03"
+  - id: culvert_repeat
+    key: culvert_repeat
+    unit: roads:segment:RS-0152
+    month: "2025-03"
+  - id: grading_d6
+    key: grading_d6
+    unit: group:roads:6:billing_over_length
+    month: "2025-04"
+  - id: shrink_d07
+    key: shrink_d07
+    unit: transport:driver:D-07
+    month: "2025-03"
+  # Counterfactuals: the same drivers as fuel_tr04, ot_g302 and pay_u402, with the
+  # less obvious cause. A model naming the cause from the driver alone misses these.
+  - id: tank_tr06
+    key: tank_tr06
+    unit: transport:vehicle:TR-06
+    month: "2025-03"
+    counterfactual: true
+  - id: ot_g501
+    key: ot_g501
+    unit: workforce:crew:G5-01
+    month: "2025-04"
+    counterfactual: true
+  - id: pay_u603
+    key: pay_u603
+    unit: workforce:crew:U6-03
+    month: "2025-04"
+    counterfactual: true
+  - id: decoy_terrain
+    key: decoy_terrain
+    unit: harvesting:block:6|208
+    month: "2025-01"
+  - id: decoy_prescribed
+    key: decoy_prescribed
+    unit: fertiliser:block:1|1
+    month: "2025-04"
+  - id: decoy_skipped_upkeep
+    key: decoy_skipped_upkeep
+    unit: upkeep:block:5|186
+    month: "2025-03"

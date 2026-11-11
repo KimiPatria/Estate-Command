@@ -146,6 +146,19 @@ ARTIFACT_KINDS = {
                        "proposed values are learned from generated purchase-order "
                        "and goods-issue history."),
     },
+    # The cost window's document (buildplan_finance.md): a leak, its likely cause
+    # and the action, owned by the role the playbook names, reviewed a month on.
+    "cost_action": {
+        "label": "Cost action",
+        "epms_table": "(none: an instruction to the owner, tracked in this log)",
+        "epms_entity": "cost action with a review date",
+        "approver": "Estate Manager",
+        "provenance": ("EVERY figure on this document is SYNTHETIC: the leak is priced from "
+                       "generated SAP FI/CO records posted from the generated operations "
+                       "ledgers. Block identity and planted area are real. The likely cause, "
+                       "where shown, is the model's reading of server-run checks and is a "
+                       "hypothesis until the confirm step is done."),
+    },
     "inspection_order": {
         "label": "Field inspection order",
         "epms_table": "log_workplan_approval",
@@ -253,6 +266,31 @@ def history(limit: int = 100, estate: str | None = None) -> dict:
         counts[r["action"]] = counts.get(r["action"], 0) + 1
     return {"decisions": rows, "total": len(rows), "by_action": counts,
             "db": str(DB_PATH)}
+
+
+def close_cost_action(decision_id: str, cause_found: str, note: str | None = None,
+                      saving_seen_idr: float | None = None, actor: str = "demo user") -> dict | None:
+    """Record what the owner actually found when the action was done.
+
+    Written to observed_effect, the column the loop already reserves for what
+    happened. The diagnosis reads it back as a past finding on the same unit
+    and the same driver elsewhere, so the estate's own findings sharpen the
+    next reading without any training.
+    """
+    init()
+    with _LOCK, _conn() as c:
+        row = c.execute("select * from decisions where id = ?", (decision_id,)).fetchone()
+        if not row or row["artifact_kind"] != "cost_action":
+            return None
+        obs = {"cause_found": cause_found, "note": note, "saving_seen_idr": saving_seen_idr,
+               "closed_by": actor,
+               "closed_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        c.execute("update decisions set observed_effect = ? where id = ?",
+                  (json.dumps(obs, ensure_ascii=False), decision_id))
+        out = dict(row)
+        out["observed_effect"] = json.dumps(obs, ensure_ascii=False)
+    log.info("[decisions] cost action %s closed: %s", decision_id, cause_found)
+    return _hydrate(out)
 
 
 def clear() -> int:
@@ -363,6 +401,26 @@ def draft(kind: str, estate: str, payload: dict) -> dict:
         }]
         doc["summary"] = (f"{payload.get('blocks', 0)} blocks exposed, "
                           f"{payload.get('ha', 0)} ha")
+
+    elif kind == "cost_action":
+        doc["title"] = f"Cost action, {payload.get('label', '')}"
+        doc["approver_role"] = payload.get("owner") or meta["approver"]
+        doc["lines"] = [{
+            "unit": payload.get("label"),
+            "unit_id": payload.get("id"),
+            "month": payload.get("month_label"),
+            "driver": payload.get("driver"),
+            "leak": payload.get("driver_label"),
+            "leakage_idr_month": payload.get("leakage_idr"),
+            "likely_cause": payload.get("cause") or "not diagnosed",
+            "confirm_by": payload.get("confirm") or "",
+            "action": payload.get("action"),
+            "owner": payload.get("owner"),
+            "saving_idr_month": payload.get("saving_idr_month"),
+            "review": payload.get("review_date"),
+        }]
+        doc["summary"] = (f"{payload.get('action', '')} ({payload.get('owner', '')}); "
+                          f"up to {(payload.get('saving_idr_month') or 0) / 1e6:,.1f}M IDR a month")
 
     elif kind == "inspection_order":
         doc["title"] = f"Field inspection, block {payload.get('block_label')}"

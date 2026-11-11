@@ -4,84 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EPMS · Model Health</title>
+<script>
+  // Theme before first paint (same key as the chat page), so a dark-mode user never sees a white flash.
+  (function () {
+    var t = null;
+    try { t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('chat-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23115e6e'/%3E%3Cpath d='m16 6 2.5 7.4L26 15.3l-7.5 2.5L16 25.3l-2.5-7.5L6 15.3l7.5-1.9Z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-:root {
-  --bg:          #f7faf9;
-  --surface:     #ffffff;
-  --card:        #ffffff;
-  --card-h:      #f1f5f4;
-  --border:      #dce4e1;
-  --border-s:    #ebf1ef;
-  --text:        #20312e;
-  --muted:       #64746f;
-  --accent:      #115e6e;
-  --accent-deep: #0b4351;
-  --sage:        #7ba39f;
-  --olive:       #8b8c7a;
-  --gold:        #c79a36;
-  --accent-dim:  rgba(17,94,110,.07);
-  --accent-glow: rgba(17,94,110,.20);
-  --sage-dim:    rgba(123,163,159,.16);
-  --gold-dim:    rgba(212,168,75,.14);
-  --error:       #b3382e;
-  --r:           8px;
-  --font:        'Inter', system-ui, sans-serif;
-  --ease-out:    cubic-bezier(.16, 1, .3, 1);
-}
 
-html, body { height:100%; overflow:hidden; }
-body {
-  font-family: var(--font);
-  background: #ffffff;
-  color: var(--text);
-  display: flex; flex-direction: column;
-  font-size: 14px; line-height: 1.5;
-}
 
 @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
 }
-
-/* ── HEADER (shared) ─────────────────────────────────────────────── */
-.app-header {
-  display: flex; align-items: center; gap: 14px;
-  padding: 0 20px; height: 52px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0; z-index: 10; position: relative;
-}
-.app-name { font-weight: 800; font-size: 14px; letter-spacing: -.3px; color: var(--accent-deep); }
-.app-sep  { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
-.app-sub  { font-size: 12px; color: var(--muted); }
-.app-nav { display: flex; align-items: center; gap: 2px; position: absolute; left: 50%; transform: translateX(-50%); }
-.nav-pill {
-  position: absolute; background: var(--accent); border-radius: 99px;
-  z-index: 0; pointer-events: none; opacity: 0;
-  transition: left .3s var(--ease-out), width .3s var(--ease-out), opacity .15s;
-}
-.app-nav a {
-  position: relative; z-index: 1;
-  font-size: 12px; font-weight: 500; color: var(--muted);
-  text-decoration: none; padding: 5px 12px; border-radius: 99px;
-  transition: color .18s; white-space: nowrap;
-}
-.app-nav a:not(.nav-active):hover { color: var(--accent); }
-.app-nav a.nav-active { color: var(--muted); }
-.nav-clone {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; gap: 2px;
-  pointer-events: none; z-index: 2;
-  clip-path: inset(0 100% 0 0 round 99px);
-  transition: clip-path .3s var(--ease-out);
-}
-.nav-clone span { font-size: 12px; font-weight: 500; color: #fff; padding: 5px 12px; white-space: nowrap; }
-.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.provider-pill { font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; }
 
 /* ── TITLE BAR ───────────────────────────────────────────────────── */
 .fc-titlebar {
@@ -89,13 +34,13 @@ body {
   background: var(--surface); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
-.fc-title { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.fc-title { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 .fc-title .accent { color: var(--accent); }
 .fc-meta  { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.meta-txt { font-size: 11px; color: var(--muted); }
+.meta-txt { font-size: 12.5px; color: var(--muted); }
 .btn-refresh {
-  font-size: 11px; font-weight: 600; color: var(--muted);
-  background: var(--bg); border: 1px solid var(--border); border-radius: 99px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 99px;
   padding: 3px 12px; cursor: pointer; font-family: var(--font);
   display: inline-flex; align-items: center; gap: 5px; text-decoration: none;
   transition: color .15s, border-color .15s, background .15s;
@@ -117,10 +62,10 @@ body {
   display: flex; flex-direction: column; gap: 4px;
   animation: fadeUp .45s var(--ease-out) both;
 }
-.kpi-card .k-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.kpi-card .k-value { font-size: 30px; font-weight: 800; letter-spacing: -1.2px; color: var(--text); line-height: 1.1; display: inline-flex; align-items: center; gap: 9px; }
+.kpi-card .k-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.kpi-card .k-value { font-size: 30px; font-weight: 700; letter-spacing: -.8px; color: var(--text); line-height: 1.1; display: inline-flex; align-items: center; gap: 9px; }
 .kpi-card .k-value.na { font-size: 22px; color: var(--muted); }
-.kpi-card .k-sub   { font-size: 11px; color: var(--muted); }
+.kpi-card .k-sub   { font-size: 12.5px; color: var(--muted); }
 
 /* ── STATUS DOTS ─────────────────────────────────────────────────── */
 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -128,9 +73,9 @@ body {
 .dot.warn { background: var(--gold); }
 .dot.bad  { background: var(--error); }
 .dot.na   { background: var(--border); }
-.status { font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.status { font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .status.good { color: var(--accent); }
-.status.warn { color: #9a7414; }
+.status.warn { color: var(--warn-text); }
 .status.bad  { color: var(--error); }
 /* a coverage cell that falls short of its own nominal level */
 .bad-cell { color: var(--error); font-weight: 600; }
@@ -143,9 +88,9 @@ body {
   animation: fadeUp .45s var(--ease-out) .04s both;
 }
 .mh-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.mh-head h2 { font-size: 13px; font-weight: 700; }
-.mh-head .sub { font-size: 11px; color: var(--muted); }
-.mh-note { font-size: 11px; color: var(--muted); margin-top: 11px; line-height: 1.55; }
+.mh-head h2 { font-size: 14px; font-weight: 600; }
+.mh-head .sub { font-size: 12.5px; color: var(--muted); }
+.mh-note { font-size: 12.5px; color: var(--muted); margin-top: 11px; line-height: 1.55; }
 
 /* ── RESEARCH ARMS ───────────────────────────────────────────────── */
 /* Deliberately quieter than the served scoreboard above it: these arms are
@@ -156,9 +101,9 @@ body {
   border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
 }
 .res-banner .dot { margin-top: 4px; }
-.res-banner p { font-size: 11px; line-height: 1.55; color: var(--text); }
+.res-banner p { font-size: 12.5px; line-height: 1.55; color: var(--text); }
 .res-tag {
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  font-size: 11px; font-weight: 500;
   padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);
   color: var(--muted); white-space: nowrap;
 }
@@ -166,33 +111,32 @@ body {
 .res-tag.blocked  { color: var(--error); border-color: var(--error); }
 .mh-table tr.res-served td { background: var(--accent-dim); font-weight: 600; }
 .mh-table td.res-name { font-weight: 600; }
-.mh-table td .res-note { display: block; font-weight: 400; font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.mh-table td .res-note { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
 .res-delta.better { color: var(--accent); font-weight: 600; }
 .res-delta.worse  { color: var(--muted); }
 .res-caveats { margin-top: 12px; padding-left: 16px; }
-.res-caveats li { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 3px; }
+.res-caveats li { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-bottom: 3px; }
 
 /* metric rows: label | value | status | note */
 .mh-row {
-  display: grid; grid-template-columns: 190px 110px 120px 1fr;
+  display: grid; grid-template-columns: 200px 190px 110px 1fr;
   align-items: center; gap: 12px;
   padding: 8px 0; border-bottom: 1px solid var(--border-s);
 }
 .mh-row:last-child { border-bottom: none; }
-.mh-k { font-size: 12px; color: var(--text); font-weight: 500; }
-.mh-v { font-size: 15px; font-weight: 700; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
-.mh-v.na { font-size: 12.5px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
-.mh-n { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.mh-k { font-size: 13px; color: var(--text); font-weight: 500; }
+.mh-v { font-size: 15px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.mh-v.na { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.mh-n { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 @media (max-width: 760px) {
   .mh-row { grid-template-columns: 1fr 1fr; }
   .mh-n { grid-column: 1 / -1; }
 }
 
 /* ── TABLES ──────────────────────────────────────────────────────── */
-.mh-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .mh-table thead th {
-  background: var(--surface); color: var(--muted); font-size: 10px;
-  text-transform: uppercase; letter-spacing: .05em;
+  background: var(--surface); color: var(--muted); font-size: 12px;
   padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -203,14 +147,14 @@ body {
 .mh-table tbody tr:hover td { background: var(--card-h); }
 .mh-table tbody tr.served td { background: var(--accent-dim); }
 .mh-table tbody tr.served td:first-child { color: var(--accent); }
-.tag-served { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
-  background: var(--accent); color: #fff; border-radius: 99px; padding: 2px 7px; margin-left: 7px; }
+.tag-served { font-size: 11px; font-weight: 500;
+  background: var(--accent); color: var(--on-accent); border-radius: 99px; padding: 2px 7px; margin-left: 7px; }
 .tbl-scroll { overflow-x: auto; }
 
 /* ── SOURCES ─────────────────────────────────────────────────────── */
 .src-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
 .src-pill {
-  font-size: 11px; color: var(--muted); background: var(--bg);
+  font-size: 12.5px; color: var(--muted); background: var(--bg-soft);
   border: 1px solid var(--border); border-radius: 99px; padding: 3px 11px;
   display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
 }
@@ -220,14 +164,14 @@ body {
 .na-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 9px; text-align: center; padding: 28px 20px;
-  background: var(--bg); border: 1px dashed var(--border);
+  background: var(--bg-soft); border: 1px dashed var(--border);
   border-radius: var(--r); color: var(--muted);
 }
 .na-state .na-ico { opacity: .45; }
-.na-state b { font-size: 12.5px; font-weight: 700; color: var(--text); }
-.na-state p { font-size: 11.5px; line-height: 1.6; max-width: 560px; }
+.na-state b { font-size: 13px; font-weight: 600; color: var(--text); }
+.na-state p { font-size: 12.5px; line-height: 1.6; max-width: 560px; }
 .na-req {
-  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  font-size: 11px; font-weight: 500;
   color: var(--muted); background: var(--surface); border: 1px solid var(--border);
   border-radius: 99px; padding: 3px 11px;
 }
@@ -246,42 +190,35 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .err-box {
-  background: #fdf3f2; border: 1px solid #fecaca; color: var(--error);
-  border-radius: var(--r); padding: 14px 18px; font-size: 12px; line-height: 1.6; max-width: 560px;
+  background: var(--danger-bg); border: 1px solid var(--danger-bd); color: var(--error);
+  border-radius: var(--r); padding: 14px 18px; font-size: 13px; line-height: 1.6; max-width: 560px;
 }
 .hidden { display: none !important; }
 
 @media (max-width: 820px) {
-  .app-sep, .app-sub { display: none; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) { .kpi-row { grid-template-columns: 1fr; } }
 </style>
+<link rel="stylesheet" href="/forecast-static/theme.css?v=1">
 </head>
 <body>
 
-<header class="app-header">
-  <span class="app-name">EPMS AI</span>
-  <div class="app-sep"></div>
-  <span class="app-sub">Model Health</span>
-  <nav class="app-nav" id="app-nav">
-    <span class="nav-pill" id="nav-pill"></span>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="EPMS AI, dashboard">
+    <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
+  </a>
+  <span class="page-name">Model Health</span>
+  <nav class="app-nav" aria-label="Pages">
     <a href="/">Dashboard</a>
     <a href="/report">Report</a>
     <a href="/chat">Chat</a>
-    <a href="/forecast" class="nav-active">Forecast</a>
-    <div class="nav-clone" id="nav-clone" aria-hidden="true">
-      <span>Dashboard</span><span>Report</span><span>Chat</span><span>Forecast</span>
-    </div>
+    <a href="/forecast" class="on">Forecast</a>
   </nav>
-  <div class="header-right">
-    <a class="btn-refresh" href="/experiment/forecast" title="Compare forecast models side by side across estates and horizons (experiment page, not client-facing)">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>
-      </svg>
-      <span>Forecast lab</span>
-    </a>
+  <div class="top-right">
+    <a class="top-link" href="/experiment/forecast" title="Compare forecast models side by side across estates and horizons (experiment page, not client-facing)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg><span>Forecast lab</span></a>
     <span class="provider-pill" id="model-pill">N/A</span>
+    <button class="icon-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme"></button>
   </div>
 </header>
 
@@ -289,6 +226,11 @@ body {
   <span class="fc-title">Model Health <span class="accent">· production forecast</span></span>
   <div class="fc-meta">
     <span class="meta-txt" id="gen-txt"></span>
+    <div class="pop-anchor">
+      <button type="button" class="chip" id="db-chip" aria-haspopup="dialog" aria-expanded="false"
+              title="Database the series are read from" hidden></button>
+      <div class="popover" id="db-pop" role="dialog" aria-label="Database" hidden></div>
+    </div>
     <a class="btn-refresh" href="/forecast">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
@@ -346,7 +288,7 @@ body {
             <tbody id="board-tbody"></tbody>
           </table>
         </div>
-        <p class="mh-note">MASE is scored against a seasonal-naïve benchmark: below 1.00 means the
+        <p class="mh-note" id="board-note">MASE is scored against a seasonal-naïve benchmark: below 1.00 means the
            model beats "same month last year". Bias is the mean signed error; positive means
            over-forecasting.</p>
       </div>
@@ -390,11 +332,11 @@ body {
         </div>
         <div id="dq-rows"></div>
         <div style="margin-top:12px;">
-          <span class="k-label" style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);">Sources</span>
+          <span class="sec-label">Sources</span>
           <div class="src-list" id="dq-sources"></div>
         </div>
         <div style="margin-top:12px;" id="dq-weather-wrap" hidden>
-          <span class="k-label" style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);">Weather file audit</span>
+          <span class="sec-label">Weather file audit</span>
           <div class="src-list" id="dq-weather"></div>
         </div>
       </div>
@@ -422,6 +364,7 @@ body {
   </div>
 </div>
 
+<script src="/forecast-static/theme.js?v=1"></script>
 <script>
 'use strict';
 
@@ -432,15 +375,22 @@ body {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('refresh-btn').addEventListener('click', loadHealth);
-  loadHealth();
+  // The database is the one picked on the forecast or chat page (?db= wins).
+  Theme.db.onChange(loadHealth);
+  Theme.db.init('/forecast/sources').then(loadHealth);
 });
+
+// Set by render(): the staging model is a zero-shot arm scored against a
+// different benchmark, so a few sentences written for the live ensemble differ.
+let STAGING = false;
+let BENCH = 'seasonal-naïve';
 
 async function loadHealth() {
   showState('loading');
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
   try {
-    const res  = await fetch('/forecast/model-health');
+    const res  = await fetch('/forecast/model-health?source=' + encodeURIComponent(Theme.db.current));
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
     showState('result');
@@ -479,6 +429,16 @@ function render(d) {
   const dq   = d.data_quality || {};
   const lc   = d.lifecycle || {};
   const drf  = d.drift || {};
+  STAGING = d.source === 'staging';
+  BENCH = d.benchmark_label || 'seasonal-naïve';
+  document.querySelector('.fc-title .accent').textContent = STAGING
+    ? '· staging · ' + (d.series_label || 'all estates') : '· production forecast';
+  document.getElementById('board-note').textContent = STAGING
+    ? 'Step 1 of the Forecast Lab walk-forward, every model scored on the rows they all share. MASE is '
+      + 'against ' + BENCH + ': below 1.00 means the model beats it. Bias is the mean signed error; '
+      + 'positive means over-forecasting.'
+    : 'MASE is scored against a seasonal-naïve benchmark: below 1.00 means the model beats "same month '
+      + 'last year". Bias is the mean signed error; positive means over-forecasting.';
 
   document.getElementById('model-pill').textContent = lc.served_model || 'Ensemble';
   document.getElementById('gen-txt').textContent =
@@ -512,7 +472,7 @@ function renderKpis(acc, iv, dq) {
   const cards = [
     { label: 'Accuracy (MASE) · 3-month', value: fmt(acc.mase_h1_3 ?? acc.mase, 2),
       cls: (acc.mase_h1_3 ?? acc.mase) == null ? 'na' : band(acc.mase_h1_3 ?? acc.mase, 0.8, 1.0),
-      sub: 'vs seasonal-naïve · ' + (acc.multih_origins ?? acc.n_folds ?? 'N/A')
+      sub: 'vs ' + BENCH + ' · ' + (acc.multih_origins ?? acc.n_folds ?? 'N/A')
            + ' origins · 1-month-ahead ' + fmt(acc.mase, 2) },
     { label: 'Error (sMAPE) · 3-month',
       value: acc.smape_h1_3 == null ? 'N/A' : fmt(acc.smape_h1_3, 1) + '%',
@@ -556,12 +516,12 @@ function renderAccuracy(acc, board) {
     row('MASE · 3-month (h1–3)', fmt(acc.mase_h1_3, 2),
         acc.mase_h1_3 == null ? 'na' : band(acc.mase_h1_3, 0.8, 1.0),
         'THE HEADLINE BENCHMARK — model MAE over the multi-horizon walk-forward divided by '
-        + 'the seasonal-naïve MAE on the SAME rows. This is the figure the forecast page shows '
+        + 'the ' + BENCH + ' MAE on the SAME rows. This is the figure the forecast page shows '
         + 'as "% less error". Good ≤ 0.80 · Watch ≤ 1.00 · above 1.00 the baseline wins.',
         acc.mase_h1_3 == null),
     row('MASE · 1-month-ahead', fmt(acc.mase, 2), acc.mase == null ? 'na' : band(acc.mase, 0.8, 1.0),
-        'Step 1 only, from the 1-step backtest. Reads better than the 3-month figure — do not '
-        + 'quote it as the overall one. Good ≤ 0.80 · Watch ≤ 1.00.',
+        (STAGING ? 'Step 1 only. ' : 'Step 1 only, from the 1-step backtest. ')
+        + 'Reads better than the 3-month figure — do not quote it as the overall one. Good ≤ 0.80 · Watch ≤ 1.00.',
         acc.mase == null),
     row('sMAPE · 3-month (h1–3)',
         acc.smape_h1_3 == null ? 'N/A' : fmt(acc.smape_h1_3, 1) + '%',
@@ -573,14 +533,18 @@ function renderAccuracy(acc, board) {
         acc.smape_h1_3 == null),
     row('sMAPE · per horizon', perHorizonSub(acc),
         'na',
-        'Error grows with distance because the served ensemble is recursive — it feeds its own '
-        + 'predictions back in as AR lags, so step 2 and 3 compound step 1’s error.',
+        STAGING
+          ? 'Error by distance ahead, each step measured on the walk-forward forecasts made that far out.'
+          : 'Error grows with distance because the served ensemble is recursive — it feeds its own '
+            + 'predictions back in as AR lags, so step 2 and 3 compound step 1’s error.',
         (acc.per_horizon || []).length === 0),
     row('sMAPE · 1-month-ahead',
         (acc.smape_1step ?? acc.smape) == null ? 'N/A' : fmt(acc.smape_1step ?? acc.smape, 1) + '%',
         band(acc.smape_1step ?? acc.smape, 10, 20),
-        'Step 1 only, from the 1-step expanding-window backtest. Kept for continuity with '
-        + 'monthly_results.txt. NOT the overall figure — do not quote it as one.',
+        STAGING
+          ? 'Step 1 only. NOT the overall figure — do not quote it as one.'
+          : 'Step 1 only, from the 1-step expanding-window backtest. Kept for continuity with '
+            + 'monthly_results.txt. NOT the overall figure — do not quote it as one.',
         (acc.smape_1step ?? acc.smape) == null),
     row('MAE', acc.mae == null ? 'N/A' : fmtInt(acc.mae) + ' bunches', 'na',
         'Mean absolute error across backtest folds. No fixed threshold; read it against monthly volume.',
@@ -593,8 +557,11 @@ function renderAccuracy(acc, board) {
         + '. Good ≤ ±2% · Watch ≤ ±5%.', acc.bias == null),
   ];
   document.getElementById('acc-rows').innerHTML = rows.join('');
-  document.getElementById('acc-note').textContent =
-    'MAE / RMSE / Bias and the scoreboard below are 1-step figures from the 1-step backtest; '
+  document.getElementById('acc-note').textContent = STAGING
+    ? 'MAE / RMSE / Bias and the scoreboard below are step-1 figures on the rows every model shares; '
+      + 'the sMAPE rows above are labelled by horizon. All are out-of-sample walk-forward numbers from '
+      + (acc.multih_origins ?? 'a few') + ' origins, which is a small sample: read them as a guide.'
+    : 'MAE / RMSE / Bias and the scoreboard below are 1-step figures from the 1-step backtest; '
     + 'the sMAPE rows above are labelled by horizon. All are out-of-sample walk-forward '
     + 'numbers — no in-sample scores are shown here.';
 }
@@ -661,8 +628,10 @@ function renderInterval(iv) {
       + Math.round(Math.max(...chartCovs) * 100) + '% — it is a typical-error band, not a '
       + (iv.nominal_pct || 90) + '% prediction interval. '
     : '';
-  document.getElementById('iv-note').textContent =
-    chartCovNote
+  document.getElementById('iv-note').textContent = STAGING
+    ? chartCovNote + 'No calibrated interval exists for the staging model yet: the conformal columns stay '
+      + 'N/A until there is enough history to calibrate one.'
+    : chartCovNote
     + 'Conformal coverage is prequential: each fold is scored against an interval built only from '
     + 'earlier folds, so these are honest out-of-sample numbers. '
     + (c13 == null
@@ -700,7 +669,8 @@ function renderDataQuality(dq) {
         dq.underrecorded_months == null ? 'N/A'
           : dq.underrecorded_months + ' (' + fmt(dq.underrecorded_pct, 1) + '%)',
         band(dq.underrecorded_pct, 5, 15),
-        'Months flagged as partial or under-recorded and seasonally imputed before fitting. Good ≤ 5% · Watch ≤ 15%.',
+        STAGING ? 'Months only partly inside the recorded window; they are shown but not scored. Good ≤ 5% · Watch ≤ 15%.'
+                : 'Months flagged as partial or under-recorded and seasonally imputed before fitting. Good ≤ 5% · Watch ≤ 15%.',
         dq.underrecorded_months == null),
     row('Missing-value rate', 'N/A', 'na',
         'Needs a per-feature completeness check on the feature table; not computed yet.', true),
@@ -850,14 +820,15 @@ function renderLifecycle(lc, scope) {
         'Last fully-recorded month included in the fit.', !lc.trained_through),
     row('Artifact built', lc.artifact_built ? lc.artifact_built.replace('T', ' ') : 'N/A',
         lc.artifact_built ? 'good' : 'na',
-        'Modification time of monthly_model.joblib, the closest thing to a training timestamp available today.',
+        STAGING ? 'When the served forecast was produced from the staging series.'
+                : 'Modification time of monthly_model.joblib, the closest thing to a training timestamp available today.',
         !lc.artifact_built),
     row('Estates covered',
         (scope.modeled_count ?? 0) + ' of ' + (scope.estate_count ?? 0),
         (scope.complete ? 'good' : 'warn'),
         'The served series covers ' + (scope.series_label || 'one estate')
-        + '; remaining estates have no model yet.', false),
-    row('Registry version', lc.version || 'N/A', 'na',
+        + (scope.complete ? '.' : '; remaining estates have no model yet.'), false),
+    row(STAGING ? 'Selection rule' : 'Registry version', lc.version || 'N/A', 'na',
         lc.registry_note || 'No model registry version is stamped on the served artifact.', !lc.version),
     row('Next retraining', lc.next_retrain || 'N/A', 'na',
         'No retraining schedule exists; the artifact is rebuilt manually.', !lc.next_retrain),
@@ -873,29 +844,6 @@ function fmtInt(v) { return (v == null || isNaN(v)) ? 'N/A' : Math.round(v).toLo
 function sign(v) { return (v == null || isNaN(v)) ? '' : (v >= 0 ? '+' : '−'); }
 function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
 
-/* ── nav pill animation (shared) ──────────────────────────────────── */
-(function(){
-  const nav=document.getElementById('app-nav'),pill=document.getElementById('nav-pill'),clone=document.getElementById('nav-clone');
-  if(!nav||!pill)return;
-  function movePill(el,instant){
-    const nr=nav.getBoundingClientRect(),er=el.getBoundingClientRect();
-    const l=er.left-nr.left,t=er.top-nr.top,w=er.width,h=er.height;
-    if(instant){pill.style.transition='none';if(clone)clone.style.transition='none';}
-    pill.style.left=l+'px';pill.style.top=t+'px';pill.style.width=w+'px';pill.style.height=h+'px';
-    if(clone){const nw=nav.offsetWidth,nh=nav.offsetHeight;clone.style.clipPath=`inset(${t}px ${nw-l-w}px ${nh-t-h}px ${l}px round 99px)`;}
-    if(instant)requestAnimationFrame(()=>{pill.style.transition='';if(clone)clone.style.transition='';});
-  }
-  const active=nav.querySelector('.nav-active');
-  if(active){movePill(active,true);requestAnimationFrame(()=>{pill.style.opacity='1';});}
-  // The Forecast tab is marked active for continuity (this is a forecast
-  // sub-page), so it must still navigate — hence no :not(.nav-active) here.
-  nav.querySelectorAll('a').forEach(a=>{
-    a.addEventListener('click',function(e){
-      e.preventDefault();movePill(this,false);
-      setTimeout(()=>{location.href=this.href;},280);
-    });
-  });
-})();
 </script>
 </body>
 </html>

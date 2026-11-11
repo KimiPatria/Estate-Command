@@ -9,7 +9,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-from config import engine, DB_SCHEMA
+import data_sources
+from config import DB_SCHEMA
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +39,17 @@ _TYPE_MAP: dict[str, str] = {
     "date": "date",
     "timestamp without time zone": "ts",
     "timestamp with time zone": "ts",
+    # SQL Server (the staging source)
+    "nvarchar": "varchar",
+    "nchar": "varchar",
+    "char": "varchar",
+    "float": "dec",
+    "money": "dec",
+    "bit": "bool",
+    "datetime": "ts",
+    "datetime2": "ts",
+    "smalldatetime": "ts",
+    "tinyint": "int",
 }
 
 
@@ -91,7 +103,8 @@ def _type_alias(data_type: str) -> str:
 
 
 def _is_varchar_date(col_name: str, data_type: str) -> bool:
-    if data_type.lower() in ("character varying", "text", "character"):
+    if data_type.lower() in ("character varying", "text", "character",
+                             "varchar", "nvarchar", "char", "nchar"):
         return bool(_DATE_COL_RE.search(col_name))
     return False
 
@@ -103,13 +116,16 @@ def compact_ddl_for(table_names: list[str], *, include_descriptions: bool = Fals
     are appended inline as "# desc". Off by default to preserve token cost on fast-mode
     SQL generation. Useful for reasoning mode or hard questions.
     """
+    curated = data_sources.active().curated_ddl
     lines = []
     for name in sorted(table_names):
-        card = _CARDS_CACHE.get(name)
+        card = cards().get(name)
         if card is None:
             continue
         col_parts = []
         for col in card.columns:
+            if curated and card.key_columns and col.name not in card.key_columns:
+                continue
             # Audit columns are dropped to save tokens — EXCEPT those curated in
             # key_columns (e.g. t_oph.oph_created_date, which business rule 5
             # mandates for harvest date filters; hiding it made that rule
@@ -129,7 +145,7 @@ def compact_ddl_for(table_names: list[str], *, include_descriptions: bool = Fals
                 date_hint = "[date]" if _is_varchar_date(col.name, col.data_type) else ""
                 base = f"{col.name} {alias}{date_hint}"
 
-            if include_descriptions:
+            if include_descriptions or curated:
                 desc = card.key_columns.get(col.name)
                 if desc:
                     base = f"{base} # {desc}"
@@ -139,24 +155,30 @@ def compact_ddl_for(table_names: list[str], *, include_descriptions: bool = Fals
     return "\n".join(lines)
 
 
-# Module-level cache — populated once at server startup by load_all_cards()
-_CARDS_CACHE: dict[str, TableCard] = {}
+# Table cards per data source, populated at server startup by load_all_cards().
+# Every reader goes through cards(), which resolves the source in force for the
+# current request (data_sources.active()); the live databases are the default.
+_CARDS: dict[str, dict[str, TableCard]] = {}
 _CACHE_LOCK = Lock()
 
 
-def _load_metadata_json() -> dict[str, Any]:
-    """Load schema_metadata.json. Supports both v1 (flat) and v2 (nested under 'tables') layouts.
+def cards(source_id: str | None = None) -> dict[str, TableCard]:
+    return _CARDS.get(source_id or data_sources.active().id, {})
+
+
+def _load_metadata_json(path: Path = METADATA_PATH) -> dict[str, Any]:
+    """Load a schema metadata file. Supports both v1 (flat) and v2 (nested under 'tables') layouts.
 
     Returns a flat dict[table_name -> table_meta] regardless of input version.
     """
-    if not METADATA_PATH.exists():
+    if not path.exists():
         print(
-            "ERROR: schema_metadata.json not found. "
+            f"ERROR: {path.name} not found. "
             "Run 'python bootstrap_metadata.py' first to generate schema_metadata.json.",
             file=sys.stderr,
         )
         sys.exit(1)
-    with open(METADATA_PATH, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     meta_block = data.get("_meta") if isinstance(data, dict) else None
@@ -171,20 +193,21 @@ def _load_metadata_json() -> dict[str, Any]:
     return data
 
 
-def _fetch_db_schema(schema: str) -> tuple[
+def _fetch_db_schema(schema: str, engine) -> tuple[
     dict[str, list[dict]],
     dict[str, set[str]],
     dict[str, dict[str, tuple[str, str]]],
 ]:
     """Fetch columns, PKs, and FKs from information_schema. Returns three dicts."""
     col_sql = text("""
-        SELECT table_name, column_name, data_type, is_nullable
+        SELECT table_name AS table_name, column_name AS column_name,
+               data_type AS data_type, is_nullable AS is_nullable
         FROM information_schema.columns
         WHERE table_schema = :schema
         ORDER BY table_name, ordinal_position
     """)
     pk_sql = text("""
-        SELECT kcu.table_name, kcu.column_name
+        SELECT kcu.table_name AS table_name, kcu.column_name AS column_name
         FROM information_schema.table_constraints tc
         JOIN information_schema.key_column_usage kcu
           ON tc.constraint_name = kcu.constraint_name
@@ -194,8 +217,8 @@ def _fetch_db_schema(schema: str) -> tuple[
     """)
     fk_sql = text("""
         SELECT
-            kcu.table_name,
-            kcu.column_name,
+            kcu.table_name  AS table_name,
+            kcu.column_name AS column_name,
             ccu.table_name  AS foreign_table_name,
             ccu.column_name AS foreign_column_name
         FROM information_schema.table_constraints tc
@@ -236,56 +259,35 @@ def _fetch_db_schema(schema: str) -> tuple[
     return cols_by_table, pks_by_table, fks_by_table
 
 
-# Tables explicitly excluded from retrieval regardless of DB presence.
-# t_abw: unused/wrong table that has no meaningful data in this environment.
-# t_checkpoint*: coconut-only logistics tables (coconut CP transport).
-_EXPLICITLY_EXCLUDED: frozenset[str] = frozenset({
-    "t_abw",
-    "t_checkpoint",
-    "t_checkpoint_detail",
-    "t_checkpoint_loader",
-})
+def load_all_cards(
+    schema: str | None = None, source: "data_sources.DataSource | str | None" = None,
+) -> dict[str, TableCard]:
+    """Merge a source's metadata JSON with its live information_schema data.
 
-
-def _is_excluded_table(name: str) -> bool:
-    """Return True if this table should be hidden from the retrieval index.
-
-    Excludes:
-    - SAP staging tables (ZEPMS prefix) — handled separately in load_all_cards
-    - t_abw — unused/wrong, not populated in this environment
-    - All coconut-specific tables — this dummy dataset is palm-oil only
+    `source` defaults to the live Postgres databases. What is hidden from the
+    retrieval index is the source's own rule (data_sources.DataSource.excludes):
+    for live the SAP ZEPMS staging tables and the unused/coconut tables, for
+    staging everything the metadata file doesn't describe.
+    Exits if the metadata JSON is missing.
     """
-    if name in _EXPLICITLY_EXCLUDED:
-        return True
-    if "coconut" in name.lower():
-        return True
-    return False
+    if source is None:
+        source = data_sources.LIVE
+    src = source if isinstance(source, data_sources.DataSource) else data_sources.get(source)
+    schema = schema or (DB_SCHEMA if src.id == data_sources.LIVE else src.schema)
 
+    metadata = _load_metadata_json(src.metadata_path)
+    cols_by_table, pks_by_table, fks_by_table = _fetch_db_schema(schema, src.engine)
 
-def load_all_cards(schema: str = DB_SCHEMA) -> dict[str, TableCard]:
-    """Merge schema_metadata.json with live information_schema data. Exits if JSON missing."""
-    global _CARDS_CACHE
+    def _hidden(name: str) -> bool:
+        return src.excludes(name) or (src.only_described and name not in metadata)
 
-    metadata = _load_metadata_json()
-    cols_by_table, pks_by_table, fks_by_table = _fetch_db_schema(schema)
-
-    # Exclude SAP temporary staging tables — non-semantic column names, not queryable by users
-    _excluded = [n for n in cols_by_table if n.upper().startswith("ZEPMS")]
-    if _excluded:
-        log.info("Excluding %d SAP staging tables (ZEPMS prefix): %s", len(_excluded), sorted(_excluded))
-    cols_by_table = {k: v for k, v in cols_by_table.items() if not k.upper().startswith("ZEPMS")}
-    pks_by_table  = {k: v for k, v in pks_by_table.items()  if not k.upper().startswith("ZEPMS")}
-    fks_by_table  = {k: v for k, v in fks_by_table.items()  if not k.upper().startswith("ZEPMS")}
-    metadata      = {k: v for k, v in metadata.items()      if not k.upper().startswith("ZEPMS")}
-
-    # Exclude unused and coconut-only tables (palm-oil-only environment)
-    _palm_excluded = [n for n in cols_by_table if _is_excluded_table(n)]
-    if _palm_excluded:
-        log.info("Excluding %d unused/coconut tables: %s", len(_palm_excluded), sorted(_palm_excluded))
-    cols_by_table = {k: v for k, v in cols_by_table.items() if not _is_excluded_table(k)}
-    pks_by_table  = {k: v for k, v in pks_by_table.items()  if not _is_excluded_table(k)}
-    fks_by_table  = {k: v for k, v in fks_by_table.items()  if not _is_excluded_table(k)}
-    metadata      = {k: v for k, v in metadata.items()      if not _is_excluded_table(k)}
+    hidden = sorted(n for n in cols_by_table if _hidden(n))
+    if hidden:
+        log.info("[%s] hiding %d tables from the retrieval index: %s", src.id, len(hidden), hidden)
+    cols_by_table = {k: v for k, v in cols_by_table.items() if not _hidden(k)}
+    pks_by_table  = {k: v for k, v in pks_by_table.items()  if not _hidden(k)}
+    fks_by_table  = {k: v for k, v in fks_by_table.items()  if not _hidden(k)}
+    metadata      = {k: v for k, v in metadata.items()      if not src.excludes(k)}
 
     db_tables   = set(cols_by_table.keys())
     meta_tables = set(metadata.keys())
@@ -293,16 +295,16 @@ def load_all_cards(schema: str = DB_SCHEMA) -> dict[str, TableCard]:
     new_tables = db_tables - meta_tables
     if new_tables:
         log.warning(
-            "Tables in EPMS not in schema_metadata.json: %s — "
+            "[%s] tables in the database not in %s: %s - "
             "Run bootstrap_metadata.py to add them.",
-            sorted(new_tables),
+            src.id, src.metadata_path.name, sorted(new_tables),
         )
 
     orphaned = meta_tables - db_tables
     if orphaned:
         log.warning(
-            "Orphaned entries in schema_metadata.json (no matching table): %s",
-            sorted(orphaned),
+            "[%s] orphaned entries in %s (no matching table): %s",
+            src.id, src.metadata_path.name, sorted(orphaned),
         )
 
     cards: dict[str, TableCard] = {}
@@ -336,11 +338,12 @@ def load_all_cards(schema: str = DB_SCHEMA) -> dict[str, TableCard]:
         )
 
     with _CACHE_LOCK:
-        _CARDS_CACHE = cards
+        _CARDS[src.id] = cards
 
     _validate_metadata(cards, cols_by_table)
 
-    log.info("Loaded %d table cards (schema_metadata.json + information_schema)", len(cards))
+    log.info("[%s] loaded %d table cards (%s + information_schema)",
+             src.id, len(cards), src.metadata_path.name)
     return cards
 
 
@@ -375,10 +378,10 @@ def _validate_metadata(cards: dict[str, TableCard], db_cols: dict[str, list[dict
 
 
 def get_card(name: str) -> TableCard | None:
-    return _CARDS_CACHE.get(name)
+    return cards().get(name)
 
 
-def reload_cards(schema: str = DB_SCHEMA) -> dict[str, TableCard]:
+def reload_cards(schema: str | None = None, source: str | None = None) -> dict[str, TableCard]:
     """Force-reload from DB and JSON. Called by /admin/reload-schema."""
     log.info("/admin/reload-schema triggered — reloading table cards")
-    return load_all_cards(schema)
+    return load_all_cards(schema, source)

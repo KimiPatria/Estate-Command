@@ -48,7 +48,7 @@ def model_info() -> dict:
 
         return {
             "provider": LLM_PROVIDER,
-            "main": llm_client.resolve_model(None, "main"),
+            "main": llm_client.resolve_model(None, "reasoning"),
             "fast": llm_client.resolve_model(None, "routing"),
         }
     except Exception as exc:  # pragma: no cover - config-level failure

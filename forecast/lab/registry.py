@@ -63,15 +63,35 @@ GRAIN_LABEL = {"month": "Monthly", "week": "Weekly"}
 
 # id -> where its data lives. `served` is forecast_router's estate id when the
 # estate has a served model; `weather` is its NASA POWER history, if any.
+# `source` is the database the series was cut from: "live" (the per-estate
+# Postgres snapshots and k3's files) or "staging" (the central staging database,
+# forecast/build_staging_series.py). The same estate under two sources is two
+# entries, because the windows differ and a model built on one says nothing
+# about the other. Staging estates carry no weather: only EC has a weather file,
+# and the staging arms are compared across all three estates.
 ESTATES = {
-    "k3": {"label": "K3", "blocks": "k3", "served": "k3",
+    "k3": {"label": "K3", "blocks": "k3", "served": "k3", "source": "live",
            "features": os.path.join(_FORECAST, "features_estate_monthly.csv"),
            "weather": os.path.join(_FORECAST, "weather_nasa_power_history.csv")},
-    "ec": {"label": "EC", "blocks": "EC", "served": "ec", "features": None,
+    "ec": {"label": "EC", "blocks": "EC", "served": "ec", "source": "live", "features": None,
            "weather": os.path.join(_FORECAST, "EC", "weather_nasa_power_history.csv")},
-    "eb": {"label": "EB", "blocks": "EB", "served": None, "features": None, "weather": None},
-    "ea": {"label": "EA", "blocks": "EA", "served": None, "features": None, "weather": None},
+    "eb": {"label": "EB", "blocks": "EB", "served": None, "source": "live",
+           "features": None, "weather": None},
+    "ea": {"label": "EA", "blocks": "EA", "served": None, "source": "live",
+           "features": None, "weather": None},
+    "stg_ec": {"label": "EC", "blocks": "stg_EC", "served": None, "source": "staging",
+               "features": None, "weather": None},
+    "stg_eb": {"label": "EB", "blocks": "stg_EB", "served": None, "source": "staging",
+               "features": None, "weather": None},
+    "stg_ea": {"label": "EA", "blocks": "stg_EA", "served": None, "source": "staging",
+               "features": None, "weather": None},
 }
+SOURCES = ("live", "staging")
+
+
+def estates_of(source):
+    """Estate ids cut from one source, in registry order."""
+    return [eid for eid, spec in ESTATES.items() if spec["source"] == source]
 
 # Colours: the served ensemble keeps /forecast's gold; the Chronos arms take a
 # set validated all-pairs on the light surface (dataviz validate_palette.js:

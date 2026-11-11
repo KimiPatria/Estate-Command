@@ -319,6 +319,9 @@ METRICS = {
     "t_per_ha":          ("Tonnes per hectare", "derived"),
     "cost_per_kg":       ("Cost per kg FFB", "derived"),
     "margin_per_ha":     ("Margin per hectare", "derived"),
+    # the cost window (gis/finance.py): generated SAP FI/CO, EC's generated months
+    "efficiency_pct":    ("Cost efficiency", "synthetic"),
+    "leakage_idr_per_ha": ("Money leaked per hectare", "synthetic"),
     # synthetic
     "forecast_p50":      ("Forecast bunches", "synthetic"),
     "forecast_band":     ("Forecast uncertainty", "synthetic"),
@@ -356,7 +359,7 @@ INVERTED = {"cost_per_kg", "upkeep_overdue", "ripeness_pressure", "forecast_band
             "shrinkage_pct", "turnaround_h", "diesel_l_per_tonne", "ffa_pct",
             "canopy_roughness_m", "ganoderma_pct", "beetle_pct", "rat_pct",
             "treatment_overdue", "nutrient_gap_pct", "application_lag_days",
-            "road_condition_score"}
+            "road_condition_score", "leakage_idr_per_ha"}
 # Metrics that diverge around a meaningful midpoint.
 DIVERGING = {"peer_index": 1.0, "ndre_anomaly": 0.0, "margin_per_ha": 0.0}
 
@@ -690,6 +693,31 @@ def _add_relative(rows):
             r["margin_per_ha"] = None
 
 
+COST_METRICS = ("efficiency_pct", "leakage_idr_per_ha")
+
+
+def _add_cost_metrics(estate: str, rows: list, month: str | None) -> None:
+    """Efficiency and leakage per hectare from the cost window. Only on request:
+    the engine prices every unit on its own thread, and no other metric waits on it."""
+    for r in rows:
+        r["efficiency_pct"] = None
+        r["leakage_idr_per_ha"] = None
+    if (estate or "").upper() != "EC":
+        return
+    try:
+        from gis import finance
+        if month is not None and month not in finance.MONTHS:
+            return
+        vals = finance.block_metrics(month)
+    except Exception as exc:
+        log.warning("[layers] cost metrics unavailable: %s", exc)
+        return
+    for r in rows:
+        v = vals.get(r["block_id"])
+        if v:
+            r.update(v)
+
+
 def metric_values(estate: str, metric: str, month: str | None = None) -> dict | None:
     """Per-block values for one metric, in the shape the map expects."""
     if metric not in METRICS:
@@ -703,6 +731,8 @@ def metric_values(estate: str, metric: str, month: str | None = None) -> dict | 
     rows = block_rows(estate, month)
     if rows is None:
         return None
+    if metric in COST_METRICS:
+        _add_cost_metrics(estate, rows, month)
     label = metric_label(metric, estate)
     provenance = metric_provenance(metric, estate)
     values = {r["block_id"]: r.get(metric) for r in rows}
@@ -815,6 +845,8 @@ def compare_metrics(estate: str, metric_a: str, metric_b: str,
     rows = block_rows(estate, month)
     if rows is None:
         return {"error": f"No block data for estate {estate!r}."}
+    if metric_a in COST_METRICS or metric_b in COST_METRICS:
+        _add_cost_metrics(estate, rows, month)
 
     have = [r for r in rows
             if isinstance(r.get(metric_a), (int, float))
@@ -919,6 +951,15 @@ def contract_position(estate: str = "EC") -> dict:
     }
 
 
+def _transport_rate() -> float:
+    """Haulage per kg-km, from the assumption register (it was a constant here)."""
+    try:
+        from gis import assumptions
+        return float(assumptions.get("transport_idr_per_kg_km"))
+    except Exception:
+        return TRANSPORT_IDR_KG_KM
+
+
 def vendor_ranking(shortfall_t: float | None = None) -> dict:
     """UC-09: rank vendors by landed cost at mill, not headline price."""
     st = _state()
@@ -929,7 +970,7 @@ def vendor_ranking(shortfall_t: float | None = None) -> dict:
         oer = _f(v["oer_pct"]) or OER_REFERENCE
         fill = _f(v["fill_rate"]) or 1.0
         late = _f(v["avg_days_late"]) or 0
-        transport = dist * TRANSPORT_IDR_KG_KM
+        transport = dist * _transport_rate()
         quality = (OER_REFERENCE - oer) * OER_IDR_PER_POINT
         reliability = (1 - fill) * SHORTFALL_IDR + late * LATE_IDR_PER_DAY
         ranked.append({

@@ -1,0 +1,20 @@
+# SYNTHETIC. ANSWER KEY. What build_finance.py planted, and the decoys that must not come back. The engine and the model never read this file; only the recovery checks and the diagnosis eval do.
+leak_id,kind,function,unit_kind,unit_id,driver,months,planted_idr,true_cause,mechanism
+fuel_tr04,planted,transport,vehicle,TR-04,fuel_gap,2025-02;2025-03;2025-04,16531556,siphoning,"D-11's fuel card fills, near tank size, only on days D-11 drove TR-04; no other driver's fills on it changed"
+ot_g302,planted,workforce,crew,G3-02,overtime,2025-02;2025-03;2025-04;2025-05,57053571,standing_overtime,"overtime on about 60% of the gang's days at random, unrelated to bunches cut, rain or headcount"
+pay_u402,planted,workforce,crew,U4-02,pay_over_attendance,2025-03;2025-04;2025-05,50400000,ghost_names,"4 man-days paid above the muster on every day the crew has a muster row, a constant gap"
+fert_app_d5,planted,fertiliser,division,5,application_labour,2025-03;2025-04;2025-05,157396107,padded_timesheets,"a second contract sheet 5-9 days after each issue, 60% of standard on top, on every block alike regardless of slope or distance; the same contractor elsewhere is normal"
+price_urea,planted,stores,material,FE-002,price_variance,2025-02;2025-03;2025-04,261417180,vendor_over_contract,V101 invoices urea 5% above its own PO price; PO prices and rush buys are normal
+fleet_du01,planted,fleet,vehicle,DU-01,breakdowns,2025-02;2025-03;2025-04;2025-05,55926384,repeat_fault,the injector pump re-repaired every 18-24 days by the same local workshop
+culvert_repeat,planted,roads,segment,RS-0152,repeat_repairs,2025-01;2025-03;2025-04,61669237,poor_repair,"three culvert repairs inside the window, about 40 days apart, each dearer than usual"
+grading_d6,planted,roads,division,6,billing_over_length,2025-02;2025-03;2025-04;2025-05,52867200,contractor_overbilling,grading in Division 6 billed at 1.4x the segment length from February; the same contractor's other divisions are normal
+tank_tr06,counterfactual,transport,vehicle,TR-06,fuel_gap,2025-02;2025-03;2025-04;2025-05,24845545,tank_leak,"card top-ups about a third over the trip burn on every working day by whoever drove, plus small yard top-ups on idle days"
+ot_g501,counterfactual,workforce,crew,G5-01,overtime,2025-02;2025-03;2025-04;2025-05,32978571,rounds_too_big,overtime only on above-median crop days when the gang mustered short of 95% of establishment
+pay_u603,counterfactual,workforce,crew,U6-03,pay_over_attendance,2025-03;2025-04;2025-05,22650000,muster_not_recorded,"half the absentees paid as present on days with four or more absent, nothing on fuller days"
+shrink_d07,existing,transport,driver,D-07,shrinkage,2025-03,,theft_in_transit,"build_synthetic plants 8.5-16% light trips on D-07's loads, 2025-03-10 to 2025-03-23"
+loose_fruit,existing,harvesting,estate,,loose_fruit,2025-01;2025-02;2025-03;2025-04;2025-05,,,the client's own loose fruit counts against the best quarter of blocks
+queue_ffa,existing,transport,estate,,queue_ffa,2025-01;2025-02;2025-03;2025-04;2025-05,,,the generator lengthens the mill queue after noon
+decoy_terrain,decoy,harvesting,block,,,2025-01;2025-02;2025-03;2025-04;2025-05,,within_norm,"steep, sparse, far blocks cost more per tonne honestly"
+decoy_prescribed,decoy,fertiliser,block,,,2025-01;2025-02;2025-03;2025-04;2025-05,,within_norm,weak blocks are prescribed more fertiliser (ec_fertiliser.csv)
+decoy_lebaran,decoy,workforce,estate,,,2025-01;2025-02;2025-03;2025-04;2025-05,,within_norm,attendance dips 2025-03-24 to 2025-04-09 estate-wide
+decoy_skipped_upkeep,decoy,upkeep,block,,,2025-01;2025-02;2025-03;2025-04;2025-05,,within_norm,"overdue upkeep rounds: cheap this month, deferred cost later"

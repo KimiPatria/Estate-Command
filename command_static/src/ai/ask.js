@@ -76,17 +76,30 @@ export function renderAsk() {
       return `<div class="qa"><div class="q">${esc(h.q)}</div>
         <div class="a err">${esc(h.error)}</div></div>`;
     }
+    const asking = h.kind === 'clarify';
     return `<div class="qa">
       <div class="q">${esc(h.q)}</div>
       <div class="a">${esc(h.a)}</div>
+      ${i === 0 ? renderChoices(asking ? h.options : h.suggestions, asking) : ''}
       <div class="brief-meta" style="border:none;padding:7px 0 0">
-        ${genBadge(h.model)} ${auditChip(h.audit)}
+        ${genBadge(h.model)} ${asking ? '' : auditChip(h.audit)}
         <span>${h.ms} ms</span>
       </div>
       ${renderTrace(h.trace, i)}
     </div>`;
   }).join('');
+  body.querySelectorAll('[data-choice]').forEach(b => {
+    b.onclick = () => submitAsk(b.dataset.choice);
+  });
   body.scrollTop = 0;
+}
+
+/* Only the newest turn gets buttons. An older one would send its question into
+   a conversation that has already moved on. */
+function renderChoices(items, asking) {
+  if (!items || !items.length) return '';
+  return `<div class="ask-choices ${asking ? 'options' : 'next'}">${items.map(c =>
+    `<button type="button" data-choice="${esc(c)}">${esc(c)}</button>`).join('')}</div>`;
 }
 
 export function renderTrace(trace, i) {
@@ -118,7 +131,9 @@ export async function submitAsk(question) {
   const priorHistory = chat.history
     .filter(h => h.a && !h.error && !h.pending)
     .slice().reverse()
-    .map(h => ({ question: h.q, answer: h.a }));
+    .map(h => ({ question: h.q, answer: h.a, kind: h.kind }));
+  // Handed back as the server gave it; the server validates it again.
+  const workingSet = (chat.history.find(h => h.workingSet) || {}).workingSet || null;
   chat.history.unshift({ q, pending: true });
   renderAsk();
 
@@ -130,6 +145,7 @@ export async function submitAsk(question) {
         question: q,
         estate: S.estate || 'EC',
         history: priorHistory,
+        working_set: workingSet,
         // What the manager is looking at, so "this block" has a referent.
         view: {
           metric: S.metric,
@@ -144,7 +160,9 @@ export async function submitAsk(question) {
     chat.history[0] = out.available === false
       ? { q, error: out.reason || 'The model did not answer.' }
       : { q, a: out.answer, model: out.model, ms: out.latency_ms,
-          audit: out.figure_audit, trace: out.trace };
+          audit: out.figure_audit, trace: out.trace,
+          kind: out.kind, options: out.options, suggestions: out.suggestions,
+          workingSet: out.working_set };
     if (out.focus) applyFocus(out.focus);
   } catch (e) {
     chat.history[0] = { q, error: e.message };

@@ -18,6 +18,18 @@ DANGEROUS_FUNCS = re.compile(
 )
 
 
+# T-SQL: server-side escape hatches the read-only login would also refuse, but
+# the model should never even get to try. Catalog views (sys.*, INFORMATION_SCHEMA)
+# are the writer's to learn about the schema from the DDL it was given, not to
+# query. SELECT ... INTO creates a table.
+MSSQL_DANGEROUS = re.compile(
+    r"\b(?:xp_\w+|sp_\w+|openrowset|opendatasource|openquery|bulk|waitfor)\b"
+    r"|\b(?:sys|master|msdb|tempdb|information_schema)\s*\."
+    r"|\binto\s+[#@\[\w]",
+    re.IGNORECASE,
+)
+
+
 def _first_meaningful_token(stmt) -> str | None:
     for tok in stmt.flatten():
         if tok.is_whitespace:
@@ -29,7 +41,7 @@ def _first_meaningful_token(stmt) -> str | None:
     return None
 
 
-def validate(sql: str) -> tuple[bool, str | None]:
+def validate(sql: str, dialect: str = "postgresql") -> tuple[bool, str | None]:
     if not sql or not sql.strip():
         return False, "Empty SQL."
 
@@ -39,6 +51,8 @@ def validate(sql: str) -> tuple[bool, str | None]:
 
     if DANGEROUS_FUNCS.search(cleaned):
         return False, "SQL references a disallowed function."
+    if dialect == "mssql" and MSSQL_DANGEROUS.search(cleaned):
+        return False, "SQL uses a feature that is not allowed on this database."
 
     statements = [s for s in sqlparse.parse(cleaned) if str(s).strip()]
     if len(statements) != 1:
@@ -61,8 +75,13 @@ def validate(sql: str) -> tuple[bool, str | None]:
 _LIMIT_RE = re.compile(r"\blimit\s+\d+\b", re.IGNORECASE)
 
 
-def ensure_limit(sql: str, max_rows: int) -> str:
+def ensure_limit(sql: str, max_rows: int, dialect: str = "postgresql") -> str:
     cleaned = sql.strip().rstrip(";").strip()
+    if dialect == "mssql":
+        # T-SQL has no trailing LIMIT, and wrapping in a subquery breaks CTEs and
+        # ORDER BY. The cap is enforced where the rows are read (fetchmany in
+        # chat_router._execute_safe), and the prompt asks for TOP.
+        return cleaned
     if _LIMIT_RE.search(cleaned):
         return cleaned
     return f"{cleaned} LIMIT {max_rows}"

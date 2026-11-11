@@ -4,6 +4,7 @@ groq>=0.11
 google-generativeai>=0.8
 sqlalchemy>=2.0
 psycopg2-binary>=2.9
+pyodbc>=5.0          # SQL Server staging database (needs "ODBC Driver 18 for SQL Server")
 python-dotenv>=1.0
 sqlparse>=0.5
 pydantic>=2.6
