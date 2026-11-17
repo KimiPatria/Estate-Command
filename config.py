@@ -30,6 +30,13 @@ CHAT_DEFAULT_MODEL = os.getenv("CHAT_DEFAULT_MODEL", "nova-2-lite")
 # Chat: escalate the answer step to the reasoning tier for analytical questions
 # (see model_routing.py) and retry failed SQL on it. "0" keeps everything on main.
 CHAT_ESCALATE_TO_REASONING = os.getenv("CHAT_ESCALATE_TO_REASONING", "1") == "1"
+# Chat: check every table and column a generated query names before it runs
+# (sql_schema_check.py). "enforce" sends a bad name back to the SQL writer,
+# "log" only logs it, "off" skips the check.
+CHAT_SCHEMA_CHECK = os.getenv("CHAT_SCHEMA_CHECK", "enforce").lower()
+# Chat: corrections the SQL writer gets after a flagged, failed, empty or
+# implausible first query (each told exactly what was wrong).
+CHAT_SQL_FIX_ATTEMPTS = int(os.getenv("CHAT_SQL_FIX_ATTEMPTS", "2"))
 # Cheap/fast tier used where ROUTING_MODEL is used under Groq.
 BEDROCK_ROUTING_MODEL_ID = os.getenv("BEDROCK_ROUTING_MODEL_ID", "amazon.nova-lite-v1:0")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
@@ -74,7 +81,10 @@ CHAT_HISTORY_TEXT_TURNS = int(os.getenv("CHAT_HISTORY_TEXT_TURNS", "4"))
 CHAT_HISTORY_DATA_TURNS = int(os.getenv("CHAT_HISTORY_DATA_TURNS", "2"))
 # Row cap per replayed data turn.
 CHAT_HISTORY_MAX_ROWS = int(os.getenv("CHAT_HISTORY_MAX_ROWS", "30"))
-CATALOG_TTL_SECONDS = int(os.getenv("CATALOG_TTL_SECONDS", "1800"))
+# Bedrock prompt caching: cachePoint blocks after the stable part of a prompt
+# (llm_client.CACHE_POINT). Off -> the markers are dropped and nothing changes.
+PROMPT_CACHE = os.getenv("PROMPT_CACHE", "1") == "1"
+CATALOG_TTL_SECONDS =int(os.getenv("CATALOG_TTL_SECONDS", "1800"))
 MAX_ROUTED_TABLES = int(os.getenv("MAX_ROUTED_TABLES", "12"))
 GLOSSARY_PATH = os.getenv("GLOSSARY_PATH", "./glossary.yaml")
 

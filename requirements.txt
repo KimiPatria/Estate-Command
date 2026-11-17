@@ -2,11 +2,12 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 groq>=0.11
 google-generativeai>=0.8
-sqlalchemy>=2.0
+sqlalchemy>=2.0,<2.1   # 2.1 makes psycopg 3 the default postgresql driver; these URLs use psycopg2
 psycopg2-binary>=2.9
 pyodbc>=5.0          # SQL Server staging database (needs "ODBC Driver 18 for SQL Server")
 python-dotenv>=1.0
 sqlparse>=0.5
+sqlglot>=27.0,<28   # chat: pre-run check that every table and column a query names exists (sql_schema_check.py)
 pydantic>=2.6
 pyyaml>=6.0
 fastembed>=0.3
@@ -29,3 +30,16 @@ langchain-aws>=1.0
 pypdf>=5.0
 python-docx>=1.1
 fpdf2>=2.7   # synthetic sample-contract generation only
+
+# --- forecast pages + Forecast Lab (forecast_router.py, forecast_sources.py, forecast/lab/) ---
+# Lower bounds = the Anaconda env the page is served from; exact versions in requirements-dashboard.lock.
+# Chronos itself runs in its own env (requirements-chronos.txt / requirements-chronos.lock).
+pandas>=2.2
+numpy>=2.1
+scipy>=1.15
+statsmodels>=0.14
+lightgbm>=4.6
+joblib>=1.4
+scikit-learn>=1.6
+boto3>=1.35          # shadow.py backup (S3)
+botocore[crt]        # credentials from `aws login` need the CRT extra

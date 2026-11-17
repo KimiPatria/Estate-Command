@@ -17,7 +17,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -112,6 +112,26 @@ def startup() -> None:
         except (Exception, SystemExit) as exc:
             log.warning("[%s] could not be initialised, leaving it offline: %s", src.id, exc)
             src.engine = None
+    # Model health's overview reads every forecast's payload; the first build takes
+    # ~30 s cold, so warm it off the request path.
+    import threading
+    threading.Thread(target=_warm_fleet, name="fleet-warm", daemon=True).start()
+
+
+def _warm_fleet() -> None:
+    """The overview first, then each forecast's detail (its scoreboard fills the
+    backtest cache), so a click on a card opens at once."""
+    t0 = time.perf_counter()
+    try:
+        import forecast_fleet
+        import forecast_router
+        forecast_fleet.fleet()
+        log.info("[forecast] model health overview warm in %.1f s", time.perf_counter() - t0)
+        for source, estate, _label, _members in forecast_fleet.forecasts():
+            forecast_router.forecast_model_health(source=source, estate=estate)
+        log.info("[forecast] model health details warm in %.1f s", time.perf_counter() - t0)
+    except Exception as exc:                   # best effort: the page builds it on demand
+        log.warning("[forecast] model health warm-up failed: %s", exc)
 
 
 # ── request / response models ──────────────────────────────────────────────
@@ -312,7 +332,18 @@ _NO_CACHE = {"Cache-Control": "no-cache"}
 
 
 @app.get("/")
-def index():
+def index(request: Request):
+    """The app opens on the chat (buildplan_chat_centre.md Part A). A redirect, not
+    the chat page served here, so /chat stays the chat's one address; the query
+    string (?theme=, ?session=) is kept."""
+    qs = request.url.query
+    return RedirectResponse("/chat" + (f"?{qs}" if qs else ""), status_code=307)
+
+
+@app.get("/dashboard")
+def dashboard_page():
+    """The dashboard generator. Not linked from any page's nav any more, but still
+    served here for anyone who has the address."""
     return FileResponse(STATIC_DIR / "index.html", headers=_NO_CACHE)
 
 
@@ -326,16 +357,37 @@ def chat_page():
     return FileResponse(CHAT_STATIC_DIR / "chat.html", headers=_NO_CACHE)
 
 
-@app.get("/forecast")
-def forecast_page():
+def _forecast_html(name: str) -> HTMLResponse:
+    """A forecast page with the default payload (live K3, 3 months) injected, so the
+    first paint needs no round-trip."""
     import json
     try:
         data_json = json.dumps(forecast_page_payload()).replace("</script>", "<\\/script>")
     except Exception:
         data_json = "null"
-    html = (FORECAST_STATIC_DIR / "forecast.html").read_text(encoding="utf-8")
+    html = (FORECAST_STATIC_DIR / name).read_text(encoding="utf-8")
     html = html.replace("</head>", f"<script>window.__FORECAST_DATA__={data_json};</script>\n</head>", 1)
     return HTMLResponse(content=html, headers=dict(_NO_CACHE))
+
+
+@app.get("/forecast")
+def forecast_page():
+    """Production outlook: the plain-language view everyone lands on."""
+    return _forecast_html("outlook.html")
+
+
+@app.get("/forecast/analyst")
+def forecast_analyst_page():
+    """The full forecast page (accuracy, bands, model comparison, block map) for the
+    forecasting team. Same data as /forecast."""
+    return _forecast_html("forecast.html")
+
+
+@app.get("/forecast/compare")
+def forecast_compare_page():
+    """Compare sources: the live estate databases and the staging database side by side
+    (buildplan_forecast_mlops.md Phase 4). Data from /forecast/compare-data."""
+    return FileResponse(FORECAST_STATIC_DIR / "compare.html", headers=_NO_CACHE)
 
 
 @app.get("/model-health")

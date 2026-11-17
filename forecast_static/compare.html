@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPMS · Compare Sources</title>
+<script>
+  // Theme before first paint (same key as the chat page).
+  (function () {
+    var t = null;
+    try { t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('chat-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23115e6e'/%3E%3Cpath d='m16 6 2.5 7.4L26 15.3l-7.5 2.5L16 25.3l-2.5-7.5L6 15.3l7.5-1.9Z' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/chat-static/vendor/chart.umd.min.js"></script>
+<style>
+/* the body does not scroll (theme.css): this area does, like .fc-content on the other pages */
+.cmp-scroll { flex: 1; overflow-y: auto; }
+.cmp-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+.cmp-card { background: var(--card); border: 1px solid var(--border-s); border-radius: var(--r); padding: 16px 18px 18px; }
+.cmp-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.cmp-head h2 { font-size: 14px; font-weight: 600; }
+.cmp-head .sub { font-size: 12.5px; color: var(--muted); }
+.cmp-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.src-key { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.src-key i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.src-key i.live { background: var(--s1); }
+.src-key i.staging { background: var(--s2); }
+.tbl-scroll { overflow-x: auto; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cmp-table thead th { color: var(--muted); font-size: 12px; font-weight: 500; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.cmp-table thead th.src { border-top: 3px solid transparent; }
+.cmp-table thead th.src.live { border-top-color: var(--s1); }
+.cmp-table thead th.src.staging { border-top-color: var(--s2); }
+.cmp-table tbody td { padding: 7px 10px; border-bottom: 1px solid var(--border-s); vertical-align: middle; font-variant-numeric: tabular-nums; }
+.cmp-table tbody tr:last-child td { border-bottom: none; }
+.cmp-table tbody tr:hover td { background: var(--card-h); }
+.cmp-table td.num, .cmp-table th.num { text-align: right; }
+.cmp-table .group td { background: var(--bg-soft); color: var(--muted); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+code.col { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--text); background: var(--bg-soft); border: 1px solid var(--border-s); padding: 1px 6px; border-radius: 5px; margin-right: 4px; white-space: nowrap; }
+.na { color: var(--muted); font-size: 12.5px; }
+.st { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.st::before { content: ''; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.st.populated::before { background: var(--accent); }
+.st.sparse::before { background: var(--gold); }
+.st.empty::before { background: transparent; border: 1.5px solid var(--muted); width: 6px; height: 6px; }
+.st.populated { color: var(--text); }
+.st.sparse { color: var(--text-2); }
+.st.empty { color: var(--muted); }
+.cell-src { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tl { display: grid; grid-template-columns: 56px 1fr 230px; gap: 6px 12px; align-items: center; font-size: 12.5px; }
+.tl .est { font-weight: 600; }
+.tl .track { position: relative; height: 26px; }
+.tl .bar { position: absolute; height: 10px; border-radius: 5px; }
+.tl .bar.live { top: 2px; background: var(--s1); }
+.tl .bar.staging { top: 14px; background: var(--s2); }
+.tl .bar .part { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--card) 60%, transparent) 0 3px, transparent 3px 6px); }
+.tl .lbl { color: var(--text-2); line-height: 1.35; }
+.tl .lbl b { font-weight: 600; color: var(--text); }
+.tl .axis { position: relative; height: 16px; color: var(--muted); font-size: 11px; }
+.tl .axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.chart-box { position: relative; height: 280px; margin-top: 6px; }
+.kpis { display: flex; gap: 22px; flex-wrap: wrap; margin: 2px 0 10px; }
+.kpis div { display: flex; flex-direction: column; }
+.kpis b { font-size: 20px; font-weight: 600; }
+.kpis span { font-size: 12px; color: var(--muted); }
+.flag { color: var(--error); font-size: 11.5px; font-weight: 500; margin-left: 6px; white-space: nowrap; }
+.model { color: var(--muted); font-size: 11.5px; display: block; }
+#state-loading, #state-error { padding: 60px 0; text-align: center; color: var(--muted); }
+.hidden { display: none !important; }
+@media (max-width: 720px) {
+  .tl { grid-template-columns: 40px 1fr; }
+  .tl .lbl { grid-column: 2; margin-top: -4px; margin-bottom: 6px; }
+  .tl .axis-pad { display: none; }
+}
+</style>
+<link rel="stylesheet" href="/forecast-static/theme.css?v=1">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="/chat" aria-label="EPMS AI, chat">
+    <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
+  </a>
+  <span class="page-name">Production Forecast</span>
+  <nav class="app-nav" aria-label="Pages">
+    <a href="/chat">Chat</a>
+    <a href="/report">Report</a>
+    <a href="/forecast" class="on">Forecast</a>
+  </nav>
+  <div class="top-right">
+    <a class="top-link" href="/model-health"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Model health</span></a>
+    <button class="icon-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme"></button>
+  </div>
+</header>
+
+<div class="fc-titlebar">
+  <span class="fc-title">Compare sources <span class="accent">· live estate databases vs EPMS staging</span></span>
+  <div class="fc-meta">
+    <nav class="view-tabs" aria-label="Forecast views"><a href="/forecast">Outlook</a><a href="/forecast/analyst">Analyst</a><a href="/forecast/compare" class="on">Compare sources</a></nav>
+    <span class="src-key"><i class="live"></i><span id="key-live">Live</span></span>
+    <span class="src-key"><i class="staging"></i><span id="key-staging">Staging</span></span>
+  </div>
+</div>
+
+<main class="cmp-scroll"><div class="cmp-wrap">
+  <div id="state-loading">Reading both sources…</div>
+  <div id="state-error" class="hidden"></div>
+
+  <div id="state-result" class="hidden" style="display:flex; flex-direction:column; gap:14px;">
+
+    <section class="cmp-card" id="card-data">
+      <div class="cmp-head"><h2>Data available</h2><span class="sub">What data does each source give us?</span>
+        <div class="right scope-chips" id="data-chips"></div></div>
+      <div class="tbl-scroll"><table class="cmp-table" id="data-table"></table></div>
+    </section>
+
+    <section class="cmp-card" id="card-history">
+      <div class="cmp-head"><h2>History</h2><span class="sub">How far back does each source go?</span></div>
+      <div class="tl" id="timeline"></div>
+    </section>
+
+    <section class="cmp-card" id="card-agree">
+      <div class="cmp-head"><h2>Agreement</h2><span class="sub">Where both have the same month, do the numbers match?</span>
+        <div class="right scope-chips" id="agree-chips"></div></div>
+      <div class="kpis" id="agree-kpis"></div>
+      <div class="chart-box"><canvas id="agree-chart" aria-label="Monthly bunches from both sources"></canvas></div>
+      <div class="tbl-scroll" style="margin-top:10px"><table class="cmp-table" id="agree-table"></table></div>
+    </section>
+
+    <section class="cmp-card" id="card-acc">
+      <div class="cmp-head"><h2>Accuracy</h2><span class="sub">Which source gives the more accurate forecast?</span></div>
+      <div class="tbl-scroll"><table class="cmp-table" id="acc-table"></table></div>
+    </section>
+
+    <section class="cmp-card" id="card-fwd">
+      <div class="cmp-head"><h2>Forecast</h2><span class="sub">What does each source forecast for the same estate?</span>
+        <div class="right scope-chips" id="fwd-chips"></div></div>
+      <div class="chart-box"><canvas id="fwd-chart" aria-label="Forecast from both sources"></canvas></div>
+    </section>
+
+    <section class="cmp-card" id="card-cost">
+      <div class="cmp-head"><h2>Running cost</h2><span class="sub">What does each path take to run?</span></div>
+      <div class="tbl-scroll"><table class="cmp-table" id="cost-table"></table></div>
+    </section>
+  </div>
+</div></main>
+
+<script src="/forecast-static/theme.js?v=1"></script>
+<script>
+'use strict';
+const SRC = ['live', 'staging'];
+let D = null, C = Theme.chart();
+let dataScope = 'all', agreeEst = null, fwdEst = null;
+const charts = {};
+
+function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+function col(sid) { return Theme.legible(Theme.css(sid === 'live' ? '--s1' : '--s2')); }
+function srcLabel(sid) { return (D.sources.find(s => s.id === sid) || {}).label || sid; }
+function pct(v, d = 1) { return v == null ? 'N/A' : (Math.round(v * 10 ** d) / 10 ** d) + '%'; }
+function num(v) { return v == null ? 'N/A' : Math.round(v).toLocaleString('en-US'); }
+function mLabel(m) { const [y, mo] = m.split('-'); return new Date(+y, +mo - 1).toLocaleString('en-US', { month: 'short' }) + ' ' + y.slice(2); }
+function chips(el, ids, current, onPick, labelOf) {
+  el.innerHTML = ids.map(id => `<button type="button" class="scope-chip${id === current ? ' active' : ''}" data-id="${esc(id)}">${esc(labelOf ? labelOf(id) : id)}</button>`).join('');
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => onPick(b.dataset.id)));
+}
+
+async function load() {
+  try {
+    const r = await fetch('/forecast/compare-data');
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ('Server error ' + r.status));
+    D = d;
+    document.getElementById('key-live').textContent = srcLabel('live');
+    document.getElementById('key-staging').textContent = srcLabel('staging');
+    document.getElementById('state-loading').classList.add('hidden');
+    document.getElementById('state-result').classList.remove('hidden');
+    renderAll();
+  } catch (e) {
+    document.getElementById('state-loading').classList.add('hidden');
+    const el = document.getElementById('state-error');
+    el.textContent = '⚠ ' + (e.message || 'Could not read the comparison.');
+    el.classList.remove('hidden');
+  }
+}
+
+function renderAll() { renderData(); renderHistory(); renderAgree(); renderAcc(); renderFwd(); renderCost(); }
+
+/* ── data available ───────────────────────────────────────────────── */
+function stPill(status) { return `<span class="st ${esc(status.replace(' ', '-'))}">${esc(status)}</span>`; }
+function cellFor(slot, scope) {
+  if (scope === 'all') {
+    if (!slot || !slot.columns.length) return '<span class="na">not available</span>';
+    const title = slot.fill_rate != null ? 'filled on ' + pct(slot.fill_rate * 100) + ' of rows' : '';
+    return `<div class="cell-src" title="${esc(title)}">${slot.columns.map(c => `<code class="col">${esc(c)}</code>`).join('')}${slot.joined ? '<span class="na">joined</span>' : stPill(slot.status)}</div>`;
+  }
+  const e = slot && slot.per_estate && slot.per_estate[scope];
+  if (!e) return '<span class="na">not available</span>';
+  if (e.status === 'not available') return `<div class="cell-src"><code class="col">${esc(e.column)}</code><span class="na">not available</span></div>`;
+  const parts = [];
+  if (e.fill_rate != null) parts.push('filled on ' + pct(e.fill_rate * 100) + ' of rows');
+  if (e.first_month) parts.push(e.first_month + ' – ' + e.last_month);
+  if (e.note) parts.push(e.note);
+  return `<div class="cell-src" title="${esc(parts.join(' · '))}"><code class="col">${esc(e.column)}</code>${e.joined ? '<span class="na">joined</span>' : stPill(e.status)}${e.fill_rate != null ? `<span class="na">${pct(e.fill_rate * 100)}</span>` : ''}</div>`;
+}
+function renderData() {
+  const estates = [...new Set(D.history.map(h => h.estate))];
+  chips(document.getElementById('data-chips'), ['all', ...estates], dataScope, id => { dataScope = id; renderData(); },
+        id => id === 'all' ? 'All estates' : id);
+  const groups = [['bunch', 'Harvest counts', r => r.item.startsWith('bunches') || ['loose_fruit', 'tickets'].includes(r.item)],
+                  ['ops', 'People and places', r => ['harvest_point', 'harvester', 'harvest_card', 'foreman', 'checker', 'method', 'transport', 'gps'].includes(r.item)],
+                  ['other', 'Weight and weather', r => true]];
+  const used = new Set();
+  let body = '';
+  for (const [, title, pick] of groups) {
+    const rows = D.availability.items.filter(r => !used.has(r.item) && pick(r));
+    rows.forEach(r => used.add(r.item));
+    if (!rows.length) continue;
+    body += `<tr class="group"><td colspan="3">${esc(title)}</td></tr>`;
+    body += rows.map(r => `<tr><td>${esc(r.label)}</td><td>${cellFor(r.live, dataScope)}</td><td>${cellFor(r.staging, dataScope)}</td></tr>`).join('');
+  }
+  document.getElementById('data-table').innerHTML =
+    `<thead><tr><th>Data item</th><th class="src live">${esc(srcLabel('live'))}</th><th class="src staging">${esc(srcLabel('staging'))}</th></tr></thead><tbody>${body}</tbody>`;
+}
+
+/* ── history ──────────────────────────────────────────────────────── */
+function monthIdx(m) { const [y, mo] = m.split('-').map(Number); return y * 12 + mo - 1; }
+function renderHistory() {
+  const all = D.history.flatMap(h => SRC.filter(s => h[s].available).flatMap(s => [h[s].first_month, h[s].last_month]));
+  const lo = Math.min(...all.map(monthIdx)), hi = Math.max(...all.map(monthIdx)) + 1;
+  const x = m => ((monthIdx(m) - lo) / (hi - lo) * 100);
+  let html = '';
+  for (const h of D.history) {
+    let bars = '', lbl = [];
+    for (const s of SRC) {
+      const v = h[s];
+      if (!v.available) { lbl.push(`<span style="color:${col(s)}">●</span> ${esc(v.reason)}`); continue; }
+      const left = x(v.first_month), width = (monthIdx(v.last_month) + 1 - monthIdx(v.first_month)) / (hi - lo) * 100;
+      const parts = v.months.filter(m => m.partial).map(m =>
+        `<span class="part" style="left:${(monthIdx(m.month) - monthIdx(v.first_month)) / (monthIdx(v.last_month) + 1 - monthIdx(v.first_month)) * 100}%;width:${100 / (monthIdx(v.last_month) + 1 - monthIdx(v.first_month))}%"></span>`).join('');
+      bars += `<span class="bar ${s}" style="left:${left}%;width:${width}%" title="${esc(srcLabel(s))}: ${esc(v.first_day)} – ${esc(v.last_day)}">${parts}</span>`;
+      lbl.push(`<span style="color:${col(s)}">●</span> <b>${v.full_months}</b> full month${v.full_months === 1 ? '' : 's'}` + (v.forecastable ? '' : ` · <span class="flag">${esc(v.reason)}</span>`));
+    }
+    html += `<span class="est">${esc(h.estate)}</span><div class="track">${bars}</div><div class="lbl">${lbl.join('<br>')}</div>`;
+  }
+  const ticks = [];
+  for (let i = lo; i <= hi; i++) if (i % 6 === 0) {
+    const y = Math.floor(i / 12), mo = i % 12 + 1;
+    ticks.push(`<span style="left:${(i - lo) / (hi - lo) * 100}%">${mLabel(y + '-' + String(mo).padStart(2, '0'))}</span>`);
+  }
+  html += `<span class="axis-pad"></span><div class="axis">${ticks.join('')}</div><span class="axis-pad"></span>`;
+  document.getElementById('timeline').innerHTML = html;
+}
+
+/* ── agreement ────────────────────────────────────────────────────── */
+function renderAgree() {
+  const list = D.agreement.filter(a => a.shared_months > 0);
+  if (!list.length) { document.getElementById('card-agree').classList.add('hidden'); return; }
+  if (!agreeEst || !list.some(a => a.estate === agreeEst)) agreeEst = list[0].estate;
+  chips(document.getElementById('agree-chips'), list.map(a => a.estate), agreeEst, id => { agreeEst = id; renderAgree(); });
+  const a = list.find(x => x.estate === agreeEst);
+  document.getElementById('agree-kpis').innerHTML =
+    `<div><b>${a.matching_months} of ${a.shared_months}</b><span>months within 0.5%</span></div>` +
+    `<div><b>${a.mismatches.length}</b><span>months that differ</span></div>`;
+  const labels = a.months.map(m => mLabel(m.month));
+  draw('agree-chart', {
+    type: 'line',
+    data: { labels, datasets: SRC.map(s => ({ label: srcLabel(s), data: a.months.map(m => m[s]),
+      borderColor: col(s), backgroundColor: col(s), borderWidth: 2, pointRadius: 3, tension: .25,
+      borderDash: s === 'staging' ? [6, 4] : [] })) },
+    options: baseOpts(v => num(v) + ' bunches', items => {
+      const m = a.months[items[0].dataIndex]; return m.diff_pct == null ? '' : 'Staging vs live: ' + (m.diff_pct > 0 ? '+' : '') + m.diff_pct + '%';
+    }),
+  });
+  document.getElementById('agree-table').innerHTML = a.mismatches.length
+    ? `<thead><tr><th>Month</th><th class="num">${esc(srcLabel('live'))}</th><th class="num">${esc(srcLabel('staging'))}</th><th class="num">Difference</th></tr></thead><tbody>` +
+      a.mismatches.map(m => `<tr><td>${esc(mLabel(m.month))}</td><td class="num">${num(m.live)}</td><td class="num">${num(m.staging)}</td><td class="num">${m.diff_pct > 0 ? '+' : ''}${m.diff_pct}%</td></tr>`).join('') + '</tbody>'
+    : '';
+}
+
+/* ── accuracy ─────────────────────────────────────────────────────── */
+function accCell(v, key = 'smape') {
+  if (!v || v.available === false) return `<td class="num"><span class="na">${esc(v ? v.reason : 'N/A')}</span></td>`;
+  const val = v[key];
+  return `<td class="num">${pct(val)}</td>`;
+}
+function renderAcc() {
+  let body = '';
+  for (const a of D.accuracy) {
+    const both = SRC.every(s => a[s] && a[s].available !== false);
+    const head = s => a[s] && a[s].available !== false
+      ? `${pct(a[s].smape)}<span class="model">${esc(a[s].model_label)} · ${a[s].origins} origins${a[s].low_evidence ? ' · low evidence' : ''}</span>`
+      : `<span class="na">${esc(a[s] ? a[s].reason : 'N/A')}</span>`;
+    const band = s => a[s] && a[s].band ? a[s].band.map(b => '±' + Math.round(b)).join(' / ') + '%' : '<span class="na">N/A</span>';
+    body += `<tr class="group"><td colspan="5">${esc(a.estate)}</td></tr>`;
+    body += `<tr><td>Served model, own window</td><td class="num">${head('live')}</td><td class="num">${head('staging')}</td><td class="num">${band('live')}</td><td class="num">${band('staging')}</td></tr>`;
+    if (a.shared) {
+      body += a.shared.rows
+        ? `<tr><td>Served model, shared window<span class="model">${a.shared.origins} origins, ${esc(a.shared.first_origin)} – ${esc(a.shared.last_origin)}</span></td><td class="num">${pct(a.shared.live)}</td><td class="num">${pct(a.shared.staging)}</td><td></td><td></td></tr>`
+        : `<tr><td>Shared window</td><td colspan="4" class="na">${esc(a.shared.reason)}</td></tr>`;
+    }
+    for (const m of a.same_model || []) {
+      body += `<tr><td>Same model, shared window<span class="model">${esc(m.model_label)} · ${m.origins} origins</span></td><td class="num">${pct(m.live)}</td><td class="num">${pct(m.staging)}</td><td></td><td></td></tr>`;
+    }
+  }
+  document.getElementById('acc-table').innerHTML =
+    `<thead><tr><th>Forecast error (sMAPE, months 1–3)</th><th class="num src live">${esc(srcLabel('live'))}</th><th class="num src staging">${esc(srcLabel('staging'))}</th><th class="num">Band, live</th><th class="num">Band, staging</th></tr></thead><tbody>${body}</tbody>`;
+}
+
+/* ── forward forecast ─────────────────────────────────────────────── */
+function renderFwd() {
+  const list = D.forward.filter(f => SRC.some(s => f[s] && f[s].available));
+  if (!fwdEst || !list.some(f => f.estate === fwdEst)) fwdEst = (list.find(f => SRC.every(s => f[s].available)) || list[0]).estate;
+  chips(document.getElementById('fwd-chips'), list.map(f => f.estate), fwdEst, id => { fwdEst = id; renderFwd(); });
+  const f = list.find(x => x.estate === fwdEst);
+  const months = [...new Set(SRC.flatMap(s => f[s].available ? [...f[s].history.map(h => h.month), ...f[s].steps.map(p => p.month)] : []))].sort();
+  const ds = [];
+  for (const s of SRC) {
+    if (!f[s].available) continue;
+    const hist = Object.fromEntries(f[s].history.map(h => [h.month, h.value]));
+    const fc = Object.fromEntries(f[s].steps.map(p => [p.month, p]));
+    const anchor = f[s].anchor.month;
+    const c = col(s);
+    ds.push({ label: srcLabel(s) + ' · actual', data: months.map(m => hist[m] ?? null), borderColor: c, backgroundColor: c,
+              borderWidth: 2, pointRadius: 0, tension: .25, spanGaps: false });
+    ds.push({ label: srcLabel(s) + ' · 80% range', data: months.map(m => m === anchor ? hist[m] : (fc[m] ? fc[m].upper80 : null)),
+              borderColor: 'transparent', backgroundColor: Theme.alpha(Theme.css(s === 'live' ? '--s1' : '--s2'), .12),
+              pointRadius: 0, fill: '+1', tension: .25, _band: true });
+    ds.push({ label: '_lo80', data: months.map(m => m === anchor ? hist[m] : (fc[m] ? fc[m].lower80 : null)),
+              borderColor: 'transparent', pointRadius: 0, fill: false, tension: .25, _band: true });
+    ds.push({ label: srcLabel(s) + ' · forecast', data: months.map(m => m === anchor ? hist[m] : (fc[m] ? fc[m].value : null)),
+              borderColor: c, backgroundColor: c, borderWidth: 2.5, borderDash: [6, 4], pointRadius: m => 3, tension: .25 });
+  }
+  draw('fwd-chart', { type: 'line', data: { labels: months.map(mLabel), datasets: ds },
+    options: baseOpts(v => num(v) + ' bunches', null, it => !it.dataset._band) });
+}
+
+/* ── running cost ─────────────────────────────────────────────────── */
+function renderCost() {
+  const c = Object.fromEntries(D.cost.map(x => [x.source, x]));
+  const row = (label, fn) => `<tr><td>${esc(label)}</td>${SRC.map(s => `<td>${fn(c[s])}</td>`).join('')}</tr>`;
+  document.getElementById('cost-table').innerHTML =
+    `<thead><tr><th></th>${SRC.map(s => `<th class="src ${s}">${esc(srcLabel(s))}</th>`).join('')}</tr></thead><tbody>` +
+    row('Connections a refresh needs', x => [x.databases ? x.databases + ' database' + (x.databases > 1 ? 's' : '') : '', x.files ? x.files + ' export file' + (x.files > 1 ? 's' : '') : ''].filter(Boolean).join(' + ') || 'N/A') +
+    row('Estates in the source', x => esc(x.estates.join(', '))) +
+    row('Estates it can forecast', x => esc(x.forecastable.join(', ') || 'none')) +
+    row('Data through', x => x.last_day ? esc(x.last_day) + (x.oldest_last_day && x.oldest_last_day !== x.last_day ? ` <span class="na">(oldest estate ${esc(x.oldest_last_day)})</span>` : '') : 'N/A') +
+    row('Extract time, all estates', x => x.extract_seconds != null ? x.extract_seconds + ' s' : 'N/A') +
+    row('Last extract', x => x.built_at ? esc(x.built_at.replace('T', ' ')) : 'N/A') +
+    row('Data checks', x => x.gate_ok == null ? 'N/A' : x.gate_ok ? stPill('populated').replace('populated', 'passed') : '<span class="flag">failed</span>') +
+    row('Monitoring alerts', x => !x.alerts ? 'N/A' : !x.alerts.length ? 'none'
+        : x.alerts.map(a => `<span class="flag" style="margin:0">${esc(a.estate.toUpperCase())}: ${esc(a.check.replace(/_/g, ' '))}</span> <span class="na">${esc(a.detail)}</span>`).join('<br>')) +
+    '</tbody>';
+}
+
+/* ── chart helpers ────────────────────────────────────────────────── */
+function baseOpts(fmtVal, afterBody, legendFilter) {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: true, position: 'top', align: 'end',
+        labels: { color: C.text2, boxWidth: 14, boxHeight: 3, font: { size: 11.5 },
+          filter: (it, data) => !data.datasets[it.datasetIndex].label.startsWith('_') && (!legendFilter || legendFilter({ dataset: data.datasets[it.datasetIndex] })) } },
+      tooltip: { ...Theme.tooltip(),
+        filter: it => !it.dataset.label.startsWith('_'),
+        callbacks: { label: it => it.parsed.y == null ? null : it.dataset.label + ': ' + fmtVal(it.parsed.y),
+                     ...(afterBody ? { afterBody } : {}) } },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: C.tick, font: { size: 11 }, maxRotation: 0, autoSkip: true } },
+      y: { grid: { color: C.grid }, border: { display: false }, ticks: { color: C.tick, font: { size: 11 },
+           callback: v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v / 1e3) + 'K' : v } },
+    },
+  };
+}
+function draw(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+Theme.onChange(() => { C = Theme.chart(); if (D) renderAll(); });
+window.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

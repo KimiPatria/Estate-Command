@@ -9,7 +9,7 @@ import data_sources
 import metadata_loader
 from dataclasses import dataclass, field
 from metadata_loader import TableCard, embedding_text, load_all_cards
-from query_history import get_successful_pairs
+from query_history import get_example, get_example_rows, get_successful_pairs
 from llm import call_routing_llm
 from error_handler import is_off_domain as _is_off_domain
 
@@ -164,32 +164,41 @@ def _refresh_history_collection(client: Any | None = None,
         return
 
     idx = _INDEXES.setdefault(src.id, _Index())
+    # Rebuilt from scratch at every start, to exactly the usable rows: an
+    # example retired since (thumbs-down, purge) must not linger, and deleting
+    # ids from Chroma's HNSW index in place left it answering "Error finding
+    # id" to every query, which silently took all examples away.
+    try:
+        c.delete_collection(src.history_collection)
+    except Exception:
+        pass
     idx.history_collection = c.get_or_create_collection(
         name=src.history_collection,
         metadata={"hnsw:space": "cosine"},
     )
 
-    pairs = get_successful_pairs(limit=500, source=src.id)
-    if not pairs:
+    rows = get_example_rows(limit=800, source=src.id)
+    if not rows:
         return
 
-    ids        = [str(row_id) for row_id, _, _  in pairs]
-    questions  = [q           for _, q, _        in pairs]
-    sqls       = [sql         for _, _, sql       in pairs]
-
     try:
-        embeddings = _embed(questions)
+        embeddings = _embed([q for _, q, _, _, _ in rows])
     except Exception as e:
         log.warning("Failed to embed query history: %s", e)
         return
 
     idx.history_collection.upsert(
-        ids=ids,
+        ids=[str(row_id) for row_id, _, _, _, _ in rows],
         embeddings=embeddings,
-        documents=questions,
-        metadatas=[{"sql": sql, "success": True} for sql in sqls],
+        documents=[q for _, q, _, _, _ in rows],
+        metadatas=[_example_meta(sql, verified, origin) for _, _, sql, verified, origin in rows],
     )
-    log.info("[%s] indexed %d query history entries", src.id, len(ids))
+    log.info("[%s] indexed %d query history entries (%d verified)",
+             src.id, len(rows), sum(1 for r in rows if r[3]))
+
+
+def _example_meta(sql: str, verified, origin: str) -> dict:
+    return {"sql": sql, "success": True, "verified": int(bool(verified)), "origin": origin or "auto"}
 
 
 def refresh_query_history_index() -> None:
@@ -219,11 +228,25 @@ def refresh_query_history_index() -> None:
             ids=[str_id],
             embeddings=embedding,
             documents=[question],
-            metadatas=[{"sql": sql, "success": True}],
+            metadatas=[_example_meta(sql, False, "auto")],
         )
         log.debug("Indexed new query history entry id=%s", str_id)
     except Exception as e:
         log.warning("Failed to index query history entry id=%s: %s", str_id, e)
+
+
+def remember_example(query_id: int, source_id: str | None = None) -> None:
+    """(Re)index one example with its current standing (after a thumbs-up)."""
+    history = _index(source_id).history_collection
+    row = get_example(query_id)
+    if history is None or row is None:
+        return
+    _, question, sql, verified, origin = row
+    try:
+        history.upsert(ids=[str(query_id)], embeddings=_embed([question]), documents=[question],
+                       metadatas=[_example_meta(sql, verified, origin)])
+    except Exception as e:
+        log.debug("could not re-index example %s: %s", query_id, e)
 
 
 def forget_example(query_id: int, source_id: str | None = None) -> None:
@@ -231,10 +254,15 @@ def forget_example(query_id: int, source_id: str | None = None) -> None:
     history = _index(source_id).history_collection
     if history is None:
         return
+    # Marked, not deleted: retrieval asks for success=True, and deleting ids in
+    # place has corrupted the HNSW index before. The next start rebuilds it.
     try:
-        history.delete(ids=[str(query_id)])
+        got = history.get(ids=[str(query_id)])
+        if got and got.get("ids"):
+            meta = {**(got["metadatas"][0] or {}), "success": False}
+            history.update(ids=[str(query_id)], metadatas=[meta])
     except Exception as e:
-        log.debug("could not drop example %s: %s", query_id, e)
+        log.debug("could not retire example %s: %s", query_id, e)
 
 
 # ── public retrieval API ───────────────────────────────────────────────────
@@ -367,10 +395,34 @@ def _bm25_fallback(question: str, k: int, cards: dict[str, TableCard],
     return [cards[_bm25_table_names[i]] for i in ranked if _bm25_table_names[i] in cards]
 
 
-def retrieve_examples(question: str, k: int = 3) -> list[tuple[str, str]]:
-    """Return (past_question, past_sql) from the active source's query history,
-    skipping silently if < 3 exist. Past SQL is never shared across sources:
-    Postgres examples would teach the T-SQL source the wrong dialect."""
+# Example selection. Cosine distances from bge-small are compressed: on this
+# history a question about the same table and measure sits at 0.13-0.28, and
+# an unrelated one ("mandays on pruning" against "total harvest last 30 days")
+# from about 0.26. An unrelated example is worse than none, so past this the
+# candidate is dropped. A verified example (hand-written seed or thumbs-up)
+# ranks as if VERIFIED_BONUS closer, so it wins a near tie but not against a
+# near-identical question.
+EXAMPLE_MAX_DISTANCE = 0.30
+VERIFIED_BONUS = 0.05
+# The date filter is the part of an example the writer copies most readily. An
+# example whose question names a period ("this year") shown for one that names
+# none taught it to drop the default period (staging rule 10) on 3 of 3 runs,
+# so a mismatch on "is a period named" ranks the example this much further away.
+PERIOD_MISMATCH_PENALTY = 0.06
+_EXAMPLE_CANDIDATES = 12
+
+
+def retrieve_examples(question: str, k: int = 3, *, min_distance: float = 0.0) -> list[tuple[str, str]]:
+    """Return up to k (past_question, past_sql) pairs from the active source's history.
+
+    Candidates are the nearest stored questions within EXAMPLE_MAX_DISTANCE.
+    Any whose SQL breaks a data rule (lint) or names a table or column that no
+    longer exists (schema check) is skipped, and so is a repeat of an SQL
+    already chosen. `min_distance` drops near-copies of the question itself
+    (sql_eval uses it so a test cannot be answered by its own stored answer).
+    Past SQL is never shared across sources: Postgres examples would teach the
+    T-SQL source the wrong dialect.
+    """
     history = _index().history_collection
     if history is None:
         return []
@@ -379,26 +431,52 @@ def retrieve_examples(question: str, k: int = 3) -> list[tuple[str, str]]:
         total = history.count()
     except Exception:
         return []
-
-    if total < 3:
+    if total == 0:
         return []
 
     try:
         q_emb   = _embed([question])[0]
         results = history.query(
             query_embeddings=[q_emb],
-            n_results=min(k, total),
+            n_results=min(_EXAMPLE_CANDIDATES, total),
             where={"success": True},
         )
         if not results["ids"] or not results["ids"][0]:
             return []
 
-        past_questions = results["documents"][0]
-        metadatas      = results["metadatas"][0]
-        lint = data_sources.active().lint
-        pairs = [(pq, m["sql"]) for pq, m in zip(past_questions, metadatas)
-                 if not (lint and lint(m["sql"], pq))]
-        log.info("[retrieval] examples: %d found", len(pairs))
+        src = data_sources.active()
+        import sql_schema_check
+        from chat_conversation import names_period
+
+        asks_period = names_period(question)
+        candidates = []
+        for pq, meta, dist in zip(results["documents"][0], results["metadatas"][0],
+                                  results["distances"][0]):
+            # Chroma reports an exact match as a tiny negative distance (-0.000),
+            # so the lower bound only applies when one was asked for.
+            if dist > EXAMPLE_MAX_DISTANCE or (min_distance > 0 and dist < min_distance):
+                continue
+            score = dist - (VERIFIED_BONUS if meta.get("verified") else 0.0)
+            if names_period(pq) != asks_period:
+                score += PERIOD_MISMATCH_PENALTY
+            candidates.append((score, pq, meta["sql"]))
+        candidates.sort(key=lambda c: c[0])
+
+        pairs: list[tuple[str, str]] = []
+        seen_sql: set[str] = set()
+        for _, pq, sql in candidates:
+            key = re.sub(r"\s+", " ", sql.strip().lower())
+            if key in seen_sql:
+                continue
+            if src.lint and src.lint(sql, pq):
+                continue
+            if sql_schema_check.check(sql, src.dialect, src.id):
+                continue
+            seen_sql.add(key)
+            pairs.append((pq, sql))
+            if len(pairs) >= k:
+                break
+        log.info("[retrieval] examples: %d of %d candidates", len(pairs), len(candidates))
         return pairs
     except Exception as e:
         log.warning("Example retrieval failed: %s", e)

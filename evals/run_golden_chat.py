@@ -123,7 +123,7 @@ def norm_sql(sql: str) -> str:
 def judge(case: dict, resp: dict, expected, trap) -> dict:
     sql = resp.get("sql") or ""
     res = {"sql": sql, "answer": resp.get("answer"), "row_count": resp.get("row_count"),
-           "estates": resp.get("estates_used"), "problems": []}
+           "estates": resp.get("estates_used"), "sql_outcome": resp.get("sql_outcome"), "problems": []}
     if resp.get("error_type") or not sql:
         res["problems"].append(f"no answer ({resp.get('error_type') or 'no SQL'})")
         res["pass"] = False
@@ -158,6 +158,64 @@ def judge(case: dict, resp: dict, expected, trap) -> dict:
     return res
 
 
+def judge_route(case: dict, resp: dict) -> dict:
+    """expect_route cases: only where the message was sent (e.g. asked back) counts."""
+    want = case["expect_route"]
+    got = resp.get("route")
+    res = {"sql": resp.get("sql") or "", "answer": resp.get("answer"), "route": got,
+           "sql_outcome": resp.get("sql_outcome"), "problems": []}
+    if got != want:
+        res["problems"].append(f"route {got!r}, expected {want!r}")
+    res["pass"] = not res["problems"]
+    return res
+
+
+def judge_overview(case: dict, resp: dict, expected: dict | None) -> dict:
+    """kind: overview. Each measure the answer shows is checked in its own column
+    of the merged table against the case's reference for that measure."""
+    rows = resp.get("rows") or []
+    cols = resp.get("columns") or []
+    parts = resp.get("parts") or []
+    res = {"sql": resp.get("sql") or "", "answer": resp.get("answer"), "route": resp.get("route"),
+           "row_count": resp.get("row_count"), "sql_outcome": resp.get("sql_outcome"),
+           "measures": [p.get("measure") for p in parts], "problems": [], "warnings": []}
+    if resp.get("route") != "overview" or resp.get("error_type"):
+        res["problems"].append(f"not answered as an overview (route {resp.get('route')}, "
+                               f"error {resp.get('error_type')})")
+        res["pass"] = False
+        return res
+    with_rows = [p for p in parts if p.get("row_count")]
+    if case.get("check") == "structure":
+        if len(with_rows) < 2 or len(rows) < 2:
+            res["problems"].append(f"{len(with_rows)} measure(s) with rows, {len(rows)} table row(s)")
+        res["pass"] = not res["problems"]
+        return res
+
+    tol = float(case.get("rel_tol", 1e-6))
+    checked, figs = 0, []
+    for p in with_rows:
+        mid, label = p.get("measure"), p.get("label")
+        if mid not in (expected or {}):
+            res["warnings"].append(f"{mid}: no reference")
+            continue
+        if label not in cols:
+            res["warnings"].append(f"{mid}: shown apart from the table")
+            continue
+        checked += 1
+        for key, value in expected[mid]:
+            sel = [r for r in rows if any(isinstance(v, str) and key.lower() in v.lower() for v in r.values())]
+            got = [float(r[label]) for r in sel if _num(r.get(label))]
+            ok = any(same(g, value, tol) for g in got)
+            figs.append({"measure": mid, "key": key, "expected": value, "got": got[:1], "ok": ok})
+            if not ok and value:     # an estate with no data for a measure shows an empty cell
+                res["problems"].append(f"{mid} {key}: expected {value:,.2f}, got {got[:1] or 'nothing'}")
+    if checked < 2:
+        res["problems"].append(f"only {checked} measure(s) could be checked")
+    res["figures"] = figs
+    res["pass"] = not res["problems"]
+    return res
+
+
 # ── main ───────────────────────────────────────────────────────────────────
 
 def load(args) -> list[dict]:
@@ -177,6 +235,19 @@ def check_cases(cases: list[dict]) -> int:
     for c in cases:
         if c["database"] == "staging" and not data_sources.get("staging").available:
             print(f"{c['id']:7} SKIP  staging not configured"); continue
+        if c.get("measures"):
+            for mid, sql in c["measures"].items():
+                try:
+                    exp = figures(c, sql)
+                except Exception as e:
+                    print(f"{c['id']:7} ERROR {mid}: {str(e)[:200]}"); bad += 1; continue
+                zero = not exp or all(v == 0 for _, v in exp)
+                bad += zero
+                print(f"{c['id']:7} {'ALL-ZERO' if zero else 'ok   '} {mid:17} "
+                      + ", ".join(f"{k} {v:,.2f}" for k, v in exp))
+            continue
+        if not c.get("reference_sql"):
+            print(f"{c['id']:7} ok    (no figures: {c.get('expect_route') or c.get('check')})"); continue
         try:
             exp = figures(c, c["reference_sql"])
             trap = figures(c, c["trap_sql"]) if c.get("trap_sql") else None
@@ -226,7 +297,10 @@ def main():
         for c in cases:
             if c["database"] == "staging" and not data_sources.get("staging").available:
                 print(f"{c['id']:7} SKIP  staging not configured"); continue
-            expected = figures(c, c["reference_sql"])
+            if c.get("measures"):
+                expected = {mid: figures(c, sql) for mid, sql in c["measures"].items()}
+            else:
+                expected = figures(c, c["reference_sql"]) if c.get("reference_sql") else None
             trap = figures(c, c["trap_sql"]) if c.get("trap_sql") else None
             runs = []
             for _ in range(args.runs):
@@ -241,7 +315,12 @@ def main():
                         "session_id": sid})
                     resp = r.json() if r.status_code == 200 else {"error_type": f"http {r.status_code}"}
                     said.append({"q": msg, "a": (resp.get("answer") or "")[:300], "route": resp.get("route")})
-                out = judge(c, resp, expected, trap)
+                if c.get("expect_route"):
+                    out = judge_route(c, resp)
+                elif c.get("kind") == "overview":
+                    out = judge_overview(c, resp, expected)
+                else:
+                    out = judge(c, resp, expected, trap)
                 if c.get("turns"):
                     out["conversation"] = said
                 out["seconds"] = round(time.time() - t0, 1)

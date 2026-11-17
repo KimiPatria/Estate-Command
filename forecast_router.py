@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 from fastapi.responses import JSONResponse
 
 log = logging.getLogger("epms-forecast")
@@ -53,6 +53,24 @@ HORIZON_CHOICES = (3, 6, 12)
 # the UI: add an id here (and to ESTATE_DIRS below) the moment that estate
 # gets a model, and the estate tiles / scope selector light up on their own.
 MODELED_ESTATES = ("k3", "ec")
+
+# Since 2026-11-12 the page serves Chronos-2 zero-shot from the Forecast Lab on every
+# estate it can forecast (forecast_sources.served_model; buildplan_forecast_mlops.md
+# D1, D6, D9). The ensemble behind MODELED_ESTATES is still fitted for:
+#   * FALLBACK_ESTATES -- served when that estate's Chronos forecast is missing or
+#     older than its data (K3, manual promotion 2026-11-12);
+#   * INTEL_ESTATES -- the Intelligence and Investigator panels, which need the
+#     estate's weather provenance sidecar and the ensemble's conformal calibration.
+FALLBACK_ESTATES = ("k3",)
+INTEL_ESTATES = MODELED_ESTATES
+
+# Live estates the Forecast Lab builds from the per-estate EPMS databases
+# (gis/build_estate_data.py snapshots) that are not in config.ESTATES. Listed on the
+# live page's roster so a source's coverage, and its gaps, are visible.
+LAB_ONLY_ESTATES = {
+    "eb": {"label": "EB"},
+    "ea": {"label": "EA"},
+}
 
 ESTATE_DIRS = {
     "k3": _FORECAST_DIR,
@@ -100,11 +118,12 @@ def _scope_payload(estate: str = "k3") -> dict:
     from config import ESTATES, ESTATE_ORDER
     from forecast.blocks import has_block_geometry
 
+    servable = set(live_servable())
     estates = [
         {
             "id": eid,
             "label": ESTATES[eid]["label"],
-            "modeled": eid in MODELED_ESTATES,
+            "modeled": eid in servable,
             "has_blocks": has_block_geometry(eid),
         }
         for eid in ESTATE_ORDER
@@ -116,10 +135,19 @@ def _scope_payload(estate: str = "k3") -> dict:
         estates.append({
             "id": eid,
             "label": meta["label"],
-            "modeled": eid in MODELED_ESTATES,
+            "modeled": eid in servable,
             "has_blocks": has_block_geometry(eid),
             "spatial_only": True,
         })
+        all_labels[eid] = meta["label"]
+    for eid, meta in LAB_ONLY_ESTATES.items():
+        if eid in all_labels:
+            continue
+        row = {"id": eid, "label": meta["label"], "modeled": eid in servable,
+               "has_blocks": has_block_geometry(eid), "spatial_only": True}
+        if eid not in servable:
+            row["reason"] = live_unavailable_reason(eid)
+        estates.append(row)
         all_labels[eid] = meta["label"]
     modeled = [e for e in estates if e["modeled"]]
     return {
@@ -127,11 +155,13 @@ def _scope_payload(estate: str = "k3") -> dict:
         "available_levels": list(AVAILABLE_LEVELS),
         "estates":          estates,
         "modeled_count":    len(modeled),
-        "estate_count":     len(ESTATES),
+        # Every estate the live roster lists (config.ESTATES + the EPMS-database
+        # estates), so "N of M modelled" counts the same rows the page draws.
+        "estate_count":     len(estates),
         # The estate the served numbers on THIS payload actually belong to.
-        "series_estate":    estate if estate in MODELED_ESTATES else None,
-        "series_label":     all_labels.get(estate) if estate in MODELED_ESTATES else None,
-        "complete":         len(modeled) == len(ESTATES),
+        "series_estate":    estate if estate in servable else None,
+        "series_label":     all_labels.get(estate) if estate in servable else None,
+        "complete":         len(modeled) == len(estates),
     }
 
 def _multih_accuracy(est_dir: Path, max_step: int = HORIZON_DEFAULT) -> dict:
@@ -277,6 +307,8 @@ def _served_band_coverage(est_dir: Path, smape_widths: dict, fallback_smape: flo
                     continue
                 a, pr = float(r["actual"]), float(r["pred"])
                 band = _measured_smape_band(smape_widths, fallback_smape, step)
+                if band is None:          # no measured band: nothing to score coverage of
+                    return {}
                 inside = abs(a - pr) <= abs(pr) * band / 100.0
                 h, n = hits.get(step, (0, 0))
                 hits[step] = (h + (1 if inside else 0), n + 1)
@@ -406,21 +438,26 @@ def _compute(estate: str = "k3", horizon: int = HORIZON_DEFAULT) -> dict:
     est_dir = _estate_dir(estate)
     model_joblib = est_dir / "monthly_model.joblib"
 
-    # Served model metadata (feature set + headline backtest metrics).
+    # Served model metadata (feature set + headline backtest metrics). Accuracy is
+    # only ever what the training run measured: a missing number stays None and
+    # the payload says why, rather than showing a figure nobody measured.
+    accuracy_note = ""
     try:
         meta = joblib.load(model_joblib)
-        feats        = meta.get("features", mm.BASE_FEATS)
-        smape        = round(float(meta.get("served_smape", 10.7)), 1)
-        mase         = round(float(meta.get("served_mase", 0.61)), 2)
-        n_folds      = int(meta.get("n_folds", 30))
-        served_model = meta.get("served_model", "Ensemble(SARIMAX+Trailing3+LightGBM)")
-        trained_through = str(meta.get("trained_through", ""))
-        conf         = meta.get("conformal") or {}
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:
         log.warning("[forecast] joblib metadata load failed: %s", exc)
-        feats, smape, mase, n_folds = mm.BASE_FEATS, 10.7, 0.61, 30
-        served_model, trained_through = "Ensemble(SARIMAX+Trailing3+LightGBM)", ""
-        conf = {}
+        meta = {}
+        accuracy_note = (f"Accuracy unavailable: the model file {model_joblib.name} could not "
+                         f"be read ({type(exc).__name__}).")
+    feats        = meta.get("features", mm.BASE_FEATS)
+    smape        = round(float(meta["served_smape"]), 1) if meta.get("served_smape") is not None else None
+    mase         = round(float(meta["served_mase"]), 2) if meta.get("served_mase") is not None else None
+    n_folds      = int(meta["n_folds"]) if meta.get("n_folds") is not None else None
+    served_model = meta.get("served_model", "Ensemble(SARIMAX+Trailing3+LightGBM)")
+    trained_through = str(meta.get("trained_through", ""))
+    conf         = meta.get("conformal") or {}
+    if meta and smape is None and not accuracy_note:
+        accuracy_note = f"Accuracy unavailable: {model_joblib.name} holds no backtest figures."
     # conf_widths is the calibrated split/ACI conformal band; kept for the
     # Investigator's band-breach trigger (forecast_investigator._conformal_meta)
     # but no longer served on the chart below.
@@ -430,8 +467,8 @@ def _compute(estate: str = "k3", horizon: int = HORIZON_DEFAULT) -> dict:
     smape_widths = {int(k): float(v) for k, v in (conf.get("step_smape") or {}).items()}
     smape_widths_n = {int(k): int(v) for k, v in (conf.get("step_smape_n") or {}).items()}
 
-    # Data + recursive 3-month forecast (mirrors forecast/serving.monthly_forecast,
-    # which we cannot import directly because it pulls in a missing daily_model).
+    # Data + recursive forecast from the served feature set (monthly_model.fit_final +
+    # forecast_next).
     est = mm.load_estate(est_dir / "features_estate_monthly.csv")
     wm  = mm.build_weather_monthly(est_dir / "weather_nasa_power_history.csv", extend=horizon)
     # Workdone (pruning/fertilizer) effort is only recorded for k3; other estates'
@@ -477,13 +514,14 @@ def _compute(estate: str = "k3", horizon: int = HORIZON_DEFAULT) -> dict:
         step = i + 1
         ens = float(r["Ensemble"])
         step_band = _measured_smape_band(smape_widths, smape, step)
-        lower, upper = ens * (1 - step_band / 100), ens * (1 + step_band / 100)
+        lower = ens * (1 - step_band / 100) if step_band is not None else None
+        upper = ens * (1 + step_band / 100) if step_band is not None else None
         forecast.append({
             "month":     str(r["month"]),
             "step":      step,
             "ensemble":  round(ens),
-            "lower":     round(lower),
-            "upper":     round(upper),
+            "lower":     round(lower) if lower is not None else None,
+            "upper":     round(upper) if upper is not None else None,
             "band_pct":  step_band,
             "sarimax":   round(float(r["SARIMAX"])),
             "trailing3": round(float(r["Trailing3"])),
@@ -494,10 +532,13 @@ def _compute(estate: str = "k3", horizon: int = HORIZON_DEFAULT) -> dict:
 
     total_forecast = sum(f["ensemble"] for f in forecast)
     total_3m = sum(f["ensemble"] for f in forecast[:3])
-    avg_band_pct = round(sum(f["band_pct"] for f in forecast) / len(forecast), 1) if forecast else smape
+    bands = [f["band_pct"] for f in forecast if f["band_pct"] is not None]
+    avg_band_pct = round(sum(bands) / len(bands), 1) if bands else smape
     last_band_pct = forecast[-1]["band_pct"] if forecast else smape
-    avg_effective_mase = round(mase * (avg_band_pct / smape), 2) if smape else mase
-    last_effective_mase = round(mase * (last_band_pct / smape), 2) if smape else mase
+    avg_effective_mase = (round(mase * (avg_band_pct / smape), 2)
+                          if smape and mase is not None and avg_band_pct is not None else mase)
+    last_effective_mase = (round(mase * (last_band_pct / smape), 2)
+                           if smape and mase is not None and last_band_pct is not None else mase)
 
     # Interval metadata for the UI/agents: how the served band was built and
     # how many backtest folds back each step's number (the defensibility
@@ -555,6 +596,7 @@ def _compute(estate: str = "k3", horizon: int = HORIZON_DEFAULT) -> dict:
         "accuracy_multih": acc_mh,
         "mase":           mase,
         "n_folds":        n_folds,
+        "accuracy_note":  accuracy_note,
         "model_name":     served_model,
         "model_label":    "Ensemble · SARIMAX + Trailing-3 + LightGBM",
         "trained_through": trained_through,
@@ -570,13 +612,55 @@ def _compute(estate: str = "k3", horizon: int = HORIZON_DEFAULT) -> dict:
     }
 
 
+def precomputed_path(estate: str, horizon: int) -> Path:
+    """Where the refresh writes the ensemble payload (forecast/refresh.py, live)."""
+    from forecast import estate_config
+    return Path(estate_config.lab_dir()) / "ensemble" / f"{estate}_{horizon}.json"
+
+
 def get_forecast(estate: str = "k3", refresh: bool = False, horizon: int = HORIZON_DEFAULT) -> dict:
-    global _CACHE
+    """The SARIMAX + Trailing-3 + LightGBM ensemble payload for one estate (K3's
+    fallback, the Lab's incumbent line, model health on the fallback).
+
+    Since 2026-11-12 (build plan Phase 6) nothing is fitted in a request: the live
+    refresh writes the payload into the run (precomputed_path) and this reads it,
+    keyed on the file. Only before the first published run (legacy layout) is it
+    fitted here, as it always was. `refresh` re-reads the file; it never refits."""
+    from forecast import estate_config
+    import forecast_sources as fs
     key = (estate, horizon)
+    path = precomputed_path(estate, horizon)
+    sig = (str(path), path.stat().st_mtime) if path.exists() else None
     with _LOCK:
-        if key not in _CACHE or refresh:
-            _CACHE[key] = _compute(estate=estate, horizon=horizon)
-        return _CACHE[key]
+        hit = _CACHE.get(key)
+        if hit is not None and hit[0] == sig and not (refresh and sig is None):
+            return hit[1]
+        if sig is not None:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        elif estate_config.current_run() is None and not os.environ.get(estate_config.RUN_ENV):
+            data = _compute(estate=estate, horizon=horizon)
+        else:
+            raise fs.Unavailable(f"The ensemble forecast for {estate} ({horizon} months) is not in the "
+                                 f"published run. Rebuild it: python forecast/refresh.py --source live.")
+        _CACHE[key] = (sig, data)
+        return data
+
+
+def precompute_ensemble(out_dir: Path) -> list:
+    """Fit the ensemble for every estate that has one, at every horizon, and write the
+    payloads (the refresh's live step). Returns the files written."""
+    from forecast import estate_config
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    declared = {s["served"] for s in estate_config.lab_estates().values()
+                if s["source"] == "live" and s.get("served")}
+    for estate in [e for e in MODELED_ESTATES if e in declared]:
+        for horizon in HORIZON_CHOICES:
+            data = _compute(estate=estate, horizon=horizon)
+            path = out_dir / f"{estate}_{horizon}.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            written.append(path.name)
+    return written
 
 
 # ── sources: live files or the staging database extract ─────────────────────
@@ -585,6 +669,58 @@ def get_forecast(estate: str = "k3", refresh: bool = False, horizon: int = HORIZ
 # Lab's artifacts. Both return one payload shape, so the page has one render
 # path; the fields added here say where the two differ.
 SOURCES = ("live", "staging")
+
+
+def live_servable() -> list:
+    """Live estate ids the page can serve now: Chronos-2 ready, or an ensemble fallback."""
+    import forecast_sources as fs
+    try:
+        ready = fs.modeled_estates(fs.LIVE)
+    except Exception as exc:
+        log.warning("[forecast] live Chronos forecasts unavailable: %s", exc)
+        ready = []
+    return list(dict.fromkeys(ready + [e for e in FALLBACK_ESTATES if e not in ready]))
+
+
+def live_unavailable_reason(estate: str) -> str:
+    import forecast_sources as fs
+    try:
+        fs.payload(estate, source=fs.LIVE)
+        return ""
+    except fs.Unavailable as exc:
+        return str(exc)
+    except Exception as exc:
+        return f"The forecast could not be read ({type(exc).__name__})."
+
+
+def served_forecast(estate: str = "k3", refresh: bool = False,
+                    horizon: int = HORIZON_DEFAULT) -> dict:
+    """The live forecast the page serves for one estate (no scope, no tiles).
+
+    Chronos-2 from the Forecast Lab (forecast_sources). For a FALLBACK_ESTATES
+    estate whose Chronos forecast is missing or older than its data, the ensemble,
+    labelled as the fallback. Any other estate without a forecast raises
+    forecast_sources.Unavailable."""
+    import forecast_sources as fs
+    reason = ""
+    if estate in fs.SOURCE_ESTATES[fs.LIVE]:
+        try:
+            d = fs.payload(estate, horizon, refresh, source=fs.LIVE)
+            if not (d.get("stale") and estate in FALLBACK_ESTATES):
+                return d
+            reason = d.get("stale_note") or "the Chronos forecast is older than the data"
+        except fs.Unavailable as exc:
+            if estate not in FALLBACK_ESTATES:
+                raise
+            reason = str(exc)
+    if estate not in FALLBACK_ESTATES:
+        raise fs.Unavailable(f"No forecast model for estate '{estate}'.")
+    log.warning("[forecast] %s served by the ensemble fallback: %s", estate, reason)
+    d = dict(get_forecast(estate=estate, refresh=refresh,
+                          horizon=horizon if horizon in HORIZON_CHOICES else HORIZON_DEFAULT))
+    d["fallback"] = {"model": "served_ensemble", "reason": reason}
+    d["model_label"] = d.get("model_label", "Ensemble") + " (fallback)"
+    return d
 
 
 def page_payload(estate: str = "k3", refresh: bool = False,
@@ -601,14 +737,18 @@ def page_payload(estate: str = "k3", refresh: bool = False,
     if source == fs.STAGING:
         return fs.payload(estate, horizon, refresh)
 
-    data = dict(get_forecast(estate=estate, refresh=refresh, horizon=horizon))
-    scope = dict(data["scope"])
+    # Live 'all' (group view) reports K3's series -- see the "Group rollup" note in
+    # forecast.html: the live estates end on different months, so no honest sum.
+    est = "k3" if estate == fs.GROUP else estate
+    data = dict(served_forecast(est, refresh=refresh, horizon=horizon))
+    fallback = bool(data.get("fallback"))
+    scope = dict(_scope_payload(est))
     estates = []
     for e in scope["estates"]:
         e = dict(e)
         if e.get("modeled"):
             try:
-                e["tile"] = fs.tile(get_forecast(estate=e["id"], horizon=horizon))
+                e["tile"] = fs.tile(served_forecast(e["id"], horizon=horizon))
             except Exception as exc:
                 log.warning("[forecast] estate tile unavailable for %s: %s", e["id"], exc)
         estates.append(e)
@@ -616,10 +756,10 @@ def page_payload(estate: str = "k3", refresh: bool = False,
     data.update({
         "scope": scope,
         "source": fs.LIVE,
-        "components": ["sarimax", "trailing3", "lightgbm"],
-        "benchmark_label": "seasonal-naïve",
-        "horizon_choices": list(HORIZON_CHOICES),
-        "capabilities": {"intelligence": True, "investigate": True},
+        "components": ["sarimax", "trailing3", "lightgbm"] if fallback else [],
+        "benchmark_label": "seasonal-naïve" if fallback else fs.BENCHMARK_LABEL,
+        "horizon_choices": list(HORIZON_CHOICES) if fallback else list(fs.HORIZON_CHOICES),
+        "capabilities": {"intelligence": est in INTEL_ESTATES, "investigate": est in INTEL_ESTATES},
     })
     return data
 
@@ -909,18 +1049,25 @@ def forecast_sources_list():
 def forecast_model_health(source: str = Query(default="live"),
                           estate: str = Query(default="all")):
     """Served-model health for the /model-health page (accuracy, interval
-    calibration, data quality, lifecycle). Reads the cached forecast + the
-    training artifact — never refits. `estate` applies to the staging source
-    only (ea/eb/ec or "all" for the group); live reports K3, as it always has."""
+    calibration, data quality, lifecycle) of the model the page serves. Never
+    refits. Staging: ea/eb/ec or "all" for the group. Live: k3/ec/eb, "all" = K3;
+    the ensemble's own health when K3 is on its fallback."""
     import forecast_sources as fs
     if source not in SOURCES:
         return JSONResponse(status_code=400, content={"detail": f"Unknown source '{source}'."})
     try:
         if source == fs.STAGING:
-            return fs.health(estate)
-        out = _model_health()
-        out.update({"source": fs.LIVE, "benchmark_label": "seasonal-naïve"})
-        return out
+            return _with_watchdog(fs.health(estate), source, estate)
+        est = "k3" if estate in (None, "", fs.GROUP) else estate
+        fc = served_forecast(est)
+        if fc.get("fallback"):
+            out = _model_health()
+            out.update({"source": fs.LIVE, "benchmark_label": "seasonal-naïve",
+                        "fallback": fc["fallback"], "monitoring": fs.monitoring(fs.LIVE, [est])})
+            return _with_watchdog(out, source, est)
+        out = fs.health(est, fs.LIVE)
+        out["scope"] = _scope_payload(est)
+        return _with_watchdog(out, source, est)
     except fs.Unavailable as exc:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
     except Exception as exc:
@@ -929,6 +1076,97 @@ def forecast_model_health(source: str = Query(default="live"),
             status_code=500,
             content={"detail": f"Model health computation failed: {exc}"},
         )
+
+
+def _with_watchdog(out: dict, source: str, estate: str) -> dict:
+    """The data-quality watchdog's findings for the estates a detail view covers."""
+    import forecast_fleet as ff
+    import forecast_sources as fs
+    try:
+        report = ff.watchdog_report()
+        members = fs.scope_estates(source, estate)
+        out["watchdog"] = {"generated_at": report["generated_at"], "run_id": report.get("run_id"),
+                           "findings": ff.findings_for(report, source, members)}
+    except Exception as exc:                       # the detail view must not fail on it
+        log.warning("[forecast] watchdog unavailable for %s/%s: %s", source, estate, exc)
+        out["watchdog"] = {"error": str(exc), "findings": []}
+    return out
+
+
+@router.get("/fleet")
+def forecast_fleet():
+    """Every forecast at a glance for the /model-health overview: one card per estate
+    of each source (plus the staging group) with its status and the checks behind it.
+    Reads cached payloads, the run's monitoring rows and the watchdog; never refits."""
+    import forecast_fleet as ff
+    try:
+        return ff.fleet()
+    except Exception as exc:
+        log.exception("[forecast] fleet failed")
+        return JSONResponse(status_code=500, content={"detail": f"Fleet view failed: {exc}"})
+
+
+@router.get("/watchdog")
+def forecast_watchdog(source: str = Query(default=""), estate: str = Query(default="")):
+    """The data-quality watchdog's report for the served run (forecast/watchdog.py),
+    optionally for one source and/or estate."""
+    import forecast_fleet as ff
+    try:
+        report = dict(ff.watchdog_report())
+    except Exception as exc:
+        log.exception("[forecast] watchdog failed")
+        return JSONResponse(status_code=500, content={"detail": f"Watchdog failed: {exc}"})
+    report["findings"] = [f for f in report["findings"]
+                          if (not source or f["source"] == source) and (not estate or f["estate"] == estate)]
+    return report
+
+
+@router.post("/watchdog/run")
+def forecast_watchdog_run():
+    """Re-run every data-quality check now (about a second; it only reads files)."""
+    import forecast_fleet as ff
+    try:
+        report = ff.watchdog_report(force=True)
+        return {"generated_at": report["generated_at"], "summary": report["summary"]}
+    except Exception as exc:
+        log.exception("[forecast] watchdog run failed")
+        return JSONResponse(status_code=500, content={"detail": f"Watchdog failed: {exc}"})
+
+
+@router.post("/serve")
+def forecast_serve(body: dict = Body(...)):
+    """Serve a scoreboard candidate on demand: {"source", "estate", "model"}, or
+    "model": null to return the scope to the rule's pick (forecast/overrides.py).
+    Staging "all" sets all three estates; live "all" is K3, as on the page. Every set
+    and clear is logged; the dated rule and its selection file are left untouched."""
+    import forecast_sources as fs
+    source = str(body.get("source") or "")
+    estate = str(body.get("estate") or fs.GROUP)
+    model = body.get("model")
+    if source not in SOURCES:
+        return JSONResponse(status_code=400, content={"detail": f"Unknown source '{source}'."})
+    if model is not None and not isinstance(model, str):
+        return JSONResponse(status_code=400, content={"detail": "model must be a model id or null."})
+    try:
+        out = fs.set_override(source, estate, model)
+        return {"source": source, "estate": estate, "model": model, "overrides": out}
+    except fs.Unavailable as exc:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+    except Exception as exc:
+        log.exception("[forecast] serve failed")
+        return JSONResponse(status_code=500, content={"detail": f"Could not change the served model: {exc}"})
+
+
+@router.get("/compare-data")
+def forecast_compare_data(refresh: bool = False):
+    """Both sources side by side for the Compare sources view (forecast_compare.py):
+    data available per source, history, agreement, accuracy, forecast, running cost."""
+    import forecast_compare as fc
+    try:
+        return fc.payload(refresh=refresh)
+    except Exception as exc:
+        log.exception("[forecast] compare failed")
+        return JSONResponse(status_code=500, content={"detail": f"Comparison failed: {exc}"})
 
 
 @router.get("/blocks")
@@ -1026,17 +1264,13 @@ def forecast_data(refresh: bool = False, horizon: int = Query(default=HORIZON_DE
             return JSONResponse(status_code=500,
                                 content={"detail": f"Staging forecast failed: {exc}"})
     horizon = horizon if horizon in HORIZON_CHOICES else HORIZON_DEFAULT
-    if estate not in MODELED_ESTATES:
-        return JSONResponse(
-            status_code=404,
-            content={"detail": f"No forecast model for estate '{estate}'."},
-        )
     try:
         data = page_payload(estate=estate, refresh=refresh, horizon=horizon)
-        log.info("[forecast] served %d history + %d forecast months for estate=%s "
-                 "(sMAPE %.1f%% avg-band %.1f%%)",
-                 len(data["history"]), len(data["forecast"]), estate, data["smape"], data["avg_band_pct"])
+        log.info("[forecast] served live %s: %d history + %d forecast months (%s)",
+                 estate, len(data["history"]), len(data["forecast"]), data.get("model_label"))
         return data
+    except fs.Unavailable as exc:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
     except Exception as exc:
         log.exception("[forecast] computation failed for estate=%s", estate)
         return JSONResponse(
@@ -1056,14 +1290,14 @@ async def forecast_investigate(refresh: bool = False, force: bool = False,
     from forecast_intelligence import get_intelligence
     from forecast_investigator import get_investigation
 
-    if estate not in MODELED_ESTATES:
+    if estate not in INTEL_ESTATES:
         return JSONResponse(
             status_code=404,
             content={"detail": f"No forecast model for estate '{estate}'."},
         )
 
     def _fc():
-        return get_forecast(estate=estate)
+        return served_forecast(estate=estate)
 
     async def _intel():
         return await get_intelligence(_fc, refresh=False, estate=estate)
@@ -1094,13 +1328,13 @@ async def forecast_intelligence(refresh: bool = False,
     and Sabah fires for a Papua estate.
     """
     from forecast_intelligence import get_intelligence
-    if estate not in MODELED_ESTATES:
+    if estate not in INTEL_ESTATES:
         return JSONResponse(
             status_code=404,
             content={"detail": f"No forecast model for estate '{estate}'."},
         )
     try:
-        data = await get_intelligence(lambda: get_forecast(estate=estate),
+        data = await get_intelligence(lambda: served_forecast(estate=estate),
                                       refresh=refresh, estate=estate)
         log.info("[forecast] intelligence served (estate=%s risk=%s)",
                  estate, data.get("risk_level"))

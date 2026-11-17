@@ -266,3 +266,8 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; display: block; }
   .fc-title { font-size: 18px; }
   .popover { right: auto; left: 0; }
 }
+
+/* Forecast / Compare sources view switch (forecast.html, compare.html) */
+.view-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--border-s); }
+.view-tabs a { padding: 5px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--text-2); text-decoration: none; }
+.view-tabs a.on { background: var(--accent); color: var(--on-accent); }

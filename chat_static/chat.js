@@ -71,6 +71,8 @@ const ICONS = {
   spark: '<path d="m12 3 1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z" fill="currentColor"/>',
   cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M10 2v4M14 2v4M10 18v4M14 18v4M2 10h4M2 14h4M18 10h4M18 14h4"/>',
   book: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3Z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
+  report: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  forecast: '<path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/>',
 };
 function ico(name) {
   return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -273,7 +275,12 @@ function stepsSummary(f) {
   if (f.error_type === 'off_domain') return null;
   if (f.error_type) return "Couldn't get data for this" + secs;
   if (f.route === 'sql') return `Queried ${name} · ${fmtNum(f.row_count)} row${f.row_count === 1 ? '' : 's'}${secs}`;
+  if (f.route === 'overview') {
+    const n = (f.parts || []).length;
+    return `Looked at ${n} measure${n === 1 ? '' : 's'} in ${name}${secs}`;
+  }
   if (f.route === 'context') return (f.chart ? 'Charted the previous result' : 'Answered from the conversation') + secs;
+  if (f.route === 'forecast') return 'Read the forecast page' + secs;
   if (f.route === 'knowledge_base') return 'Searched the knowledge base' + secs;
   if (f.route === 'both') return `Queried ${name} and the knowledge base${secs}`;
   return null;
@@ -315,7 +322,7 @@ function pump(v) {
 /* ── result card: chart / table / query ───────────────────────────── */
 const TYPE_LABELS = { bar: 'Columns', hbar: 'Bars', line: 'Line', area: 'Area', pie: 'Donut' };
 function chartTypes(c) {
-  if (c.type === 'scatter') return [];
+  if (c.type === 'scatter' || c.type === 'forecast') return [];
   if (c.type === 'pie') return ['pie', 'hbar'];
   const many = c.series.length > 1;
   return [...new Set([c.type, 'bar', many ? null : 'hbar', 'line'].filter(Boolean))];
@@ -326,7 +333,7 @@ function renderResult(v) {
   const d = v.data;
   if (v.chartObj) { v.chartObj.destroy(); v.chartObj = null; }
   const hasRows = d.columns.length && d.rows.length;
-  if (!hasRows && !d.sql && !(d.citations && d.citations.length)) { slot.innerHTML = ''; return; }
+  if (!hasRows && !d.sql && !d.chart && !(d.citations && d.citations.length)) { slot.innerHTML = ''; return; }
 
   const tabs = [];
   if (d.chart) tabs.push(['chart', 'Chart', 'chart']);
@@ -482,11 +489,26 @@ function drawChart(v, canvas) {
   const surface = cssVar('--surface'), muted = cssVar('--muted'), text = cssVar('--text'), grid = cssVar('--grid');
   const horizontal = type === 'hbar';
   const pie = type === 'pie';
-  const linear = type === 'line' || type === 'area';
+  const forecast = type === 'forecast';
+  const linear = type === 'line' || type === 'area' || forecast;
   const points = c.labels.length;
 
   let datasets;
-  if (type === 'scatter') {
+  if (forecast) {
+    // Actuals, then the forecast dashed from the last actual month, with the
+    // likely range shaded between two hidden lines (same shape as /forecast).
+    const band = c.band || { low: [], high: [] };
+    const actualC = colors[0], fcC = colors[1];
+    const hidden = { borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, borderColor: 'transparent', spanGaps: false, tension: 0 };
+    datasets = [
+      { label: '_low', data: band.low, fill: false, backgroundColor: fcC + '26', ...hidden },
+      { label: band.name || 'Likely range', data: band.high, fill: '-1', backgroundColor: fcC + '26', ...hidden },
+      { label: c.series[0].name, data: c.series[0].values, borderColor: actualC, backgroundColor: actualC, borderWidth: 2, tension: 0, spanGaps: false,
+        pointRadius: points > 40 ? 0 : 3, pointHoverRadius: 5.5, pointBackgroundColor: actualC, pointBorderColor: surface, pointBorderWidth: 1.5 },
+      { label: c.series[1].name, data: c.series[1].values, borderColor: fcC, backgroundColor: fcC, borderWidth: 2, borderDash: [6, 4], tension: 0, spanGaps: false,
+        pointRadius: 3, pointHoverRadius: 5.5, pointBackgroundColor: fcC, pointBorderColor: surface, pointBorderWidth: 1.5 },
+    ];
+  } else if (type === 'scatter') {
     datasets = c.series.map((s, i) => ({
       label: s.name, data: s.points.map(p => ({ x: p[0], y: p[1] })),
       backgroundColor: colors[i], borderColor: surface, borderWidth: 1.5, pointRadius: 4.5, pointHoverRadius: 6,
@@ -532,7 +554,8 @@ function drawChart(v, canvas) {
       plugins: {
         legend: {
           display: pie || c.series.length > 1, position: pie ? 'right' : 'top', align: pie ? 'center' : 'start',
-          labels: { color: text, usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 14, font: { family: 'Inter, system-ui, sans-serif', size: 12 } },
+          labels: { color: text, usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 14, font: { family: 'Inter, system-ui, sans-serif', size: 12 },
+            filter: item => item.text !== '_low' },
         },
         tooltip: {
           backgroundColor: text, titleColor: surface, bodyColor: surface, padding: 10, cornerRadius: 8, boxPadding: 4, usePointStyle: true,
@@ -540,6 +563,7 @@ function drawChart(v, canvas) {
           callbacks: {
             label(ctx) {
               if (type === 'scatter') return `${c.x_label}: ${fmtNum(ctx.parsed.x)}, ${c.y_label}: ${fmtNum(ctx.parsed.y)}`;
+              if (ctx.dataset.label === '_low') return null;
               const val = pie ? ctx.parsed : horizontal ? ctx.parsed.x : ctx.parsed.y;
               if (val === null || val === undefined) return null;
               if (pie) {
@@ -572,7 +596,7 @@ function finish(v) {
   renderResult(v);
 
   const facts = [];
-  if (f.route === 'sql' && !f.error_type && f.tables_used && f.tables_used.length) {
+  if ((f.route === 'sql' || f.route === 'overview') && !f.error_type && f.tables_used && f.tables_used.length) {
     // The tables the query actually reads, not every table that was considered.
     const inSql = f.tables_used.filter(t => new RegExp('\\b' + t.replace(/\W/g, '') + '\\b', 'i').test(f.sql || ''));
     const used = inSql.length ? inSql : f.tables_used;
@@ -888,7 +912,7 @@ function storedTurn(t) {
     route: t.route, error_type: m.error_type || null, chart: m.chart || null, steps: m.steps || [],
     tables_used: m.tables || [], estates_carried: m.carried || [], database: m.database,
     provider_label: m.model, elapsed_ms: m.elapsed_ms || 0, turn_id: t.id, feedback: t.feedback,
-    options: m.options || [], suggestions: m.suggestions || [], citations: [],
+    options: m.options || [], suggestions: m.suggestions || [], citations: [], parts: m.parts || [],
   };
 }
 async function openSession(sid, quiet) {

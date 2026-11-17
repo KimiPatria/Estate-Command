@@ -253,14 +253,13 @@ body[data-view="backtest"] .fc-only { display: none !important; }
 <body data-view="forecast">
 
 <header class="topbar">
-  <a class="brand" href="/" aria-label="EPMS AI, dashboard">
+  <a class="brand" href="/chat" aria-label="EPMS AI, chat">
     <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
   </a>
   <span class="page-name">Forecast Lab</span>
   <nav class="app-nav" aria-label="Pages">
-    <a href="/">Dashboard</a>
-    <a href="/report">Report</a>
     <a href="/chat">Chat</a>
+    <a href="/report">Report</a>
     <a href="/forecast" class="on">Forecast</a>
   </nav>
   <div class="top-right">
@@ -1040,7 +1039,7 @@ function renderModelList() {
     return `<div class="mdl-item">
       <span class="sw${isDotted(m) ? ' dotted' : ''}" style="border-top-color:${m.color}"></span>
       <div class="mdl-top"><span class="mdl-name">${esc(m.label)}</span>
-        <span class="mdl-fam">${esc(m.family)} · ${m.source === 'live' ? 'computed live' : 'artifact'}</span>
+        <span class="mdl-fam">${esc(m.family)} · ${m.source === 'live' ? 'computed live' : m.source === 'derived' ? 'combination' : 'artifact'}</span>
         ${d.served_model === m.id ? '<span class="badge">served on /forecast</span>' : ''}
         <span class="mdl-status ${status[0]}">${status[1]}</span></div>
       <div class="mdl-about">${esc(m.about)}</div>

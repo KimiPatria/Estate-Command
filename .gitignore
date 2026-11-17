@@ -39,6 +39,11 @@ forecast/experiments/
 # Series extracted from the staging database (forecast/build_staging_series.py):
 # two levels deep, so the per-estate rules above miss it too.
 forecast/staging/
+# Series extracted from the live estate databases (forecast/build_series.py --source live):
+# company production data, like forecast/staging/.
+forecast/live/
+# Versioned refresh runs (forecast/refresh.py): series + Lab artifacts, company data.
+forecast/runs/
 
 
 # Runtime telemetry & experiment tracking (regenerated locally)

@@ -1,5 +1,6 @@
 // Forecast pages end-to-end check: the shared look (theme, topbar) and the
-// Database control (live files vs the staging database) on /forecast,
+// Database control (live files vs the staging database) on /forecast/analyst
+// (the full page; /forecast is the outlook, see outlook_page.mjs),
 // /model-health and /experiment/forecast.
 //   node test/forecast_page.mjs [base] [shotDir]
 // Needs the dashboard server up. The staging checks need the staging forecast
@@ -50,18 +51,29 @@ const pickDb = async (id) => {
   await page.locator(`#db-pop .opt[data-db="${id}"]`).click();
 };
 
-// ── /forecast, live ─────────────────────────────────────────────────────
-await page.goto(`${base}/forecast`, { waitUntil: 'networkidle' });
+// ── /forecast/analyst, live ─────────────────────────────────────────────────────
+await page.goto(`${base}/forecast/analyst`, { waitUntil: 'networkidle' });
 await page.evaluate(() => { localStorage.clear(); });
-await page.goto(`${base}/forecast`, { waitUntil: 'networkidle' });
+await page.goto(`${base}/forecast/analyst`, { waitUntil: 'networkidle' });
 await ready();
 check(await page.locator('header.topbar .app-nav a.on').innerText() === 'Forecast', 'topbar nav marks Forecast');
 check(await css('--accent') === '#115e6e' && await bodyBg() === 'rgb(255, 255, 255)', 'light theme uses the chat tokens');
 check((await page.locator('#db-chip').innerText()).includes('Live'), 'database chip starts on Live');
 const live = await chartMonths();
 check(live.forecast === 3, 'live: 3 forecast months drawn');
-check(await page.locator('#fc-tbody tr').first().locator('td').count() === 8, 'live: member columns shown');
-check(await page.locator('#hz-toggle .hz-btn:not(.hidden)').count() === 3, 'live: 3M / 6M / 1Y offered');
+// Since 2026-11-12 live serves Chronos-2 too (buildplan_forecast_mlops.md D1/D9): no
+// ensemble member columns and a 6-month cap, as on staging, unless K3 is on its
+// ensemble fallback (then the ensemble's 8 columns and 1Y come back).
+const liveFallback = await page.evaluate(() =>
+  fetch('/forecast/data?estate=k3&source=live').then(r => r.json()).then(d => !!d.fallback));
+check(await page.locator('#fc-tbody tr').first().locator('td').count() === (liveFallback ? 8 : 5),
+      'live: Chronos-2 served (member columns only on the ensemble fallback)');
+check(await page.locator('#hz-toggle .hz-btn:not(.hidden)').count() === (liveFallback ? 3 : 2),
+      'live: 3M / 6M offered (1Y only on the ensemble fallback)');
+check((await page.locator('body').innerText()).includes('Chronos-2'), 'live: model named as Chronos-2');
+// Phase 2: the band says how often it held, and the 80% range is drawn and in the legend
+check(liveFallback || await page.locator('#lg-band80').isVisible(), 'live: 80% range in the legend');
+check(/held \d+ of \d+/.test(await page.locator('#kpi-row').innerText()), 'live: band tile says how often the band held');
 check(!(await page.locator('#intel-card').evaluate(n => n.classList.contains('hidden'))), 'live: risk panel shown');
 const tiles = await page.locator('#est-strip .est-tile:not(.na) .est-value').allInnerTexts();
 check(new Set(tiles).size === tiles.length, `live: each modelled estate shows its own total (${tiles.join(', ')})`);
@@ -74,7 +86,8 @@ const dark = await chartMonths();
 check(dark.line !== live.line, `chart redrawn in the dark palette (${live.line} -> ${dark.line})`);
 check(await page.evaluate(() => localStorage.getItem('chat-theme')) === 'dark', 'theme choice is stored under the chat key');
 await shot('live_dark');
-await page.goto(`${base}/model-health`, { waitUntil: 'networkidle' });
+// /model-health alone is the overview of every forecast (model_health_fleet.mjs); ?estate= is the detail
+await page.goto(`${base}/model-health?estate=k3`, { waitUntil: 'networkidle' });
 await ready();
 check(await bodyBg() === 'rgb(22, 26, 25)', 'model health opens in the theme picked on /forecast');
 check(await page.locator('#kpi-row .kpi-card').count() === 4, 'model health (live) renders its KPI row');
@@ -85,12 +98,12 @@ const src = await page.evaluate(() => fetch('/forecast/sources').then(r => r.jso
 const staging = src.sources.find(s => s.id === 'staging');
 if (!staging || !staging.available) {
   skip('staging checks: ' + ((staging && staging.reason) || 'no staging source'));
-  await page.goto(`${base}/forecast`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/forecast/analyst`, { waitUntil: 'networkidle' });
   await ready();
   await page.locator('#db-chip').click();
   check(await page.locator('#db-pop .opt[data-db="staging"]').isDisabled(), 'unbuilt staging is listed but disabled');
 } else {
-  await page.goto(`${base}/forecast`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/forecast/analyst`, { waitUntil: 'networkidle' });
   await ready();
   await pickDb('staging');
   await page.waitForFunction(() => document.querySelector('#db-chip').innerText.includes('staging'));
@@ -100,6 +113,8 @@ if (!staging || !staging.available) {
   check(chips.join(',') === 'All estates,EA,EB,EC', `staging: scope lists its own estates (${chips.join(',')})`);
   check(await page.locator('#hz-toggle .hz-btn:not(.hidden)').count() === 2, 'staging: horizon stops at 6M');
   check(await page.locator('#fc-tbody tr').first().locator('td').count() === 5, 'staging: member columns hidden');
+  check(await page.locator('#lg-band80').isVisible(), 'staging: 80% range in the legend');
+  check(/held \d+ of \d+/.test(await page.locator('#kpi-row').innerText()), 'staging: band tile says how often the band held');
   check(await page.locator('#intel-card').evaluate(n => n.classList.contains('hidden')), 'staging: risk panel hidden');
   check(await page.locator('#drv-card').evaluate(n => n.classList.contains('hidden')), 'staging: SHAP drivers hidden');
   check((await page.locator('#exec-coverage').innerText()) === '3 of 3 estates modelled', 'staging: group covers 3 of 3');
@@ -123,11 +138,12 @@ if (!staging || !staging.available) {
   await page.locator('#hz-toggle .hz-btn[data-hz="6"]').click();
   await page.waitForFunction(() => document.querySelectorAll('#fc-tbody tr').length === 6);
   check((await chartMonths()).forecast === 6, 'staging EC: 6 forecast months drawn');
-  check((await page.locator('#model-pill').innerText()) === sums.model, `staging: header names the served model (${sums.model})`);
+  // a manual pick from Model health adds " · manual pick" after the name
+  check((await page.locator('#model-pill').innerText()).startsWith(sums.model), `staging: header names the served model (${sums.model})`);
   await shot('staging_ec_6m');
 
-  // the choice carries to the other two pages
-  await page.goto(`${base}/model-health`, { waitUntil: 'networkidle' });
+  // the choice carries to the other two pages (the detail view, without ?db=)
+  await page.goto(`${base}/model-health?estate=all`, { waitUntil: 'networkidle' });
   await ready();
   check((await page.locator('#db-chip').innerText()).includes('staging'), 'model health opens on the database picked on /forecast');
   check((await page.locator('.fc-title .accent').innerText()).includes('staging'), 'model health reports the staging model');
@@ -148,9 +164,9 @@ if (!staging || !staging.available) {
   await pickDb('live');
   await page.waitForFunction(() => [...document.querySelectorAll('#estate-chips .scope-chip')].some(b => b.innerText.startsWith('K3')));
   check(true, 'lab returns to the live estates');
-  await page.goto(`${base}/forecast?db=live`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/forecast/analyst?db=live`, { waitUntil: 'networkidle' });
   await ready();
-  check((await chartMonths()).forecast === 3 && (await page.locator('#fc-tbody tr').first().locator('td').count()) === 8,
+  check((await chartMonths()).forecast === 3 && (await page.locator('#fc-tbody tr').first().locator('td').count()) === (liveFallback ? 8 : 5),
         'live forecast unchanged after the round trip');
 }
 

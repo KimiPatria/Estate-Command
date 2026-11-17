@@ -3,6 +3,8 @@
 import json
 import logging
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from estates import detect_estate_mentions
@@ -80,13 +82,27 @@ def error_response(kind: str, used_llm_fallback: bool = False) -> dict:
     }
 
 
+_ON_DOMAIN: ContextVar[bool] = ContextVar("on_domain_known", default=False)
+
+
+@contextmanager
+def known_on_domain():
+    """Within this block the question is already known to be about the data
+    (the chat intent router said so), so is_off_domain() makes no model call."""
+    token = _ON_DOMAIN.set(True)
+    try:
+        yield
+    finally:
+        _ON_DOMAIN.reset(token)
+
+
 def is_off_domain(query: str) -> bool:
     """Return True only when the query has no connection to plantation operations.
 
     Fast path: any domain keyword match → return False immediately (no LLM call).
     Slow path: routing-model YES/NO classification for edge cases.
     """
-    if _DOMAIN_TERMS.search(query) or detect_estate_mentions(query):
+    if _ON_DOMAIN.get() or _DOMAIN_TERMS.search(query) or detect_estate_mentions(query):
         return False  # keyword hit — definitely on-domain
 
     # No keyword match — ask the routing model
@@ -98,18 +114,19 @@ def is_off_domain(query: str) -> bool:
             {"role": "system", "content": load_prompt("domain_classifier_system")},
             {"role": "user", "content": query},
         ]
-        result = llm_client.chat(
+        data = llm_client.chat_json(
             messages,
-            tier="routing",
-            temperature=0,
-            # 20 tokens sometimes truncated the JSON mid-object (Groq 400
-            # json_validate_failed); 60 gives headroom while staying cheap.
-            max_tokens=60,
-            json_mode=True,
-            task="domain_check",
+            name="domain_check",
+            schema={"type": "object", "required": ["related"], "properties": {
+                "related": {"type": "boolean",
+                            "description": "true if the query is about plantation operations or asks for data"}}},
+            description="Record whether the query belongs to the plantation data assistant.",
+            tier="routing", max_tokens=150, task="domain_check",
         )
-        data = json.loads(result.text)
-        related = bool(data.get("related", True))
+        if data is None:
+            log.warning("Domain check gave no decision — assuming on-domain")
+            return False
+        related = data["related"]
         log.info("[domain_check] query=%r related=%s", query[:80], related)
         return not related
     except Exception as exc:

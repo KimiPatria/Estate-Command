@@ -1,0 +1,107 @@
+# Estates the forecast pipeline builds, per source (buildplan_forecast_mlops.md Phase 3).
+#
+# The single list of what each source covers. forecast/build_series.py extracts
+# them, the Forecast Lab (forecast/lab/registry.py) models them, the forecast
+# page (forecast_sources.py) serves them. Adding an estate is an entry here, not
+# a code change; switching a source off is `enabled: false` on the source.
+#
+# Per estate:
+#   lab_id        Forecast Lab id (stable: artifacts, backtests and the shadow log key on it)
+#   label         what the page shows
+#   adapter       forecast/adapters/<adapter>.py -- how the rows are read
+#   code          the estate's code in the source (staging WERKS is "00" + code)
+#   database_env  .env variable holding the database URL (database adapters)
+#   path          the export file (file adapters), relative to the repo
+#   region        seasonal-profile pooling group (seasonal_profile.py)
+#   served_ensemble / features / weather
+#                 only where the legacy SARIMAX + LightGBM ensemble exists (K3, EC)
+#   joined        data joined from outside the source, listed on the comparison
+#   forecastable  false to extract (and compare) an estate without serving it
+
+contract_version: 1
+
+# Column status on the comparison: share of source rows where the column is filled.
+status_thresholds:
+  populated: 0.20     # filled on >= 20% of rows
+  sparse: 0.001       # >= 0.1%; below that the column is "empty"
+
+sources:
+  live:
+    enabled: true
+    label: Live estates
+    description: per-estate EPMS databases (one connection each) and K3's export
+    series_dir: forecast/live
+    estates:
+      K3:
+        lab_id: k3
+        label: K3
+        adapter: live_k3_file
+        code: K3
+        path: forecast/epms_production_daily.csv
+        region: k3
+        served_ensemble: k3
+        features: forecast/features_estate_monthly.csv
+        weather: forecast/weather_nasa_power_history.csv
+        joined: [NASA POWER weather, work done (pruning, fertiliser)]
+      EC:
+        lab_id: ec
+        label: EC
+        adapter: live_postgres
+        code: EC
+        database_env: DATABASE_URL_EC
+        region: eaebec
+        served_ensemble: ec
+        weather: forecast/EC/weather_nasa_power_history.csv
+        joined: [NASA POWER weather]
+      EB:
+        lab_id: eb
+        label: EB
+        adapter: live_postgres
+        code: EB
+        database_env: DATABASE_URL_EB
+        region: eaebec
+      EA:
+        lab_id: ea
+        label: EA
+        adapter: live_postgres
+        code: EA
+        database_env: DATABASE_URL_EA
+        region: eaebec
+
+  staging:
+    enabled: true
+    label: EPMS staging
+    description: one central SQL Server database for every estate
+    series_dir: forecast/staging
+    estates:
+      EA:
+        lab_id: stg_ea
+        label: EA
+        adapter: staging_sqlserver
+        code: EA
+        database_env: DATABASE_URL_STAGING
+        region: eaebec
+      EB:
+        lab_id: stg_eb
+        label: EB
+        adapter: staging_sqlserver
+        code: EB
+        database_env: DATABASE_URL_STAGING
+        region: eaebec
+      EC:
+        lab_id: stg_ec
+        label: EC
+        adapter: staging_sqlserver
+        code: EC
+        database_env: DATABASE_URL_STAGING
+        region: eaebec
+      # The plasma schemes are in the staging database but not built. Uncomment
+      # to extract and compare them (forecastable: false keeps them off the page).
+      # P1:
+      #   lab_id: stg_p1
+      #   label: P1
+      #   adapter: staging_sqlserver
+      #   code: P1
+      #   database_env: DATABASE_URL_STAGING
+      #   region: plasma
+      #   forecastable: false

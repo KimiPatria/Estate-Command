@@ -1,0 +1,16 @@
+- Bunch / janjang (jjg) / TBS (tandan buah segar) / FFB (fresh fruit bunch): one fruit bunch cut from a palm; harvest is usually counted in bunches and weighed in tonnes.
+- Ripe (masak, matang), unripe (mentah), underripe (kurang matang), overripe (lewat matang), rotten or empty (busuk, janjang kosong): the grades a bunch gets when it is checked at harvest.
+- Ripeness rate: ripe bunches as a percentage of all bunches graded. It needs the grading split, so it can only be reported where unripe and overripe bunches are recorded too.
+- Brondolan / loose fruit: single fruitlets that have dropped off the bunch, picked up from the ground around the palm and the collection point and sent to the mill with the bunches. Collecting them well cuts crop loss.
+- BJR (berat janjang rata-rata) / average bunch weight: tonnes harvested divided by bunches harvested.
+- AKP (angka kerapatan panen) / harvest density: the share of palms in a sample that carry a ripe bunch, used to plan how many harvesters a block needs.
+- Yield / productivity per hectare: bunches or tonnes harvested per hectare of mature planted area.
+- Harvest round (rotasi panen): how many days pass before the same block is harvested again.
+- TPH (tempat pengumpulan hasil): the collection point beside the road where harvested bunches and loose fruit are gathered for the truck.
+- Harvest ticket (OPH): the record of one harvester's output at one collection point on one day.
+- Manday / HK (hari kerja): one person working one day. Man-days measure how much labour went into the field.
+- Mangkir: absent from work without leave. Lembur: overtime.
+- Pemanen: harvester. Mandor: field supervisor of a gang. Kerani: clerk or checker who records the harvest. Gang: a team of workers under one mandor.
+- Block (blok): the smallest managed area of planted palms. Division (afdeling, divisi): a group of blocks under one assistant. Estate (kebun): a group of divisions. Plasma: smallholder-scheme land managed with the estate.
+- Mature (TM, tanaman menghasilkan) and immature (TBM, tanaman belum menghasilkan): whether the palms are old enough to be harvested.
+- Delivery to the mill: bunches trucked to the palm-oil mill, weighed there per trip.

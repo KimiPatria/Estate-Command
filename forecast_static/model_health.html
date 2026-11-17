@@ -21,8 +21,6 @@
 <style>
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-
-
 @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
@@ -30,13 +28,16 @@
 
 /* ── TITLE BAR ───────────────────────────────────────────────────── */
 .fc-titlebar {
-  padding: 11px 18px; flex-shrink: 0;
+  padding: 11px 24px; flex-shrink: 0;
   background: var(--surface); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
-.fc-title { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
+.fc-title { font-size: 15px; font-weight: 600; letter-spacing: -.2px; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fc-title .accent { color: var(--accent); }
-.fc-meta  { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.crumb { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.crumb:hover { color: var(--accent); }
+.crumb-sep { color: var(--border-2); font-weight: 400; }
+.fc-meta  { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .meta-txt { font-size: 12.5px; color: var(--muted); }
 .btn-refresh {
   font-size: 12.5px; font-weight: 600; color: var(--muted);
@@ -47,54 +48,78 @@
 }
 .btn-refresh:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
 .btn-refresh:disabled { opacity: .5; cursor: not-allowed; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 99px; background: var(--bg-soft); }
+.seg button {
+  font-size: 12.5px; font-weight: 500; color: var(--muted); background: transparent; border: none;
+  padding: 3px 11px; border-radius: 99px; cursor: pointer; font-family: var(--font);
+}
+.seg button:hover:not(.on) { color: var(--text); }
+.seg button.on { background: var(--accent); color: var(--on-accent); }
 
 /* ── CONTENT ─────────────────────────────────────────────────────── */
-.fc-content { flex: 1; overflow-y: auto; padding: 16px 18px 28px; }
-.fc-content::-webkit-scrollbar { width: 4px; }
-.fc-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-.fc-wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.fc-content { flex: 1; overflow-y: auto; padding: 18px 24px 32px; }
+.fc-wrap { max-width: 1920px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.grid12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.span-12 { grid-column: span 12; } .span-7 { grid-column: span 7; } .span-5 { grid-column: span 5; }
+.span-8 { grid-column: span 8; } .span-4 { grid-column: span 4; } .span-6 { grid-column: span 6; }
+@media (max-width: 1280px) { .span-7, .span-5, .span-8, .span-4, .span-6 { grid-column: span 12; } }
 
 /* ── KPI ROW ─────────────────────────────────────────────────────── */
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi-row.five { grid-template-columns: repeat(5, 1fr); }
 .kpi-card {
   background: var(--card); border: 1px solid var(--border-s);
   border-radius: var(--r); padding: 14px 16px;
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
   animation: fadeUp .45s var(--ease-out) both;
 }
 .kpi-card .k-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .kpi-card .k-value { font-size: 30px; font-weight: 700; letter-spacing: -.8px; color: var(--text); line-height: 1.1; display: inline-flex; align-items: center; gap: 9px; }
 .kpi-card .k-value.na { font-size: 22px; color: var(--muted); }
+.kpi-card .k-value small { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .kpi-card .k-sub   { font-size: 12.5px; color: var(--muted); }
 
-/* ── STATUS DOTS ─────────────────────────────────────────────────── */
+/* ── STATUS ──────────────────────────────────────────────────────── */
 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .dot.good { background: var(--accent); }
 .dot.warn { background: var(--gold); }
 .dot.bad  { background: var(--error); }
-.dot.na   { background: var(--border); }
+.dot.na   { background: var(--border-2); }
 .status { font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .status.good { color: var(--accent); }
 .status.warn { color: var(--warn-text); }
 .status.bad  { color: var(--error); }
-/* a coverage cell that falls short of its own nominal level */
 .bad-cell { color: var(--error); font-weight: 600; }
 .status.na   { color: var(--muted); font-weight: 500; }
+/* status pill: colour + glyph + word, never colour alone */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  padding: 2px 9px 2px 7px; border-radius: 99px; white-space: nowrap; line-height: 1.5;
+}
+.pill .g { font-size: 11px; line-height: 1; }
+.pill.healthy { background: var(--accent-soft); color: var(--accent); }
+.pill.watch   { background: var(--warn-bg); color: var(--warn-text); box-shadow: inset 0 0 0 1px var(--warn-bd); }
+.pill.action  { background: var(--danger-bg); color: var(--error); box-shadow: inset 0 0 0 1px var(--danger-bd); }
+.pill.not_forecast { background: var(--bg-soft); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
+.src-tag { font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; line-height: 17px; }
 
 /* ── CARDS ───────────────────────────────────────────────────────── */
 .mh-card {
   background: var(--card); border: 1px solid var(--border-s);
-  border-radius: var(--r); padding: 16px 18px 18px;
+  border-radius: var(--r); padding: 16px 18px 18px; min-width: 0;
   animation: fadeUp .45s var(--ease-out) .04s both;
 }
 .mh-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .mh-head h2 { font-size: 14px; font-weight: 600; }
 .mh-head .sub { font-size: 12.5px; color: var(--muted); }
+.mh-head .right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .mh-note { font-size: 12.5px; color: var(--muted); margin-top: 11px; line-height: 1.55; }
+.sec-title { display: flex; align-items: baseline; gap: 10px; margin: 4px 2px -4px; }
+.sec-title h2 { font-size: 15px; font-weight: 600; }
+.sec-title .sub { font-size: 12.5px; color: var(--muted); }
 
 /* ── RESEARCH ARMS ───────────────────────────────────────────────── */
-/* Deliberately quieter than the served scoreboard above it: these arms are
-   comparison material, and the card must not read as a promotion shortlist. */
 .res-banner {
   display: flex; gap: 9px; align-items: flex-start;
   background: var(--accent-dim); border: 1px solid var(--border-s);
@@ -102,6 +127,7 @@
 }
 .res-banner .dot { margin-top: 4px; }
 .res-banner p { font-size: 12.5px; line-height: 1.55; color: var(--text); }
+#flag-row .res-banner:last-child { margin-bottom: 0; }
 .res-tag {
   font-size: 11px; font-weight: 500;
   padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);
@@ -119,7 +145,7 @@
 
 /* metric rows: label | value | status | note */
 .mh-row {
-  display: grid; grid-template-columns: 200px 190px 110px 1fr;
+  display: grid; grid-template-columns: 190px 170px 96px 1fr;
   align-items: center; gap: 12px;
   padding: 8px 0; border-bottom: 1px solid var(--border-s);
 }
@@ -128,6 +154,8 @@
 .mh-v { font-size: 15px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
 .mh-v.na { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .mh-n { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.span-5 .mh-row, .compact .mh-row { grid-template-columns: 150px 1fr 86px; }
+.span-5 .mh-row .mh-n, .compact .mh-row .mh-n { grid-column: 1 / -1; margin-top: -4px; }
 @media (max-width: 760px) {
   .mh-row { grid-template-columns: 1fr 1fr; }
   .mh-n { grid-column: 1 / -1; }
@@ -150,6 +178,28 @@
 .tag-served { font-size: 11px; font-weight: 500;
   background: var(--accent); color: var(--on-accent); border-radius: 99px; padding: 2px 7px; margin-left: 7px; }
 .tbl-scroll { overflow-x: auto; }
+.mh-table tbody tr.pickable { cursor: pointer; }
+.mh-table tbody tr.pickable:focus-visible td { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tag-pick, .tag-rule { font-size: 11px; font-weight: 500; border-radius: 99px; padding: 1px 7px; margin-left: 7px;
+  border: 1px solid var(--gold); color: var(--warn-text); }
+.tag-rule { border-color: var(--border); color: var(--muted); }
+.btn-serve {
+  font-size: 12px; font-weight: 600; color: var(--muted); font-family: var(--font);
+  background: transparent; border: 1px solid var(--border); border-radius: 99px;
+  padding: 2px 10px; cursor: pointer; transition: color .15s, border-color .15s, background .15s;
+}
+.btn-serve:hover, tr.pickable:hover .btn-serve { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.btn-serve:disabled { opacity: .5; cursor: not-allowed; }
+.board-act { margin-left: auto; }
+.board-msg { font-size: 12.5px; margin-top: 10px; }
+.board-msg.err { color: var(--error); }
+/* free-text tables (findings, monitoring) wrap instead of scrolling */
+.mh-table.wrap tbody td { white-space: normal; text-align: left; vertical-align: top; line-height: 1.5; }
+.mh-table.wrap thead th { text-align: left; }
+.mh-table.wrap td .t { font-weight: 600; color: var(--text); }
+.mh-table.wrap td .d { color: var(--muted); font-size: 12.5px; }
+.mh-table.wrap td.aff { color: var(--text-2); font-size: 12.5px; max-width: 520px; }
+.mh-table.wrap td.nowrap { white-space: nowrap; }
 
 /* ── SOURCES ─────────────────────────────────────────────────────── */
 .src-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
@@ -160,7 +210,7 @@
 }
 .src-pill b { color: var(--text); font-weight: 600; }
 
-/* ── UNAVAILABLE-DATA STATE (shared with the forecast page) ──────── */
+/* ── UNAVAILABLE-DATA STATE ──────────────────────────────────────── */
 .na-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 9px; text-align: center; padding: 28px 20px;
@@ -195,24 +245,125 @@
 }
 .hidden { display: none !important; }
 
-@media (max-width: 820px) {
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+/* ── FLEET: forecast cards ───────────────────────────────────────── */
+.fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.fc-card {
+  background: var(--card); border: 1px solid var(--border-s); border-radius: var(--r);
+  padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  text-decoration: none; color: inherit; cursor: pointer; position: relative;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+  animation: fadeUp .45s var(--ease-out) both;
 }
-@media (max-width: 480px) { .kpi-row { grid-template-columns: 1fr; } }
+.fc-card:hover { border-color: var(--border-2); box-shadow: var(--shadow); transform: translateY(-1px); }
+.fc-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fc-card.action { box-shadow: inset 3px 0 0 var(--error); }
+.fc-card.watch  { box-shadow: inset 3px 0 0 var(--gold); }
+.fc-card.action:hover { box-shadow: inset 3px 0 0 var(--error), var(--shadow); }
+.fc-card.watch:hover  { box-shadow: inset 3px 0 0 var(--gold), var(--shadow); }
+.fc-card.not_forecast { background: var(--bg-soft); border-style: dashed; }
+.fcc-head { display: flex; align-items: center; gap: 8px; }
+.fcc-name { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+.fcc-head .pill { margin-left: auto; }
+.fcc-model { font-size: 12.5px; color: var(--muted); margin-top: -6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcc-model b { color: var(--text-2); font-weight: 500; }
+.spark { width: 100%; height: 64px; display: block; overflow: visible; }
+.spark .hit { fill: transparent; }
+.spark .hit:hover { fill: var(--bg-hover); }
+.fcc-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fcc-m { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fcc-m .l { font-size: 11.5px; color: var(--muted); }
+.fcc-m .v { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 6px; letter-spacing: -.2px; }
+.fcc-m .v.na { color: var(--muted); font-size: 14px; }
+.bullet { height: 4px; border-radius: 2px; background: var(--bg-soft); position: relative; margin-top: 4px; }
+.bullet i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--text-2); opacity: .55; }
+.bullet b { position: absolute; top: -2px; bottom: -2px; width: 1.5px; background: var(--muted); }
+.fcc-track { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.track-dots { display: inline-flex; gap: 3px; }
+.track-dots i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.track-dots i.hit  { background: var(--accent); }
+.track-dots i.miss { background: transparent; box-shadow: inset 0 0 0 1.5px var(--error); }
+.strip { display: grid; grid-template-columns: repeat(11, 1fr); gap: 2px; }
+.strip i { height: 7px; border-radius: 2px; background: var(--border); display: block; }
+.strip i.ok { background: var(--accent); } .strip i.warn { background: var(--gold); }
+.strip i.alert { background: var(--error); } .strip i.na { background: var(--border); opacity: .7; }
+.fcc-issues { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+.fcc-issues div { font-size: 12.5px; color: var(--text-2); display: flex; gap: 7px; align-items: baseline; line-height: 1.4; }
+.fcc-issues .g { font-size: 11px; flex-shrink: 0; width: 12px; text-align: center; }
+.g.alert { color: var(--error); } .g.warn { color: var(--warn-text); } .g.ok { color: var(--accent); }
+.fcc-foot { display: flex; gap: 8px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border-s); padding-top: 8px; margin-top: auto; }
+.fcc-foot span:last-child { margin-left: auto; }
+.fcc-reason { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+
+/* status bar (summary tile) */
+.sbar { display: flex; gap: 2px; height: 8px; margin-top: 6px; }
+.sbar i { border-radius: 2px; display: block; }
+.sbar i.action { background: var(--error); } .sbar i.watch { background: var(--gold); }
+.sbar i.healthy { background: var(--accent); } .sbar i.not_forecast { background: var(--border-2); }
+.sbar-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ── FLEET: health matrix ────────────────────────────────────────── */
+.matrix { border-collapse: separate; border-spacing: 2px; width: 100%; font-size: 12px; }
+.matrix th { font-weight: 500; color: var(--muted); padding: 2px 4px 6px; text-align: center; white-space: nowrap; font-size: 11.5px; }
+.matrix th.grp { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; padding-bottom: 0; color: var(--muted); border-bottom: 1px solid var(--border); }
+.matrix th.rowh { text-align: left; }
+.matrix td { padding: 0; }
+.matrix td.rowl { padding: 4px 10px 4px 2px; white-space: nowrap; font-weight: 600; font-size: 13px; }
+.matrix td.rowl .src-tag { margin-left: 6px; font-weight: 600; }
+.matrix tr.mrow { cursor: pointer; }
+.matrix tr.mrow:hover td.rowl { color: var(--accent); }
+.mcell {
+  display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px; border-radius: 5px;
+  font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 5px;
+}
+.mcell.ok    { background: var(--accent-soft); color: var(--accent); }
+.mcell.warn  { background: var(--warn-bg); color: var(--warn-text); box-shadow: inset 0 0 0 1px var(--warn-bd); }
+.mcell.alert { background: var(--danger-bg); color: var(--error); box-shadow: inset 0 0 0 1px var(--danger-bd); }
+.mcell.na    { background: var(--bg-soft); color: var(--muted); font-weight: 500; }
+.mcell .g { font-size: 10px; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 10px; align-items: center; }
+.legend-row span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ── FLEET: accuracy bars ────────────────────────────────────────── */
+.bars { width: 100%; display: block; overflow: visible; }
+.bars text { font-family: var(--font); }
+
+/* ── detail switcher ─────────────────────────────────────────────── */
+.switcher { display: flex; gap: 6px; flex-wrap: wrap; }
+.sw-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; text-decoration: none;
+  color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 3px 11px 3px 8px;
+}
+.sw-chip:hover { border-color: var(--border-2); background: var(--bg-soft); }
+.sw-chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.sw-chip small { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+
+/* ── tooltip ─────────────────────────────────────────────────────── */
+#tip {
+  position: fixed; z-index: 3000; pointer-events: none; max-width: 340px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 9px; box-shadow: var(--shadow);
+  padding: 8px 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-2); white-space: pre-line;
+}
+#tip b { color: var(--text); font-weight: 600; }
+
+@media (max-width: 1280px) { .kpi-row.five { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 820px) {
+  .kpi-row, .kpi-row.five { grid-template-columns: repeat(2, 1fr); }
+  .fc-titlebar, .fc-content { padding-left: 16px; padding-right: 16px; }
+}
+@media (max-width: 480px) { .kpi-row, .kpi-row.five { grid-template-columns: 1fr; } .fleet-grid { grid-template-columns: 1fr; } }
 </style>
 <link rel="stylesheet" href="/forecast-static/theme.css?v=1">
 </head>
 <body>
 
 <header class="topbar">
-  <a class="brand" href="/" aria-label="EPMS AI, dashboard">
+  <a class="brand" href="/chat" aria-label="EPMS AI, chat">
     <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
   </a>
   <span class="page-name">Model Health</span>
   <nav class="app-nav" aria-label="Pages">
-    <a href="/">Dashboard</a>
-    <a href="/report">Report</a>
     <a href="/chat">Chat</a>
+    <a href="/report">Report</a>
     <a href="/forecast" class="on">Forecast</a>
   </nav>
   <div class="top-right">
@@ -223,15 +374,24 @@
 </header>
 
 <div class="fc-titlebar">
-  <span class="fc-title">Model Health <span class="accent">· production forecast</span></span>
+  <span class="fc-title">
+    <a class="crumb hidden" id="crumb" href="/model-health">All forecasts</a><span class="crumb-sep hidden" id="crumb-sep">/</span>
+    <span id="title-main">Model Health</span> <span class="accent" id="title-accent">· all forecasts</span>
+  </span>
   <div class="fc-meta">
     <span class="meta-txt" id="gen-txt"></span>
+    <div class="seg hidden" id="f-source" role="group" aria-label="Source">
+      <button type="button" data-v="all" class="on">All</button><button type="button" data-v="live">Live</button><button type="button" data-v="staging">Staging</button>
+    </div>
+    <div class="seg hidden" id="f-status" role="group" aria-label="Status">
+      <button type="button" data-v="all" class="on">Any status</button><button type="button" data-v="action">Action</button><button type="button" data-v="watch">Watch</button><button type="button" data-v="healthy">Healthy</button>
+    </div>
     <div class="pop-anchor">
       <button type="button" class="chip" id="db-chip" aria-haspopup="dialog" aria-expanded="false"
               title="Database the series are read from" hidden></button>
       <div class="popover" id="db-pop" role="dialog" aria-label="Database" hidden></div>
     </div>
-    <a class="btn-refresh" href="/forecast">
+    <a class="btn-refresh" href="/forecast/analyst" id="back-link">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
       </svg>
@@ -252,162 +412,612 @@
 
     <div id="state-loading" class="center-state">
       <div class="spinner"></div>
-      <p>Reading the served model artifact…</p>
+      <p id="loading-txt">Reading the served models…</p>
     </div>
 
     <div id="state-error" class="center-state hidden">
       <div class="err-box" id="err-msg"></div>
-      <button class="btn-refresh" onclick="loadHealth()">↻ Retry</button>
+      <button class="btn-refresh" id="retry-btn">↻ Retry</button>
     </div>
 
-    <div id="state-result" class="hidden" style="display:flex; flex-direction:column; gap:14px;">
+    <!-- ══ FLEET: every forecast at a glance ══════════════════════════ -->
+    <div id="state-fleet" class="hidden" style="display:flex; flex-direction:column; gap:16px;">
+      <div class="kpi-row five" id="fleet-kpis"></div>
 
+      <div id="fleet-sections" style="display:flex; flex-direction:column; gap:16px;"></div>
+
+      <div class="grid12">
+        <div class="mh-card span-8">
+          <div class="mh-head">
+            <h2>Health matrix</h2>
+            <span class="sub">Every check on every forecast</span>
+          </div>
+          <div class="tbl-scroll" id="matrix-wrap"></div>
+          <div class="legend-row" id="matrix-legend"></div>
+        </div>
+        <div class="mh-card span-4">
+          <div class="mh-head">
+            <h2>Accuracy against the benchmark</h2>
+            <span class="sub">3-month MASE · below 1.00 beats it</span>
+          </div>
+          <div id="bars-wrap"></div>
+        </div>
+      </div>
+
+      <div class="mh-card" id="wd-card">
+        <div class="mh-head">
+          <h2>Data-quality watchdog</h2>
+          <span class="sub" id="wd-sub"></span>
+          <div class="right">
+            <div class="seg" id="wd-level" role="group" aria-label="Severity">
+              <button type="button" data-v="attention" class="on">Action + watch</button><button type="button" data-v="alert">Action</button><button type="button" data-v="all">All</button>
+            </div>
+            <button type="button" class="btn-refresh" id="wd-run" title="Re-run every data check on the served series">Run checks</button>
+          </div>
+        </div>
+        <div class="tbl-scroll">
+          <table class="mh-table wrap">
+            <thead><tr><th style="width:92px">Status</th><th style="width:120px">Forecast</th><th style="width:120px">Check</th><th>Finding</th><th>What it affects</th></tr></thead>
+            <tbody id="wd-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DETAIL: one forecast ══════════════════════════════════════ -->
+    <div id="state-result" class="hidden" style="display:flex; flex-direction:column; gap:16px;">
+
+      <div class="switcher hidden" id="switcher"></div>
+      <div id="flag-row" class="hidden"></div>
       <div class="kpi-row" id="kpi-row"></div>
 
-      <!-- ── FORECAST ACCURACY ─────────────────────────────────────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Forecast accuracy</h2>
-          <span class="sub" id="acc-sub">N/A</span>
+      <div class="grid12">
+        <!-- ── FORECAST ACCURACY ───────────────────────────────────────── -->
+        <div class="mh-card span-7">
+          <div class="mh-head">
+            <h2>Forecast accuracy</h2>
+            <span class="sub" id="acc-sub">N/A</span>
+          </div>
+          <div id="acc-rows"></div>
+          <p class="mh-note" id="acc-note"></p>
         </div>
-        <div id="acc-rows"></div>
-        <p class="mh-note" id="acc-note"></p>
-      </div>
 
-      <!-- ── MODEL SCOREBOARD ──────────────────────────────────────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Candidate scoreboard</h2>
-          <span class="sub">Walk-forward backtest · sorted by MASE (lower is better)</span>
+        <!-- ── LIFECYCLE ───────────────────────────────────────────────── -->
+        <div class="mh-card span-5">
+          <div class="mh-head">
+            <h2>Model lifecycle</h2>
+            <span class="sub" id="lc-sub">N/A</span>
+          </div>
+          <div id="lc-rows"></div>
+          <p class="mh-note" id="lc-note"></p>
         </div>
-        <div class="tbl-scroll">
-          <table class="mh-table">
-            <thead>
-              <tr><th>Model</th><th>MASE</th><th>sMAPE</th><th>MAE</th><th>RMSE</th><th>Bias</th></tr>
-            </thead>
-            <tbody id="board-tbody"></tbody>
-          </table>
-        </div>
-        <p class="mh-note" id="board-note">MASE is scored against a seasonal-naïve benchmark: below 1.00 means the
-           model beats "same month last year". Bias is the mean signed error; positive means
-           over-forecasting.</p>
-      </div>
 
-      <!-- ── RESEARCH ARMS (offline benchmark, never served) ───────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Research arms</h2>
-          <span class="sub" id="res-sub">Offline benchmark · not served</span>
+        <!-- ── MODEL SCOREBOARD ────────────────────────────────────────── -->
+        <div class="mh-card span-12">
+          <div class="mh-head">
+            <h2>Candidate scoreboard</h2>
+            <span class="sub">Walk-forward backtest · sorted by MASE (lower is better)</span>
+            <button type="button" class="btn-serve board-act hidden" id="board-reset"></button>
+          </div>
+          <div class="tbl-scroll">
+            <table class="mh-table">
+              <thead>
+                <tr><th>Model</th><th>MASE</th><th>sMAPE</th><th>MAE</th><th>RMSE</th><th>Bias</th><th id="board-act-h"></th></tr>
+              </thead>
+              <tbody id="board-tbody"></tbody>
+            </table>
+          </div>
+          <p class="board-msg hidden" id="board-msg" role="status"></p>
+          <p class="mh-note" id="board-note">MASE is scored against a seasonal-naïve benchmark: below 1.00 means the
+             model beats "same month last year". Bias is the mean signed error; positive means
+             over-forecasting.</p>
         </div>
-        <div id="res-body"></div>
-      </div>
 
-      <!-- ── INTERVAL CALIBRATION ──────────────────────────────────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Interval calibration</h2>
-          <span class="sub" id="iv-sub">N/A</span>
+        <!-- ── DATA QUALITY (watchdog) ─────────────────────────────────── -->
+        <div class="mh-card span-7">
+          <div class="mh-head">
+            <h2>Data quality</h2>
+            <span class="sub" id="dq-sub">N/A</span>
+            <div class="right">
+              <div class="seg" id="dq-level" role="group" aria-label="Severity">
+                <button type="button" data-v="attention" class="on">Needs a look</button><button type="button" data-v="all">All checks</button>
+              </div>
+            </div>
+          </div>
+          <div id="dq-rows" class="compact"></div>
+          <div class="tbl-scroll" style="margin-top:10px;">
+            <table class="mh-table wrap">
+              <thead><tr><th style="width:92px">Status</th><th style="width:120px">Check</th><th>Finding</th><th>What it affects</th></tr></thead>
+              <tbody id="dq-findings"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:12px;">
+            <span class="sec-label">Sources</span>
+            <div class="src-list" id="dq-sources"></div>
+          </div>
+          <div style="margin-top:12px;" id="dq-weather-wrap" hidden>
+            <span class="sec-label">Weather file audit</span>
+            <div class="src-list" id="dq-weather"></div>
+          </div>
         </div>
-        <div class="tbl-scroll">
-          <table class="mh-table">
-            <thead>
-              <tr>
-                <th>Step</th><th>Folds scored</th>
-                <th>Chart band ±%</th><th>Chart band coverage</th>
-                <th>Conformal half-width</th><th>Conformal width (% of a month)</th>
-                <th>Split coverage</th><th>ACI coverage</th>
-              </tr>
-            </thead>
-            <tbody id="iv-tbody"></tbody>
-          </table>
-        </div>
-        <p class="mh-note" id="iv-note"></p>
-      </div>
 
-      <!-- ── DATA QUALITY ──────────────────────────────────────────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Data quality</h2>
-          <span class="sub" id="dq-sub">N/A</span>
+        <!-- ── LIVE MONITORING ─────────────────────────────────────────── -->
+        <div class="mh-card span-5">
+          <div class="mh-head">
+            <h2>Live monitoring</h2>
+            <span class="sub" id="mon-sub">From the last refresh</span>
+          </div>
+          <div class="tbl-scroll">
+            <table class="mh-table wrap">
+              <thead><tr><th style="width:92px">Status</th><th style="width:130px">Check</th><th>Result</th></tr></thead>
+              <tbody id="mon-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div id="dq-rows"></div>
-        <div style="margin-top:12px;">
-          <span class="sec-label">Sources</span>
-          <div class="src-list" id="dq-sources"></div>
+
+        <!-- ── INTERVAL CALIBRATION ────────────────────────────────────── -->
+        <div class="mh-card span-12">
+          <div class="mh-head">
+            <h2>Interval calibration</h2>
+            <span class="sub" id="iv-sub">N/A</span>
+          </div>
+          <div class="tbl-scroll">
+            <table class="mh-table">
+              <thead>
+                <tr>
+                  <th>Step</th><th>Folds scored</th>
+                  <th>Chart band ±%</th><th>Chart band coverage</th>
+                  <th id="iv-h5">Conformal half-width</th><th id="iv-h6">Conformal width (% of a month)</th>
+                  <th id="iv-h7">Split coverage</th><th id="iv-h8">ACI coverage</th>
+                </tr>
+              </thead>
+              <tbody id="iv-tbody"></tbody>
+            </table>
+          </div>
+          <p class="mh-note" id="iv-note"></p>
         </div>
-        <div style="margin-top:12px;" id="dq-weather-wrap" hidden>
-          <span class="sec-label">Weather file audit</span>
-          <div class="src-list" id="dq-weather"></div>
+
+        <!-- ── DRIFT ───────────────────────────────────────────────────── -->
+        <div class="mh-card span-5">
+          <div class="mh-head">
+            <h2>Distribution drift</h2>
+            <span class="sub">Training window vs incoming months</span>
+          </div>
+          <div id="drift-body"></div>
+        </div>
+
+        <!-- ── RESEARCH ARMS (offline benchmark, never served) ─────────── -->
+        <div class="mh-card span-7">
+          <div class="mh-head">
+            <h2>Research arms</h2>
+            <span class="sub" id="res-sub">Offline benchmark · not served</span>
+          </div>
+          <div id="res-body"></div>
         </div>
       </div>
-
-      <!-- ── DRIFT ─────────────────────────────────────────────────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Distribution drift</h2>
-          <span class="sub">Training window vs incoming months</span>
-        </div>
-        <div id="drift-body"></div>
-      </div>
-
-      <!-- ── LIFECYCLE ─────────────────────────────────────────────────── -->
-      <div class="mh-card">
-        <div class="mh-head">
-          <h2>Model lifecycle</h2>
-          <span class="sub" id="lc-sub">N/A</span>
-        </div>
-        <div id="lc-rows"></div>
-        <p class="mh-note" id="lc-note"></p>
-      </div>
-
     </div>
   </div>
 </div>
+
+<div id="tip" hidden></div>
 
 <script src="/forecast-static/theme.js?v=1"></script>
 <script>
 'use strict';
 
-/* Model health reads the served artifact (monthly_model.joblib) plus the cached
-   forecast payload — it never refits. Anything with no measurement behind it
-   (drift, retrain schedule, registry version) renders as an explicit N/A rather
-   than a plausible-looking number. */
+/* Model health has two views on one URL:
+     /model-health                     every forecast at a glance (the fleet)
+     /model-health?db=<s>&estate=<e>   one forecast in detail
+   Both only read: the fleet reads cached payloads, the run's monitoring rows and the
+   data-quality watchdog (/forecast/fleet); the detail reads the served artifact
+   (/forecast/model-health). Nothing here refits. Anything with no measurement behind
+   it renders as an explicit N/A rather than a plausible-looking number. */
+
+const PARAMS = new URLSearchParams(location.search);
+const VIEW = PARAMS.has('estate') ? 'detail' : 'fleet';
+let FLEET = null;                // last /forecast/fleet body (the detail view's switcher uses it too)
 
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('refresh-btn').addEventListener('click', loadHealth);
-  // The database is the one picked on the forecast or chat page (?db= wins).
-  Theme.db.onChange(loadHealth);
-  Theme.db.init('/forecast/sources').then(loadHealth);
+  initTip();
+  const reload = () => (VIEW === 'fleet' ? loadFleet() : loadHealth());
+  document.getElementById('refresh-btn').addEventListener('click', reload);
+  document.getElementById('retry-btn').addEventListener('click', reload);
+  if (VIEW === 'fleet') {
+    document.getElementById('back-link').classList.add('hidden');
+    ['f-source', 'f-status'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+    initFilters();
+    // The fleet shows both databases at once: no Database chip here.
+    Theme.db.init('/forecast/sources').then(() => { document.getElementById('db-chip').hidden = true; loadFleet(); });
+  } else {
+    document.getElementById('crumb').classList.remove('hidden');
+    document.getElementById('crumb-sep').classList.remove('hidden');
+    // The database is the one picked on the forecast or chat page (?db= wins).
+    Theme.db.onChange(onDbChange);
+    Theme.db.init('/forecast/sources').then(() => { loadHealth(); loadSwitcher(); });
+  }
 });
+
+function showState(which) {
+  document.getElementById('state-loading').classList.toggle('hidden', which !== 'loading');
+  document.getElementById('state-error').classList.toggle('hidden',   which !== 'error');
+  document.getElementById('state-result').classList.toggle('hidden',  which !== 'result');
+  document.getElementById('state-fleet').classList.toggle('hidden',   which !== 'fleet');
+}
+
+function fail(err, what) {
+  document.getElementById('err-msg').textContent =
+    '⚠ ' + (err && err.message ? err.message : 'Could not load ' + what + '.');
+  showState('error');
+}
+
+/* ── shared status vocabulary ───────────────────────────────────────
+   Levels from the server: alert / warn / ok / info (or na). A forecast's status is
+   its worst check: action / watch / healthy / not_forecast. Colour never stands
+   alone: every status carries a glyph and a word. */
+const LV = { alert: { cls: 'alert', g: '✕', word: 'Action' }, warn: { cls: 'warn', g: '!', word: 'Watch' },
+             ok: { cls: 'ok', g: '✓', word: 'Good' }, info: { cls: 'na', g: 'i', word: 'Info' },
+             na: { cls: 'na', g: '–', word: 'N/A' } };
+const ST = { action: { g: '✕', word: 'Action' }, watch: { g: '!', word: 'Watch' },
+             healthy: { g: '✓', word: 'Healthy' }, not_forecast: { g: '–', word: 'Not forecast' } };
+const DOT = { alert: 'bad', warn: 'warn', ok: 'good', info: 'na', na: 'na' };
+function pill(status) {
+  const s = ST[status] || ST.healthy;
+  return `<span class="pill ${status}"><span class="g" aria-hidden="true">${s.g}</span>${s.word}</span>`;
+}
+function lvPill(level) {
+  const map = { alert: 'action', warn: 'watch', ok: 'healthy', info: 'not_forecast', na: 'not_forecast' };
+  const l = LV[level] || LV.na;
+  return `<span class="pill ${map[level] || 'not_forecast'}"><span class="g" aria-hidden="true">${l.g}</span>${l.word}</span>`;
+}
+const SRC = { live: 'Live', staging: 'Staging', both: 'Both' };
+function fcName(c) { return c.group ? 'All estates' : c.label; }
+
+/* ══ FLEET ═══════════════════════════════════════════════════════════ */
+
+const FILTER = { source: 'all', status: 'all', wd: 'attention' };
+
+function initFilters() {
+  try { Object.assign(FILTER, JSON.parse(localStorage.getItem('mh-fleet-filter') || '{}')); } catch (e) { /* private window */ }
+  const bind = (id, key) => {
+    const box = document.getElementById(id);
+    box.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === FILTER[key]);
+      b.addEventListener('click', () => {
+        FILTER[key] = b.dataset.v;
+        box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        try { localStorage.setItem('mh-fleet-filter', JSON.stringify(FILTER)); } catch (e) { /* ignore */ }
+        if (FLEET) renderFleet(FLEET);
+      });
+    });
+  };
+  bind('f-source', 'source'); bind('f-status', 'status'); bind('wd-level', 'wd');
+  document.getElementById('wd-run').addEventListener('click', runChecks);
+}
+
+async function loadFleet() {
+  showState('loading');
+  document.getElementById('loading-txt').textContent = 'Reading every served forecast…';
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/forecast/fleet');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
+    FLEET = data;
+    showState('fleet');
+    renderFleet(data);
+  } catch (err) {
+    fail(err, 'the forecasts');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function runChecks() {
+  const b = document.getElementById('wd-run');
+  b.disabled = true; b.textContent = 'Checking…';
+  try {
+    const res = await fetch('/forecast/watchdog/run', { method: 'POST' });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Server error ' + res.status);
+    const r2 = await fetch('/forecast/fleet');
+    FLEET = await r2.json();
+    renderFleet(FLEET);
+  } catch (err) {
+    document.getElementById('wd-sub').textContent = '⚠ ' + (err.message || 'Checks failed');
+  } finally {
+    b.disabled = false; b.textContent = 'Run checks';
+  }
+}
+
+function visibleCards(d) {
+  return d.cards.filter(c => (FILTER.source === 'all' || c.source === FILTER.source)
+                          && (FILTER.status === 'all' || c.status === FILTER.status));
+}
+
+function renderFleet(d) {
+  document.getElementById('model-pill').textContent = d.run && d.run.id ? 'Run ' + d.run.id.split('-').slice(0, 2).join('-') : 'No run';
+  document.getElementById('gen-txt').textContent = d.generated_at ? 'Read ' + d.generated_at.replace('T', ' ').slice(0, 16) : '';
+  renderFleetKpis(d);
+  renderSections(d);
+  renderMatrix(d);
+  renderBars(d);
+  renderWatchdog(d);
+}
+
+function renderFleetKpis(d) {
+  const s = d.summary, c = s.counts, n = s.forecasts || 1;
+  const order = ['action', 'watch', 'healthy', 'not_forecast'];
+  const bar = order.filter(k => c[k]).map(k =>
+    `<i class="${k}" style="flex:${c[k]}" data-tip="<b>${ST[k].word}</b>\n${c[k]} of ${n} forecasts"></i>`).join('');
+  const legend = order.filter(k => c[k]).map(k =>
+    `<span><span class="g ${k === 'action' ? 'alert' : k === 'watch' ? 'warn' : k === 'healthy' ? 'ok' : ''}" aria-hidden="true">${ST[k].g}</span> ${c[k]} ${ST[k].word.toLowerCase()}</span>`).join('');
+  const wd = s.watchdog || {};
+  // per estate: the group card only reflects its members' picks
+  const picks = d.cards.filter(x => !x.group && (x.cells.serving || {}).value === 'manual pick');
+  const fallbacks = d.cards.filter(x => !x.group && ['fallback', 'stale', 'pick failed'].includes((x.cells.serving || {}).value));
+  const old = s.oldest_data;
+  const tiles = [
+    { label: 'Forecasts monitored', value: `${s.forecasts}`, unit: `${s.estates} estates + group`,
+      extra: `<div class="sbar">${bar}</div><div class="sbar-legend">${legend}</div>` },
+    { label: 'Beating the benchmark', value: s.scored ? `${s.beating_benchmark}<small> of ${s.scored}</small>` : 'N/A',
+      sub: s.median_mase != null ? `median 3-month MASE ${fmt(s.median_mase, 2)}` : 'no scored forecast' },
+    { label: 'Data checks needing a look', value: `${(wd.alert || 0) + (wd.warn || 0)}`,
+      sub: `${wd.alert || 0} action · ${wd.warn || 0} watch · ${wd.ok || 0} passed` },
+    { label: 'Oldest data', value: old ? old.title.replace(/\D+/g, ' ').trim().split(' ')[0] + '<small> days</small>' : 'N/A',
+      sub: old ? `${SRC[old.source]} ${old.estate.toUpperCase()} · ${old.detail.replace(/\.$/, '')}` : '' },
+    { label: 'Serving', value: fallbacks.length ? `${fallbacks.length}<small> off the rule</small>` : picks.length ? `${picks.length}<small> manual pick${picks.length > 1 ? 's' : ''}</small>` : 'By rule',
+      sub: fallbacks.length ? fallbacks.map(x => fcName(x) + ' ' + SRC[x.source]).join(', ')
+         : picks.length ? picks.map(x => SRC[x.source] + ' ' + fcName(x)).join(', ') + ' picked on Model health'
+         : 'every forecast on its selected model' },
+  ];
+  document.getElementById('fleet-kpis').innerHTML = tiles.map((t, i) => `
+    <div class="kpi-card" style="animation-delay:${i * 50}ms">
+      <span class="k-label">${esc(t.label)}</span>
+      <span class="k-value">${t.value}${t.unit ? `<small>${esc(t.unit)}</small>` : ''}</span>
+      ${t.sub ? `<span class="k-sub">${esc(t.sub)}</span>` : ''}
+      ${t.extra || ''}
+    </div>`).join('');
+}
+
+function renderSections(d) {
+  const cards = visibleCards(d);
+  const box = document.getElementById('fleet-sections');
+  const groups = [['live', 'Live estates', 'One database per estate'], ['staging', 'EPMS staging', 'One central database for every estate']];
+  const html = groups.map(([src, title, sub]) => {
+    const mine = cards.filter(c => c.source === src);
+    if (!mine.length) return '';
+    return `<div class="sec-title"><h2>${esc(title)}</h2><span class="sub">${esc(sub)} · ${mine.length} forecast${mine.length > 1 ? 's' : ''}</span></div>
+      <div class="fleet-grid">${mine.map((c, i) => cardHtml(c, d.checks, i)).join('')}</div>`;
+  }).join('');
+  box.innerHTML = html || `<div class="na-state"><b>No forecast matches these filters</b><p>Pick another source or status above.</p></div>`;
+  box.querySelectorAll('.fc-card').forEach(el => {
+    const go = () => { location.href = el.dataset.href; };
+    el.addEventListener('click', e => { if (!e.target.closest('a')) go(); });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+
+function cardHtml(c, checks, i) {
+  const name = fcName(c);
+  const head = `<div class="fcc-head"><span class="fcc-name">${esc(name)}</span><span class="src-tag">${SRC[c.source]}</span>${pill(c.status)}</div>`;
+  const strip = `<div class="strip" aria-label="Checks">${checks.map(k => {
+    const cell = c.cells[k.id] || { level: 'na' };
+    return `<i class="${cell.level}" data-tip="<b>${esc(k.label)}</b> · ${esc((LV[cell.level] || LV.na).word)}${cell.value ? '\n' + esc(cell.value) : ''}${cell.note ? '\n' + esc(cell.note) : ''}"></i>`;
+  }).join('')}</div>`;
+  const issues = (c.issues || []).slice(0, c.status === 'not_forecast' ? 2 : 3).map(x =>
+    `<div><span class="g ${x.level}" aria-hidden="true">${LV[x.level].g}</span><span>${esc(x.text)}</span></div>`).join('');
+  const attrs = `class="fc-card ${c.status}" tabindex="0" role="link" data-href="${esc(c.href)}" style="animation-delay:${i * 40}ms"
+                 aria-label="${esc(name + ' ' + SRC[c.source] + ', ' + ST[c.status].word + '. Open the detail.')}"`;
+  if (c.status === 'not_forecast') {
+    return `<div ${attrs}>${head}
+      <div class="fcc-reason">${esc(c.reason || 'No forecast for this estate.')}</div>
+      ${strip}<div class="fcc-issues">${issues}</div>
+      <div class="fcc-foot"><span>Data checks only</span><span>Details →</span></div></div>`;
+  }
+  const m = c.metrics || {}, tr = m.track || {};
+  const cell = id => c.cells[id] || { level: 'na' };
+  const metric = (label, id, v, bullet) => `<div class="fcc-m" data-tip="<b>${esc(label)}</b>\n${esc((checks.find(k => k.id === id) || {}).rule || '')}">
+      <span class="l">${esc(label)}</span>
+      <span class="v${v === 'N/A' ? ' na' : ''}"><i class="dot ${DOT[cell(id).level]}"></i>${esc(v)}</span>${bullet || ''}</div>`;
+  // MASE bullet: the bar is the value on a 0-1.5 scale; ticks at 0.80 (good) and 1.00 (benchmark)
+  const mb = m.mase == null ? '' : `<div class="bullet"><i style="width:${Math.min(100, m.mase / 1.5 * 100)}%"></i><b style="left:${0.8 / 1.5 * 100}%"></b><b style="left:${1 / 1.5 * 100}%"></b></div>`;
+  const dots = (tr.hits || []).map((h, j) => `<i class="${h ? 'hit' : 'miss'}" data-tip="<b>${esc((tr.months || [])[j] || '')}</b>\n${h ? 'within' : 'outside'} ${tr.tol_pct || 10}% of the actual"></i>`).join('');
+  const mode = (c.model || {}).mode;
+  const modeTxt = { override: 'manual pick', promotion: 'promoted', rule: 'by rule', fallback: 'fallback' }[mode] || mode || '';
+  return `<div ${attrs}>${head}
+    <div class="fcc-model" title="${esc((c.model || {}).label || '')}"><b>${esc(((c.model || {}).label || '').replace(' (zero-shot)', ''))}</b> · ${esc(modeTxt)}</div>
+    ${sparkSvg(c.spark)}
+    <div class="fcc-metrics">
+      ${metric('MASE · 3-month', 'accuracy', fmt(m.mase, 2), mb)}
+      ${metric('sMAPE · 3-month', 'error', m.smape == null ? 'N/A' : fmt(m.smape, 1) + '%')}
+      ${metric('Bias · 3-month', 'bias', m.bias_pct == null ? 'N/A' : sign(m.bias_pct) + fmt(Math.abs(m.bias_pct), 1) + '%')}
+    </div>
+    ${dots ? `<div class="fcc-track"><span class="track-dots">${dots}</span><span>${tr.within}/${tr.n} within ${tr.tol_pct || 10}%</span></div>` : ''}
+    ${strip}
+    <div class="fcc-issues">${issues || '<div><span class="g ok">✓</span><span>Nothing needs a look</span></div>'}</div>
+    <div class="fcc-foot"><span>Data to ${esc(c.data_through || 'N/A')}</span><span>Forecast from ${esc(nextMonth(c.anchor))} →</span></div>
+  </div>`;
+}
+
+function nextMonth(m) {
+  if (!m) return 'N/A';
+  const [y, mo] = m.split('-').map(Number);
+  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+}
+
+/** Last 12 actual months and the forecast with its 80% range, as a small SVG line. */
+function sparkSvg(sp) {
+  if (!sp || !(sp.history || []).length) return '<div class="spark"></div>';
+  const H = sp.history, F = sp.forecast || [];
+  const n = H.length + F.length, W = 300, Ht = 64, pad = 4;
+  const vals = H.map(h => h.value).concat(F.flatMap(f => [f.ensemble, f.lower80 ?? f.lower, f.upper80 ?? f.upper])).filter(v => v != null);
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+  const x = i => pad + i * (W - 2 * pad) / Math.max(1, n - 1);
+  const y = v => Ht - pad - (v - lo) / span * (Ht - 2 * pad);
+  const act = H.map((h, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(h.value).toFixed(1)}`).join('');
+  const last = H.length - 1;
+  const fc = [`M${x(last).toFixed(1)},${y(H[last].value).toFixed(1)}`].concat(F.map((f, j) => `L${x(last + 1 + j).toFixed(1)},${y(f.ensemble).toFixed(1)}`)).join('');
+  const up = F.map((f, j) => `${x(last + 1 + j).toFixed(1)},${y(f.upper80 ?? f.upper ?? f.ensemble).toFixed(1)}`);
+  const dn = F.map((f, j) => `${x(last + 1 + j).toFixed(1)},${y(f.lower80 ?? f.lower ?? f.ensemble).toFixed(1)}`).reverse();
+  const band = F.length ? `<polygon points="${x(last).toFixed(1)},${y(H[last].value).toFixed(1)} ${up.join(' ')} ${dn.join(' ')}" fill="var(--gold)" opacity=".16"/>` : '';
+  const step = (W - 2 * pad) / Math.max(1, n - 1);
+  const hits = H.map((h, i) => `<rect class="hit" x="${(x(i) - step / 2).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${Ht}"
+      data-tip="<b>${esc(h.month)}</b> · actual\n${fmtInt(h.value)} bunches${h.underrecorded ? '\nunder-recorded month' : ''}"/>`).join('')
+    + F.map((f, j) => `<rect class="hit" x="${(x(last + 1 + j) - step / 2).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${Ht}"
+      data-tip="<b>${esc(f.month)}</b> · expected\n${fmtInt(f.ensemble)} bunches\nlikely ${fmtInt(f.lower80 ?? f.lower)}–${fmtInt(f.upper80 ?? f.upper)}"/>`).join('');
+  return `<svg class="spark" viewBox="0 0 ${W} ${Ht}" preserveAspectRatio="none" role="img" aria-label="Last ${H.length} months and the forecast">
+    ${hits}${band}
+    <path d="${act}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <path d="${fc}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function renderMatrix(d) {
+  const cards = visibleCards(d);
+  const groups = [];
+  d.checks.forEach(k => { const g = groups[groups.length - 1]; if (g && g.name === k.group) g.n++; else groups.push({ name: k.group, n: 1 }); });
+  const head = `<tr><th class="rowh"></th>${groups.map(g => `<th class="grp" colspan="${g.n}">${esc(g.name)}</th>`).join('')}</tr>
+    <tr><th class="rowh">Forecast</th>${d.checks.map(k => `<th data-tip="<b>${esc(k.label)}</b>\n${esc(k.rule)}">${esc(k.label)}</th>`).join('')}</tr>`;
+  const rows = cards.map(c => `<tr class="mrow" data-href="${esc(c.href)}">
+      <td class="rowl">${esc(fcName(c))}<span class="src-tag">${SRC[c.source]}</span></td>
+      ${d.checks.map(k => {
+        const cell = c.cells[k.id] || { level: 'na' };
+        const l = LV[cell.level] || LV.na;
+        const v = cell.value || (cell.level === 'na' ? '' : l.word);     // nothing measured: the dash alone
+        return `<td><span class="mcell ${l.cls}" data-tip="<b>${esc(fcName(c))} ${SRC[c.source]} · ${esc(k.label)}</b> · ${l.word}${cell.note ? '\n' + esc(cell.note) : ''}"><span class="g" aria-hidden="true">${l.g}</span>${esc(shortVal(v))}</span></td>`;
+      }).join('')}</tr>`).join('');
+  document.getElementById('matrix-wrap').innerHTML = `<table class="matrix"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+  document.querySelectorAll('#matrix-wrap tr.mrow').forEach(tr => tr.addEventListener('click', () => { location.href = tr.dataset.href; }));
+  document.getElementById('matrix-legend').innerHTML = ['alert', 'warn', 'ok', 'na'].map(lv =>
+    `<span><span class="mcell ${LV[lv].cls}" style="height:18px; padding:0 6px;"><span class="g">${LV[lv].g}</span></span>${lv === 'na' ? 'Not measured yet' : LV[lv].word}</span>`).join('')
+    + '<span>Hover a cell for the reading behind it; click a row to open that forecast.</span>';
+}
+function shortVal(v) { return String(v).replace(' origins', ' orig.').replace(' days old', ' d').replace(/^(\d+) days$/, '$1 d'); }
+
+/** MASE per forecast as horizontal bars, with the 0.80 and 1.00 lines. One series,
+    one neutral colour; the zones behind it carry the bands. */
+function renderBars(d) {
+  const cards = visibleCards(d).filter(c => c.metrics && c.metrics.mase != null);
+  const box = document.getElementById('bars-wrap');
+  if (!cards.length) { box.innerHTML = '<div class="na-state"><b>No scored forecast in view</b></div>'; return; }
+  const max = Math.max(1.5, ...cards.map(c => c.metrics.mase)) * 1.05;
+  const W = 420, rowH = 30, top = 22, left = 118, right = 44;
+  const Ht = top + cards.length * rowH + 8;
+  const sx = v => left + v / max * (W - left - right);
+  const zone = (a, b, fill) => `<rect x="${sx(a)}" y="${top - 4}" width="${sx(b) - sx(a)}" height="${cards.length * rowH}" fill="${fill}"/>`;
+  // the two reference lines sit close together: label 0.80 to its left, 1.00 to its right
+  const ref = (v, label, anchor) => `<line x1="${sx(v)}" x2="${sx(v)}" y1="${top - 6}" y2="${top + cards.length * rowH - 4}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="${sx(v) + (anchor === 'end' ? -4 : 4)}" y="${top - 10}" text-anchor="${anchor}" font-size="11" fill="var(--muted)">${label}</text>`;
+  const bars = cards.map((c, i) => {
+    const yy = top + i * rowH, v = c.metrics.mase, w = Math.max(2, sx(v) - left);
+    const tip = `<b>${esc(fcName(c))} ${SRC[c.source]}</b>\nMASE ${fmt(v, 2)} against ${esc(c.metrics.benchmark || 'the benchmark')}\nsMAPE ${fmt(c.metrics.smape, 1)}% · ${c.metrics.origins || '?'} origins`
+      + ((c.metrics.per_horizon || []).length ? '\n' + c.metrics.per_horizon.map(h => 'h' + h.step + ' ' + fmt(h.mase, 2)).join(' · ') : '');
+    return `<g data-tip="${tip}" style="cursor:pointer" data-href="${esc(c.href)}">
+      <rect x="0" y="${yy}" width="${W}" height="${rowH}" fill="transparent"/>
+      <text x="${left - 10}" y="${yy + rowH / 2 + 4}" text-anchor="end" font-size="12.5" font-weight="600" fill="var(--text)">${esc(fcName(c))}<tspan font-size="10.5" font-weight="600" fill="var(--muted)"> ${SRC[c.source].toUpperCase()}</tspan></text>
+      <path d="M${left},${yy + 8} h${w - 4} a4,4 0 0 1 4,4 v${rowH - 24} a4,4 0 0 1 -4,4 h-${w - 4} z" fill="var(--text-2)" opacity=".62"/>
+      <text x="${left + w + 6}" y="${yy + rowH / 2 + 4}" font-size="12" font-weight="600" fill="var(--text)">${fmt(v, 2)}</text>
+    </g>`;
+  }).join('');
+  box.innerHTML = `<svg class="bars" viewBox="0 0 ${W} ${Ht}" role="img" aria-label="3-month MASE per forecast">
+    ${zone(0, 0.8, 'var(--accent-soft)')}${zone(0.8, 1.0, 'var(--warn-bg)')}${zone(1.0, max, 'var(--danger-bg)')}
+    ${ref(0.8, '0.80', 'end')}${ref(1.0, '1.00 = benchmark', 'start')}${bars}</svg>
+    <div class="legend-row"><span><span class="mcell ok" style="height:14px;width:18px"></span>good</span><span><span class="mcell warn" style="height:14px;width:18px"></span>watch</span><span><span class="mcell alert" style="height:14px;width:18px"></span>the benchmark wins</span></div>`;
+  box.querySelectorAll('g[data-href]').forEach(g => g.addEventListener('click', () => { location.href = g.dataset.href; }));
+}
+
+function renderWatchdog(d) {
+  const wd = d.watchdog || {};
+  const want = FILTER.wd === 'alert' ? ['alert'] : FILTER.wd === 'attention' ? ['alert', 'warn'] : ['alert', 'warn', 'info'];
+  const seen = new Set();
+  const rank = { alert: 0, warn: 1, info: 2, ok: 3 };
+  const rows = (wd.findings || [])
+    .filter(f => want.includes(f.level) && (FILTER.source === 'all' || f.source === FILTER.source))
+    .filter(f => {                      // a live-vs-staging finding sits under both sources: show it once
+      if (f.check !== 'cross_source' || FILTER.source !== 'all') return true;
+      const k = 'x/' + f.estate; if (seen.has(k)) return false; seen.add(k); return true;
+    })
+    .sort((a, b) => rank[a.level] - rank[b.level] || a.source.localeCompare(b.source) || a.estate.localeCompare(b.estate));
+  const t = d.summary.watchdog || {};
+  document.getElementById('wd-sub').textContent =
+    `${t.alert || 0} action · ${t.warn || 0} watch · ${t.ok || 0} passed · checked ${(wd.generated_at || '').replace('T', ' ').slice(0, 16)}`;
+  document.getElementById('wd-tbody').innerHTML = rows.length ? rows.map(f => `<tr>
+      <td class="nowrap">${lvPill(f.level)}</td>
+      <td class="nowrap"><b>${esc(f.estate.toUpperCase())}</b> <span class="src-tag">${f.check === 'cross_source' && FILTER.source === 'all' ? 'Both' : SRC[f.source]}</span></td>
+      <td class="nowrap">${esc(CHECK_NAMES[f.check] || f.check)}<div class="d">${esc(f.dimension)}</div></td>
+      <td><div class="t">${esc(f.title)}</div><div class="d">${esc(f.detail)}</div></td>
+      <td class="aff">${esc(f.affects || '')}</td></tr>`).join('')
+    : `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:18px;">Nothing at this level. Every data check passed.</td></tr>`;
+}
+
+const CHECK_NAMES = {
+  freshness: 'Freshness', extract_gate: 'Extract checks', history_depth: 'History depth', harvest_gaps: 'Harvest gaps',
+  short_months: 'Short months', daily_spikes: 'Daily spikes', block_coverage: 'Block coverage', duplicates: 'Duplicates',
+  ticket_ratio: 'Bunches per ticket', target_fill: 'Bunch count filled', weight_per_trip: 'Tonnes per trip',
+  cross_source: 'Live vs staging',
+};
+
+/* ══ DETAIL ══════════════════════════════════════════════════════════ */
 
 // Set by render(): the staging model is a zero-shot arm scored against a
 // different benchmark, so a few sentences written for the live ensemble differ.
 let STAGING = false;
 let BENCH = 'seasonal-naïve';
 
+function currentEstate() { return PARAMS.get('estate') || 'all'; }
+
+/** The database chip on the detail view: stay on the same estate when the other
+    database has it, else open that database's default view. */
+function onDbChange(db) {
+  const est = currentEstate();
+  const list = FLEET ? FLEET.cards.filter(c => c.source === db).map(c => c.estate) : null;
+  const keep = !list || list.includes(est);
+  const p = new URLSearchParams(location.search);
+  p.set('db', db); p.set('estate', keep ? est : 'all');
+  history.replaceState(null, '', location.pathname + '?' + p.toString());
+  PARAMS.set('db', db); PARAMS.set('estate', keep ? est : 'all');
+  loadHealth(); renderSwitcher();
+}
+
 async function loadHealth() {
   showState('loading');
+  document.getElementById('loading-txt').textContent = 'Reading the served model artifact…';
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
   try {
-    const res  = await fetch('/forecast/model-health?source=' + encodeURIComponent(Theme.db.current));
+    const estate = currentEstate();
+    const res  = await fetch('/forecast/model-health?source=' + encodeURIComponent(Theme.db.current)
+                             + '&estate=' + encodeURIComponent(estate));
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
     showState('result');
     render(data);
   } catch (err) {
-    document.getElementById('err-msg').textContent =
-      '⚠ ' + (err && err.message ? err.message : 'Could not load model health.');
-    showState('error');
+    fail(err, 'model health');
   } finally {
     btn.disabled = false;
   }
 }
 
-function showState(which) {
-  document.getElementById('state-loading').classList.toggle('hidden', which !== 'loading');
-  document.getElementById('state-error').classList.toggle('hidden',   which !== 'error');
-  document.getElementById('state-result').classList.toggle('hidden',  which !== 'result');
+/** The other forecasts, as chips above the detail (from the fleet, loaded in the background). */
+async function loadSwitcher() {
+  try {
+    const res = await fetch('/forecast/fleet');
+    if (!res.ok) return;
+    FLEET = await res.json();
+    renderSwitcher();
+  } catch (e) { /* the switcher is a convenience */ }
+}
+function renderSwitcher() {
+  const box = document.getElementById('switcher');
+  if (!FLEET) return;
+  const est = currentEstate(), db = Theme.db.current;
+  const liveAll = db === 'live' && est === 'all';
+  box.innerHTML = FLEET.cards.map(c => {
+    const on = c.source === db && (c.estate === est || (liveAll && c.estate === 'k3'));
+    return `<a class="sw-chip${on ? ' on' : ''}" href="${esc(c.href)}"><i class="dot ${c.status === 'action' ? 'bad' : c.status === 'watch' ? 'warn' : c.status === 'healthy' ? 'good' : 'na'}"></i>${esc(fcName(c))} <small>${SRC[c.source]}</small></a>`;
+  }).join('');
+  box.classList.remove('hidden');
 }
 
 /* ── status banding ───────────────────────────────────────────────────
@@ -431,38 +1041,68 @@ function render(d) {
   const drf  = d.drift || {};
   STAGING = d.source === 'staging';
   BENCH = d.benchmark_label || 'seasonal-naïve';
-  document.querySelector('.fc-title .accent').textContent = STAGING
-    ? '· staging · ' + (d.series_label || 'all estates') : '· production forecast';
-  document.getElementById('board-note').textContent = STAGING
+  const FROM_LAB = STAGING || BENCH.startsWith('naive last-3');   // Chronos-2 served from the Forecast Lab
+  renderFlags(d.flags || [], d.fallback, d.monitoring || [], (lc.serving || {}).errors || []);
+  const label = d.series_label || (STAGING ? 'all estates' : 'K3');
+  document.getElementById('title-main').textContent = label;
+  document.getElementById('title-accent').textContent = (STAGING ? '· staging · ' : '· live · ') + 'production forecast';
+  document.title = 'EPMS · Model Health · ' + label + (STAGING ? ' (staging)' : ' (live)');
+  document.getElementById('back-link').href = '/forecast/analyst?db=' + encodeURIComponent(d.source || 'live')
+    + (currentEstate() !== 'all' ? '&estate=' + encodeURIComponent(currentEstate()) : '');
+  document.getElementById('board-note').textContent = FROM_LAB
     ? 'Step 1 of the Forecast Lab walk-forward, every model scored on the rows they all share. MASE is '
       + 'against ' + BENCH + ': below 1.00 means the model beats it. Bias is the mean signed error; '
       + 'positive means over-forecasting.'
     : 'MASE is scored against a seasonal-naïve benchmark: below 1.00 means the model beats "same month '
       + 'last year". Bias is the mean signed error; positive means over-forecasting.';
 
-  document.getElementById('model-pill').textContent = lc.served_model || 'Ensemble';
+  document.getElementById('model-pill').textContent = (lc.served_model || 'Ensemble')
+    + (((lc.serving || {}).mode === 'override') ? ' · manual pick' : '');
   document.getElementById('gen-txt').textContent =
     d.generated_at ? 'Read ' + d.generated_at.replace('T', ' ') : '';
 
   renderKpis(acc, iv, dq);
   renderAccuracy(acc, d.scoreboard || []);
-  renderBoard(d.scoreboard || [], lc);
+  renderBoard(d.scoreboard || [], lc, d);
   renderInterval(iv);
   renderResearch(d.research || {});
-  renderDataQuality(dq);
+  renderDataQuality(dq, d.watchdog || {});
+  renderMonitoring(d.monitoring || []);
   renderDrift(drf);
   renderLifecycle(lc, d.scope || {});
 }
 
 /* The served product is a 3-MONTH forecast, so the headline error is the
    pooled h1-3 sMAPE from the multi-horizon walk-forward. The 1-step figure
-   (~10.1%) stays visible but is always labelled "1-month-ahead": leading with
-   it understates what the client receives (13.2% over h1-3) and is a direct
-   source of expectation mismatch. */
+   stays visible but is always labelled "1-month-ahead": leading with it
+   understates what the client receives and is a direct source of
+   expectation mismatch. */
 function perHorizonSub(acc) {
   const ph = acc.per_horizon || [];
   return ph.length ? ph.map(h => 'h' + h.step + ' ' + fmt(h.smape, 1) + '%').join(' · ')
                    : 'per-horizon breakdown unavailable';
+}
+
+/** One line per thing that would mislead if left out: the ensemble fallback, an
+    estate scored on too few origins, an estate where the served model loses to the
+    naive baseline (buildplan_forecast_mlops.md D10). */
+function renderFlags(flags, fallback, monitoring, pickErrors) {
+  const lines = [];
+  for (const e of (pickErrors || [])) lines.push(['bad', '<b>Manual pick not served.</b> ' + esc(e)]);
+  for (const m of (monitoring || []).filter(m => m.level === 'alert' && m.check !== 'freshness'))
+    lines.push(['bad', '<b>' + esc(m.estate.toUpperCase()) + ': ' + esc(m.check.replace(/_/g, ' ')) + '.</b> ' + esc(m.detail)]);
+  if (fallback) lines.push(['bad', '<b>Fallback.</b> Served by the ensemble: ' + esc(fallback.reason)]);
+  for (const f of flags) {
+    const est = esc((f.estate || '').replace(/^stg_/, '').toUpperCase());
+    if (f.kind === 'loses_to_yardstick')
+      lines.push(['bad', '<b>' + est + ': loses to ' + esc(BENCH) + '.</b> ' + esc(f.detail)]);
+    else if (f.kind === 'low_evidence')
+      lines.push(['warn', '<b>' + est + ': low evidence.</b> Scored on ' + esc(f.detail) + '.']);
+  }
+  const row = document.getElementById('flag-row');
+  row.innerHTML = lines.map(([cls, html]) =>
+    `<div class="res-banner"><i class="dot ${cls}"></i><p>${html}</p></div>`).join('');
+  row.classList.toggle('hidden', !lines.length);
 }
 
 function renderKpis(acc, iv, dq) {
@@ -478,9 +1118,14 @@ function renderKpis(acc, iv, dq) {
       value: acc.smape_h1_3 == null ? 'N/A' : fmt(acc.smape_h1_3, 1) + '%',
       cls: band(acc.smape_h1_3 ?? acc.smape, 10, 20),
       sub: perHorizonSub(acc) + ' · 1-month-ahead ' + fmt(acc.smape_1step ?? acc.smape, 1) + '%' },
-    { label: 'Bias', value: acc.bias_pct == null ? 'N/A' : sign(acc.bias_pct) + fmt(Math.abs(acc.bias_pct), 1) + '%',
-      cls: band(acc.bias_pct, 2, 5),
-      sub: acc.bias == null ? 'mean signed error' : sign(acc.bias) + fmtInt(Math.abs(acc.bias)) + ' bunches mean signed error' },
+    // 3-month like the two tiles before it (and the overview's card); the 1-month figure in the sub
+    (() => {
+      const b3 = acc.bias_pct_h1_3, b = b3 ?? acc.bias_pct;
+      return { label: b3 != null ? 'Bias · 3-month' : 'Bias', value: b == null ? 'N/A' : sign(b) + fmt(Math.abs(b), 1) + '%',
+        cls: band(b, 2, 5),
+        sub: (b3 != null && acc.bias_pct != null ? '1-month-ahead ' + sign(acc.bias_pct) + fmt(Math.abs(acc.bias_pct), 1) + '% · ' : '')
+             + (acc.bias == null ? 'mean signed error' : sign(acc.bias) + fmtInt(Math.abs(acc.bias)) + ' bunches (1-month)') };
+    })(),
     // This is the CONFORMAL band's coverage, not the chart band's - the chart
     // band is narrower and covers far less. Naming it prevents the mix-up.
     { label: 'Conformal interval coverage', value: covPct == null ? 'N/A' : Math.round(covPct) + '%',
@@ -566,25 +1211,90 @@ function renderAccuracy(acc, board) {
     + 'numbers — no in-sample scores are shown here.';
 }
 
-function renderBoard(board, lc) {
+/* Candidate rows are clickable: serving one is a manual pick, recorded server-side
+   (forecast/overrides.py) and shown on the forecast page until it is returned to
+   the rule. The ensemble fallback's board has no model ids, so it stays read-only. */
+let BOARD_CTX = { source: 'live', estate: 'all', scope: '' };
+
+function renderBoard(board, lc, d) {
   const served = String(lc.served_ensemble || '');
+  const servedId = lc.served_model_id || null;
+  const sv = lc.serving || { estates: [] };
+  const picks = (sv.estates || []).filter(e => e.mode === 'override');
+  const ruleIds = new Set((sv.estates || []).map(e => e.rule_model));
+  const canPick = !d.fallback && board.some(r => r.id);
+  BOARD_CTX = { source: d.source || 'live', estate: currentEstate(),
+                scope: d.series_label || 'this scope' };
+  document.getElementById('board-act-h').classList.toggle('hidden', !canPick);
+
+  const reset = document.getElementById('board-reset');
+  reset.classList.toggle('hidden', !picks.length);
+  if (picks.length) {
+    const rule = [...new Set(picks.map(p => p.rule_model_label))].join(' / ');
+    reset.textContent = 'Back to rule pick · ' + rule;
+    reset.onclick = () => serveModel(null, rule);
+  }
   const tbody = document.getElementById('board-tbody');
   if (!board.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:18px;">
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:18px;">
       No scoreboard stored in the model artifact.</td></tr>`;
     return;
   }
   tbody.innerHTML = board.map(r => {
-    const isServed = served === r.model;
-    return `<tr class="${isServed ? 'served' : ''}">
-      <td>${esc(r.model)}${isServed ? '<span class="tag-served">served</span>' : ''}</td>
+    const isServed = servedId ? servedId === r.id : served === r.model;
+    const pickable = canPick && r.id && r.servable && !isServed;
+    const tags = (isServed ? '<span class="tag-served">served</span>' : '')
+      + (isServed && picks.length ? '<span class="tag-pick">manual pick</span>' : '')
+      + (picks.length && ruleIds.has(r.id) ? '<span class="tag-rule">rule pick</span>' : '');
+    const act = !canPick ? ''
+      : `<td>${pickable ? `<button type="button" class="btn-serve" tabindex="-1">Serve</button>`
+                        : (r.id && !r.servable ? `<span class="tag-rule" title="${esc(r.unservable_reason || '')}">n/a</span>` : '')}</td>`;
+    return `<tr class="${isServed ? 'served' : ''}${pickable ? ' pickable' : ''}"
+               ${pickable ? `data-serve="${esc(r.id)}" data-label="${esc(r.model)}" tabindex="0"` : ''}>
+      <td>${esc(r.model)}${tags}</td>
       <td>${fmt(r.mase, 3)}</td>
       <td>${fmt(r.smape, 1)}%</td>
       <td>${fmtInt(r.mae)}</td>
       <td>${fmtInt(r.rmse)}</td>
       <td>${sign(r.bias)}${fmtInt(Math.abs(r.bias))}</td>
+      ${act}
     </tr>`;
   }).join('');
+  tbody.querySelectorAll('tr.pickable').forEach(tr => {
+    const go = () => serveModel(tr.dataset.serve, tr.dataset.label);
+    tr.addEventListener('click', go);
+    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+
+async function serveModel(modelId, label) {
+  const { source, estate, scope } = BOARD_CTX;
+  const ask = modelId
+    ? `Serve ${label} on ${scope} (${source})?\n\nThe forecast page shows it until you return to the rule pick here.`
+    : `Return ${scope} (${source}) to the rule pick (${label})?`;
+  if (!confirm(ask)) return;
+  const msg = document.getElementById('board-msg');
+  const lock = on => document.querySelectorAll('.btn-serve, tr.pickable').forEach(el => {
+    el.disabled = on; el.style.pointerEvents = on ? 'none' : '';
+  });
+  msg.className = 'board-msg';
+  msg.textContent = modelId ? 'Serving ' + label + '…' : 'Returning to the rule pick…';
+  lock(true);
+  try {
+    const res = await fetch('/forecast/serve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, estate, model: modelId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
+    // see it where the client does: the forecast page, same database and estate
+    location.href = '/forecast?db=' + encodeURIComponent(source)
+      + (estate && estate !== 'all' ? '&estate=' + encodeURIComponent(estate) : '');
+  } catch (err) {
+    msg.className = 'board-msg err';
+    msg.textContent = '⚠ ' + (err && err.message ? err.message : 'Could not change the served model.');
+    lock(false);
+  }
 }
 
 function renderInterval(iv) {
@@ -596,7 +1306,27 @@ function renderInterval(iv) {
 
   const steps = iv.per_step || [];
   const tbody = document.getElementById('iv-tbody');
-  if (!steps.length) {
+  // Chronos-2 payloads carry an outer 80% range instead of a conformal band: the
+  // last four columns then describe that range (buildplan_forecast_mlops.md D2).
+  const outer = iv.outer;
+  const heads = outer ? ['80% range ±%', '80% range source', '80% range coverage', 'Measured on']
+                      : ['Conformal half-width', 'Conformal width (% of a month)', 'Split coverage', 'ACI coverage'];
+  heads.forEach((h, i) => { const el = document.getElementById('iv-h' + (i + 5)); if (el) el.textContent = h; });
+  if (outer && steps.length) {
+    const src = outer.method === 'model_q10_q90' ? "model's 10th–90th pct" : 'backtest error, 80th pct';
+    const oc = outer.method === 'model_q10_q90' ? cov(outer.coverage) + ' of ' + outer.n : 'by construction';
+    const on = (iv.measured_on || {}).rule || '';
+    tbody.innerHTML = steps.map(s => `<tr>
+      <td>Step ${esc(s.step)}</td>
+      <td>${s.n_scored == null ? 'N/A' : s.n_scored}</td>
+      <td>${s.chart_band_pct == null ? 'N/A' : '±' + fmt(s.chart_band_pct, 1) + '%'}</td>
+      <td class="${s.chart_coverage != null && s.chart_coverage < 0.8 ? 'bad-cell' : ''}">${cov(s.chart_coverage)}</td>
+      <td>${s.outer_band_pct == null ? 'N/A' : '±' + fmt(s.outer_band_pct, 1) + '%'}</td>
+      <td>${esc(src)}</td>
+      <td>${esc(oc)}</td>
+      <td>${esc(on)}</td>
+    </tr>`).join('');
+  } else if (!steps.length) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--muted); padding:18px;">
       No conformal calibration stored in the model artifact.</td></tr>`;
   } else {
@@ -628,7 +1358,11 @@ function renderInterval(iv) {
       + Math.round(Math.max(...chartCovs) * 100) + '% — it is a typical-error band, not a '
       + (iv.nominal_pct || 90) + '% prediction interval. '
     : '';
-  document.getElementById('iv-note').textContent = STAGING
+  document.getElementById('iv-note').textContent = outer
+    ? chartCovNote + 'The lighter 80% range on the chart is the ' + outer.label
+      + (outer.method === 'model_q10_q90' ? ', which held ' + cov(outer.coverage) + ' of ' + outer.n
+         + ' backtest actuals.' : (outer.note ? ' (' + outer.note + ').' : '.'))
+    : STAGING
     ? chartCovNote + 'No calibrated interval exists for the staging model yet: the conformal columns stay '
       + 'N/A until there is enough history to calibrate one.'
     : chartCovNote
@@ -649,18 +1383,16 @@ function renderInterval(iv) {
 }
 function cov(v) { return v == null ? 'N/A' : Math.round(v * 100) + '%'; }
 
-function renderDataQuality(dq) {
+let DQ_FINDINGS = [];
+function renderDataQuality(dq, wd) {
   document.getElementById('dq-sub').textContent =
     (dq.months_history ? dq.months_history + ' months' : 'N/A')
-    + (dq.first_month ? ' from ' + dq.first_month : '');
+    + (dq.first_month ? ' from ' + dq.first_month : '')
+    + (wd.generated_at ? ' · checked ' + wd.generated_at.replace('T', ' ').slice(0, 16) : '');
 
   const fresh = dq.freshness_months;
   const wx = dq.weather || {};
   const rows = [
-    row('History depth', dq.months_history == null ? 'N/A' : dq.months_history + ' months',
-        dq.months_history == null ? 'na' : (dq.months_history >= 36 ? 'good' : dq.months_history >= 24 ? 'warn' : 'bad'),
-        'Good ≥ 36 months (three seasonal cycles) · Watch ≥ 24. Below that, yearly seasonality is barely identifiable.',
-        dq.months_history == null),
     row('Last complete month', dq.last_complete_month || 'N/A',
         fresh == null ? 'na' : band(fresh, 1, 3),
         'Freshness: ' + (fresh == null ? 'unknown' : fresh + ' month(s) behind the current month')
@@ -670,21 +1402,22 @@ function renderDataQuality(dq) {
           : dq.underrecorded_months + ' (' + fmt(dq.underrecorded_pct, 1) + '%)',
         band(dq.underrecorded_pct, 5, 15),
         STAGING ? 'Months only partly inside the recorded window; they are shown but not scored. Good ≤ 5% · Watch ≤ 15%.'
-                : 'Months flagged as partial or under-recorded and seasonally imputed before fitting. Good ≤ 5% · Watch ≤ 15%.',
+                : 'Months flagged as partial or under-recorded and imputed before fitting. Good ≤ 5% · Watch ≤ 15%.',
         dq.underrecorded_months == null),
-    row('Missing-value rate', 'N/A', 'na',
-        'Needs a per-feature completeness check on the feature table; not computed yet.', true),
-    row('Weather integrity',
-        wx.status ? ({ ok: 'Verified', warn: 'Unverified', fail: 'Failed' }[wx.status] || 'N/A') : 'N/A',
-        ({ ok: 'good', warn: 'warn', fail: 'bad' }[wx.status] || 'na'),
-        'Provenance and physics audit of the daily weather CSV. The walk-forward scoreboard '
-        + 'cannot see this file, so a corrupt weather series moves the forward forecast and the '
-        + 'prediction intervals without moving a single accuracy metric. The decisive check '
-        + 'recomputes ET₀ from the file’s own stored columns: below 99% agreement means the '
-        + 'file did not come from the fetcher that claims to have produced it.',
-        !wx.status),
   ];
+  if (wx.status) rows.push(row('Weather integrity',
+        ({ ok: 'Verified', warn: 'Unverified', fail: 'Failed' }[wx.status] || 'N/A'),
+        ({ ok: 'good', warn: 'warn', fail: 'bad' }[wx.status] || 'na'),
+        'Provenance and physics audit of the daily weather CSV: below 99% ET₀ agreement the file did not '
+        + 'come from the fetcher that claims to have produced it.', false));
   document.getElementById('dq-rows').innerHTML = rows.join('');
+
+  DQ_FINDINGS = wd.findings || [];
+  const seg = document.getElementById('dq-level');
+  seg.querySelectorAll('button').forEach(b => {
+    b.onclick = () => { seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); renderDqFindings(b.dataset.v); };
+  });
+  renderDqFindings((seg.querySelector('button.on') || {}).dataset ? seg.querySelector('button.on').dataset.v : 'attention');
 
   document.getElementById('dq-sources').innerHTML = (dq.sources || []).map(s => `
     <span class="src-pill"><i class="dot ${s.present ? 'good' : 'bad'}"></i>
@@ -703,6 +1436,35 @@ function renderDataQuality(dq) {
   } else {
     wrap.hidden = true;
   }
+}
+
+function renderDqFindings(mode) {
+  const rank = { alert: 0, warn: 1, info: 2, ok: 3 };
+  const multi = new Set(DQ_FINDINGS.map(f => f.estate)).size > 1;
+  const list = DQ_FINDINGS.filter(f => mode === 'all' || f.level === 'alert' || f.level === 'warn')
+    .sort((a, b) => rank[a.level] - rank[b.level]);
+  const ok = DQ_FINDINGS.filter(f => f.level === 'ok').length;
+  document.getElementById('dq-findings').innerHTML = list.length ? list.map(f => `<tr>
+      <td class="nowrap">${lvPill(f.level)}</td>
+      <td class="nowrap">${multi ? '<b>' + esc(f.estate.toUpperCase()) + '</b> · ' : ''}${esc(CHECK_NAMES[f.check] || f.check)}<div class="d">${esc(f.dimension)}</div></td>
+      <td><div class="t">${esc(f.title)}</div><div class="d">${esc(f.detail)}</div></td>
+      <td class="aff">${esc(f.affects || '')}</td></tr>`).join('')
+    : `<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:16px;">${
+        DQ_FINDINGS.length ? 'Nothing needs a look: ' + ok + ' data checks passed.' : 'The watchdog has not checked this series.'}</td></tr>`;
+}
+
+function renderMonitoring(rows) {
+  const rank = { alert: 0, info: 1, ok: 2 };
+  const shown = rows.filter(r => r.check !== 'freshness')        // the watchdog reports freshness
+    .sort((a, b) => (rank[a.level] ?? 3) - (rank[b.level] ?? 3));
+  const multi = new Set(rows.map(r => r.estate)).size > 1;
+  const names = { realised_error: 'Realised error', chronos_vs_naive: 'Against naive', volume: 'Volume',
+                  column_drift: 'Column drift', seasonal_shape: 'Seasonal shape', manual_pick: 'Manual pick' };
+  document.getElementById('mon-tbody').innerHTML = shown.length ? shown.map(r => `<tr>
+      <td class="nowrap">${lvPill(r.level === 'info' ? 'info' : r.level)}</td>
+      <td class="nowrap">${multi ? '<b>' + esc(r.estate.toUpperCase()) + '</b> · ' : ''}${esc(names[r.check] || r.check)}</td>
+      <td class="d">${esc(r.detail)}</td></tr>`).join('')
+    : `<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">No monitoring rows: they are written by the next refresh (forecast/refresh.py).</td></tr>`;
 }
 
 /* Offline benchmark arms. This card COMPARES; it never promotes. Two rules it
@@ -798,11 +1560,11 @@ function renderDrift(drf) {
       <svg class="na-ico" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 17c3 0 3-8 6-8s3 8 6 8 3-6 6-6"/><line x1="3" y1="21" x2="21" y2="21"/>
       </svg>
-      <b>Drift is not monitored yet</b>
-      <p>${esc(drf.reason || 'No drift monitor is configured.')}</p>
+      <b>Feature drift is not monitored</b>
+      <p>${esc(drf.reason || 'No drift monitor is configured.')} The seasonal shape, declared columns and
+         volume are watched each refresh instead (Live monitoring).</p>
       <div class="drift-list">${(drf.features || []).map(f =>
         `<span class="src-pill"><i class="dot na"></i>${esc(f)} · N/A</span>`).join('')}</div>
-      <span class="na-req">Requires · scheduled reference-vs-live comparison (PSI / KS)</span>
     </div>`;
 }
 
@@ -821,7 +1583,7 @@ function renderLifecycle(lc, scope) {
     row('Artifact built', lc.artifact_built ? lc.artifact_built.replace('T', ' ') : 'N/A',
         lc.artifact_built ? 'good' : 'na',
         STAGING ? 'When the served forecast was produced from the staging series.'
-                : 'Modification time of monthly_model.joblib, the closest thing to a training timestamp available today.',
+                : 'When the served forecast was produced.',
         !lc.artifact_built),
     row('Estates covered',
         (scope.modeled_count ?? 0) + ' of ' + (scope.estate_count ?? 0),
@@ -838,11 +1600,41 @@ function renderLifecycle(lc, scope) {
     'Model health is read-only: it reports the served artifact and never refits or alters the forecast.';
 }
 
+/* ── tooltip: one floating box for every [data-tip] ──
+   Plain text (\n = new line; the first line is the title, in bold). The attribute's
+   <b> markers are dropped and everything is set as text, never parsed as HTML. */
+function initTip() {
+  const tip = document.getElementById('tip');
+  const show = (el, x, y) => {
+    const lines = el.getAttribute('data-tip').replace(/<\/?b>/g, '').split('\n');
+    tip.textContent = '';
+    const b = document.createElement('b');
+    b.textContent = lines[0];
+    tip.append(b);
+    if (lines.length > 1) tip.append('\n' + lines.slice(1).join('\n'));
+    tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - r.width - 8, x + 14);
+    const top = (y + 16 + r.height > window.innerHeight) ? y - r.height - 12 : y + 16;
+    tip.style.left = Math.max(8, left) + 'px'; tip.style.top = Math.max(8, top) + 'px';
+  };
+  document.addEventListener('mousemove', e => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (el) show(el, e.clientX, e.clientY); else tip.hidden = true;
+  });
+  document.addEventListener('focusin', e => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (el) { const r = el.getBoundingClientRect(); show(el, r.left, r.bottom); }
+  });
+  document.addEventListener('focusout', () => { tip.hidden = true; });
+  document.addEventListener('scroll', () => { tip.hidden = true; }, true);
+}
+
 /* ── formatting ───────────────────────────────────────────────────── */
 function fmt(v, dp) { return (v == null || isNaN(v)) ? 'N/A' : Number(v).toFixed(dp); }
 function fmtInt(v) { return (v == null || isNaN(v)) ? 'N/A' : Math.round(v).toLocaleString('en-US'); }
 function sign(v) { return (v == null || isNaN(v)) ? '' : (v >= 0 ? '+' : '−'); }
-function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML.replace(/"/g, '&quot;'); }
 
 </script>
 </body>

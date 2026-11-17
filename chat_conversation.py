@@ -13,7 +13,7 @@ import data_sources
 import llm_client
 from config import ESTATES, ESTATE_ORDER
 from estates import detect_estate_mentions
-from gis.reasoning import audit_figures, parse_json
+from gis.reasoning import audit_figures
 from prompts import load_prompt
 
 log = logging.getLogger("epms-chat")
@@ -24,24 +24,33 @@ MAX_TOPIC_TURNS = 4    # how far a run of follow-ups is walked back for its topi
 ROUTE_CLARIFY = "clarify"
 ROUTE_CHAT = "chat"       # greeting / thanks / "what can you do?": no query runs
 
-# The whole message is a pleasantry or a question about the assistant itself.
-# Anchored at both ends so "hi, total harvest last month?" still runs a query.
-_SMALLTALK = re.compile(
-    r"^\s*(?:"
-    r"(?:hi|hello|hey|halo|hai|hallo|yo)(?:\s+(?:there|all|semua|bot))?"
-    r"|good\s+(?:morning|afternoon|evening|day)"
-    r"|selamat\s+(?:pagi|siang|sore|malam)"
-    r"|thanks?(?:\s+(?:a\s+lot|so\s+much|very\s+much|you(?:\s+(?:so|very)\s+much)?))?"
-    r"|thx|ty|terima\s*kasih(?:\s+banyak)?|makasih(?:\s+ya)?"
-    r"|ok(?:ay)?|oke|great|nice|cool|perfect|got\s+it|mantap|sip|baik"
-    r"|who\s+are\s+you|siapa\s+(?:kamu|anda)"
-    r"|what\s+can\s+you\s+do|what\s+can\s+i\s+ask(?:\s+you)?|what\s+do\s+you\s+do"
+# The whole message is pleasantries or questions about the assistant itself,
+# one or several ("hello, what can you do??", "thanks! bye"). Anchored at both
+# ends so "hi, total harvest last month?" still runs a query. Anything this
+# misses goes to the intent router (chat_intent.py), which can still say "chat".
+_PLEASANTRY = (
+    r"(?:"
+    r"(?:hi|hello|hey|halo|hai|hallo|yo|hiya|greetings)(?:\s+(?:there|all|everyone|semua|bot|again))?"
+    r"|good\s+(?:morning|afternoon|evening|day)|morning"
+    r"|selamat\s+(?:pagi|siang|sore|malam)|apa\s+kabar|how\s+are\s+you(?:\s+doing)?(?:\s+today)?"
+    r"|thanks?(?:\s+(?:a\s+lot|so\s+much|very\s+much|again|you(?:\s+(?:so|very)\s+much)?))?"
+    r"|thank\s+you(?:\s+(?:so|very)\s+much)?|thx|ty|cheers"
+    r"|terima\s*kasih(?:\s+banyak)?|makasih(?:\s+(?:ya|banyak))?"
+    r"|ok(?:ay)?|oke|great|nice|cool|perfect|awesome|got\s+it|understood|i\s+see|mantap|sip|baik"
+    r"|(?:good|great|nice)\s+(?:job|work)|that(?:'s|\s+is)\s+(?:helpful|great|perfect|clear)"
+    r"|bye|goodbye|see\s+you|sampai\s+jumpa|dadah"
+    r"|who\s+are\s+you|what\s+are\s+you|siapa\s+(?:kamu|anda)|introduce\s+yourself"
+    r"|tell\s+me\s+about\s+yourself|what\s+is\s+this(?:\s+(?:app|tool|chat|bot))?"
+    r"|what\s+(?:else\s+)?can\s+you\s+do(?:\s+for\s+me)?|what\s+can\s+i\s+ask(?:\s+you)?"
+    r"|what\s+do\s+you\s+do|how\s+can\s+you\s+help(?:\s+me)?|what\s+can\s+you\s+help(?:\s+me)?\s+with"
     r"|what\s+(?:kind\s+of\s+)?data\s+(?:do\s+you\s+have|is\s+(?:here|available))"
     r"|how\s+(?:do|can)\s+(?:you|i)\s+(?:work|use\s+(?:this|you))"
     r"|help(?:\s+me)?|bantuan|tolong"
     r"|apa\s+(?:saja\s+)?yang\s+bisa\s+(?:kamu|anda)\s+(?:lakukan|bantu|jawab)"
     r"|(?:kamu|anda)\s+bisa\s+apa(?:\s+saja)?|bisa\s+(?:bantu\s+)?apa(?:\s+saja)?"
-    r")\s*[!.?,]*\s*$",
+    r")")
+_SMALLTALK = re.compile(
+    rf"^\s*{_PLEASANTRY}(?:[\s!.?,;:]*(?:(?:and|so|dan|jadi)\s+)?{_PLEASANTRY})*[\s!.?,;:)(]*$",
     re.IGNORECASE)
 
 # A chart request that points back at what is already on screen.
@@ -51,7 +60,8 @@ _POINTS_BACK = re.compile(
 
 
 def is_smalltalk(message: str) -> bool:
-    return bool(_SMALLTALK.match(message or ""))
+    text = message or ""
+    return len(text) <= 160 and bool(_SMALLTALK.match(text))
 
 
 def chart_followup(message: str, history: list[dict]) -> bool:
@@ -77,6 +87,60 @@ _MAY_NEED_ASKING = re.compile(
     r"|best|worst|top|good|bad|better|worse|perform\w*|productiv\w*|efficien\w*"
     r"|terbaik|terburuk|bagus|buruk|kinerja|performa|produktiv\w*|produktif|efisien\w*)\b",
     re.IGNORECASE)
+
+# ── broad questions ────────────────────────────────────────────────────────
+# "How is Estate C performing?", "operational efficiency per estate",
+# "kinerja kebun": no single figure answers these, so the overview planner
+# (chat_overview.py) picks a few measures and answers with all of them, instead
+# of asking which one. A ranking of people, blocks or divisions ("the best
+# harvester", "divisi mana yang paling buruk") still needs one measure to rank
+# by and keeps the question back; so does a message pointing at something
+# unnamed ("how is that block doing?").
+
+_OVERVIEW = re.compile(
+    r"\b(?:perform\w*|efficien\w*|overview|productiv\w*|operational\w*|summar\w*|"
+    r"how\s+(?:is|are|was|were|did|does|do)\b.{1,50}?\b(?:doing|going|faring|perform\w*)|"
+    r"kinerja|performa|efisien\w*|produktiv\w*|produktif\w*|gambaran|ringkas\w*|rangkum\w*)\b",
+    re.IGNORECASE)
+_NAMES_MEASURE = re.compile(
+    r"\b(?:ripe\w*|bunch\w*|janjang|tandan|jjg|tonn?\w*|tons?|weight|berat|mandays?|man-?days?|hk|"
+    r"overtime|lembur|absen\w*|absence|mangkir|attendance|kehadiran|hadir|loose\s+fruit|brondolan|"
+    r"per\s+(?:hectare|ha|hektar)|yield|ripeness|kematangan|deliver\w*|pengiriman|headcount|"
+    r"employees?|karyawan|cost|biaya)\b",
+    re.IGNORECASE)
+_RANKS_UNITS = re.compile(
+    r"\b(?:best|worst|top|bottom|highest|lowest|most|least|which|who|terbaik|terburuk|tertinggi|"
+    r"terendah|paling|mana|siapa)\b.{0,40}?\b(?:harvesters?|workers?|employees?|people|persons?|"
+    r"mandors?|foreman|foremen|checkers?|kerani|pemanen|karyawan|pekerja|blocks?|blok|divisions?|"
+    r"divisi|gangs?)\b"
+    r"|\b(?:harvesters?|workers?|mandors?|pemanen|pekerja|blocks?|blok|divisions?|divisi|gangs?)\b"
+    r".{0,40}?\b(?:best|worst|terbaik|terburuk|tertinggi|terendah|paling)\b",
+    re.IGNORECASE)
+_POINTER = re.compile(
+    r"\b(?:that|those|these|them|it|its|itu|tersebut)\b"
+    r"|\bthis\b(?!\s+(?:month|year|week|quarter|season|period|semester))"
+    r"|(?<!bulan )(?<!tahun )(?<!minggu )(?<!hari )\bini\b",
+    re.IGNORECASE)
+
+
+# For the clarify gate's shortcut: a measure to rank by (not "employees",
+# which is what "the best employee" ranks, not what it ranks by), and
+# anything pointing at something unnamed.
+_RANKS_BY = re.compile(
+    r"\b(?:ripe\w*|bunch\w*|janjang|tandan|jjg|tonn?\w*|tons?|weight|berat|mandays?|man-?days?|hk|"
+    r"overtime|lembur|absen\w*|absence|mangkir|attendance|kehadiran|hadir|loose\s+fruit|brondolan|"
+    r"per\s+(?:hectare|ha|hektar)|yield|ripeness|kematangan|deliver\w*|pengiriman|hours?|jam|"
+    r"cost|biaya)\b",
+    re.IGNORECASE)
+_POINTS_AT = re.compile(_POINTER.pattern + r"|\b(?:they|their|ones?|mereka)\b", re.IGNORECASE)
+
+
+def is_overview(message: str) -> bool:
+    """A broad question about performance that no single measure answers."""
+    text = message or ""
+    return bool(_OVERVIEW.search(text)) and not _NAMES_MEASURE.search(text) \
+        and not _RANKS_UNITS.search(text) and not _POINTER.search(text)
+
 
 # Told to the gate outright: asked to match the message's language, Nova Pro
 # answered English questions in Indonesian.
@@ -152,6 +216,25 @@ def parse_clarification(raw) -> dict | None:
     return {"question": question, "options": options}
 
 
+CLARIFY_SCHEMA = {
+    "type": "object",
+    "required": ["clarify"],
+    "properties": {
+        "clarify": {"type": "boolean", "description": "true only when a question must be asked first"},
+        "question": {"type": "string", "description": "the one short question to ask, when clarify is true"},
+        "options": {"type": "array", "items": {"type": "string"}, "maxItems": 6,
+                    "description": "2 to 4 replies the user can click, when the choices are known"},
+    },
+}
+
+SUGGESTIONS_SCHEMA = {
+    "type": "object",
+    "required": ["suggestions"],
+    "properties": {"suggestions": {"type": "array", "items": {"type": "string"}, "maxItems": 5,
+                                   "description": "the next questions, as the user would type them"}},
+}
+
+
 def clarify_gate(message: str, turns: list[dict]) -> dict | None:
     """Should we ask before querying? Returns {question, options} or None.
 
@@ -161,24 +244,27 @@ def clarify_gate(message: str, turns: list[dict]) -> dict | None:
     """
     if (turns and turns[-1]["route"] == ROUTE_CLARIFY) or not _MAY_NEED_ASKING.search(message):
         return None
+    if is_overview(message):
+        return None          # the overview planner answers it with several measures
+    if _RANKS_BY.search(message) and not _POINTS_AT.search(message):
+        # "Top 5 blocks by ripe bunches": a measure to rank by and nothing to
+        # identify, so neither case the gate asks about can apply.
+        return None
     chat = "\n".join(
         f"Q: {t['question'][:200]}\nA: {t['answer'][:240]}" for t in turns[-3:]
     ) or "(nothing yet: this is the first message)"
     src = data_sources.active()
     estates = ", ".join(src.entity_labels())
     language = "Indonesian" if _INDONESIAN.search(message) else "English"
-    try:
-        result = llm_client.chat(
-            [{"role": "system", "content": load_prompt("chat_clarify_system")},
-             {"role": "user", "content": (f"ESTATES: {estates}\n\nCHAT SO FAR:\n{chat}\n\n"
-                                          f"MESSAGE: {message}\n\nREPLY LANGUAGE: {language}")}],
-            tier="reasoning", temperature=0, max_tokens=160, json_mode=True,
-            task="chat_clarify",
-        )
-    except Exception as exc:
-        log.warning("[chat] clarify gate failed: %s", exc)
-        return None
-    asked = parse_clarification(parse_json(result.text or ""))
+    decided = llm_client.chat_json(
+        [{"role": "system", "content": load_prompt("chat_clarify_system")},
+         {"role": "user", "content": (f"ESTATES: {estates}\n\nCHAT SO FAR:\n{chat}\n\n"
+                                      f"MESSAGE: {message}\n\nREPLY LANGUAGE: {language}")}],
+        name="clarify", schema=CLARIFY_SCHEMA,
+        description="Record whether to ask the user a question before querying, and what to ask.",
+        tier="reasoning", max_tokens=300, task="chat_clarify",
+    )
+    asked = parse_clarification(decided)
     if not asked:
         return None
     # Years are dropped first: "2024 or 2025?" states no measurement.
@@ -353,18 +439,14 @@ def clean_suggestions(raw, question: str, answer: str,
 def suggest_followups(question: str, answer: str, columns: list[str],
                       tables: list[str], turns: list[dict]) -> list[str]:
     """Next questions for the buttons under an answer, or [] on any failure."""
-    try:
-        result = llm_client.chat(
-            [{"role": "system", "content": load_prompt("chat_followups_system")},
-             {"role": "user", "content": (f"TABLES USED: {', '.join(tables) or 'none'}\n"
-                                          f"COLUMNS RETURNED: {', '.join(columns) or 'none'}\n\n"
-                                          f"QUESTION: {question}\n\nANSWER: {answer[:2000]}")}],
-            tier="routing", temperature=0.3, max_tokens=220, json_mode=True,
-            task="chat_followups",
-        )
-    except Exception as exc:
-        log.warning("[chat] follow-up suggestions failed: %s", exc)
-        return []
-    parsed = parse_json(result.text or "") or {}
+    parsed = llm_client.chat_json(
+        [{"role": "system", "content": load_prompt("chat_followups_system")},
+         {"role": "user", "content": (f"TABLES USED: {', '.join(tables) or 'none'}\n"
+                                      f"COLUMNS RETURNED: {', '.join(columns) or 'none'}\n\n"
+                                      f"QUESTION: {question}\n\nANSWER: {answer[:2000]}")}],
+        name="suggest_next", schema=SUGGESTIONS_SCHEMA,
+        description="Record the questions the user is most likely to ask next.",
+        tier="routing", temperature=0.3, max_tokens=300, task="chat_followups",
+    ) or {}
     return clean_suggestions(parsed.get("suggestions"), question, answer,
                              [t["question"] for t in turns])

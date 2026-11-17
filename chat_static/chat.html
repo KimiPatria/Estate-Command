@@ -21,7 +21,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23115e6e'/%3E%3Cpath d='m16 6 2.5 7.4L26 15.3l-7.5 2.5L16 25.3l-2.5-7.5L6 15.3l7.5-1.9Z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/chat-static/chat.css?v=3">
+<link rel="stylesheet" href="/chat-static/chat.css?v=4">
 </head>
 <body>
 
@@ -43,9 +43,10 @@
       <kbd>Ctrl K</kbd>
     </label>
     <nav class="sb-list" id="session-list" aria-label="Chat history"></nav>
-    <div class="sb-foot">
-      <a href="/">Dashboard</a><a href="/report">Report</a><a href="/forecast">Forecast</a>
-    </div>
+    <nav class="sb-pages" aria-label="Pages">
+      <a href="/report"><span data-ico="report"></span><span>Report</span></a>
+      <a href="/forecast"><span data-ico="forecast"></span><span>Forecast</span></a>
+    </nav>
   </aside>
   <div class="scrim" id="scrim"></div>
 
@@ -53,13 +54,11 @@
   <div class="main">
     <header class="topbar">
       <button class="icon-btn" id="sb-open" data-ico="sidebar" aria-label="Open sidebar" title="Open sidebar"></button>
-      <div class="chat-title" id="chat-title">New chat</div>
-      <nav class="app-nav" aria-label="Pages">
-        <a href="/">Dashboard</a>
-        <a href="/report">Report</a>
-        <a href="/chat" class="on" aria-current="page">Chat</a>
-        <a href="/forecast">Forecast</a>
+      <nav class="top-pages" aria-label="Pages">
+        <a class="icon-btn" href="/report" data-ico="report" aria-label="Report" title="Report"></a>
+        <a class="icon-btn" href="/forecast" data-ico="forecast" aria-label="Forecast" title="Forecast"></a>
       </nav>
+      <div class="chat-title" id="chat-title">New chat</div>
       <div class="top-right">
         <button class="icon-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme"></button>
       </div>
@@ -98,6 +97,6 @@
 <script src="/chat-static/vendor/marked.min.js"></script>
 <script src="/chat-static/vendor/purify.min.js"></script>
 <script src="/chat-static/vendor/chart.umd.min.js"></script>
-<script src="/chat-static/chat.js?v=3"></script>
+<script src="/chat-static/chat.js?v=5"></script>
 </body>
 </html>

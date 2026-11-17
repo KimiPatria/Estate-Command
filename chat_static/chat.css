@@ -167,9 +167,15 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; display: block; }
   border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); outline: none;
 }
 .sb-empty { color: var(--muted); font-size: 13px; padding: 16px 10px; }
-.sb-foot { display: none; gap: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
-.sb-foot a { font-size: 13px; color: var(--muted); text-decoration: none; padding: 6px 8px; border-radius: 8px; }
-.sb-foot a:hover { background: var(--bg-hover); color: var(--text); }
+/* Pages: the other parts of the app, kept at the bottom of the sidebar
+   (buildplan_chat_centre.md A.2). Styled like the session rows. */
+.sb-pages { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--border); }
+.sb-pages a {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px;
+  font-size: 14px; color: var(--text-2); text-decoration: none; transition: background .12s;
+}
+.sb-pages a:hover { background: var(--bg-hover); color: var(--text); }
+.sb-pages svg.ico { width: 17px; height: 17px; color: var(--muted); }
 .scrim { display: none; }
 
 /* ── top bar ────────────────────────────────────────────────────────── */
@@ -184,16 +190,9 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; display: block; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30%;
   padding-left: 6px;
 }
-.app-nav {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 2px; padding: 3px; border-radius: 99px; background: var(--bg-soft);
-}
-.app-nav a {
-  font-size: 12.5px; font-weight: 500; color: var(--muted); text-decoration: none;
-  padding: 4px 13px; border-radius: 99px; transition: color .15s, background .15s;
-}
-.app-nav a:hover { color: var(--text); }
-.app-nav a.on { background: var(--accent); color: var(--on-accent); }
+/* Report and Forecast stay one click away while the sidebar is closed. */
+.top-pages { display: none; align-items: center; gap: 2px; }
+.sb-closed .top-pages { display: flex; }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 
 /* ── thread ─────────────────────────────────────────────────────────── */
@@ -457,8 +456,7 @@ pre.code {
   .sb-mobile-open .sidebar { transform: none; }
   .sb-mobile-open .scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .35); }
   #sb-open { display: inline-flex; }
-  .sb-foot { display: flex; }
-  .app-nav { display: none; }
+  .top-pages, .sb-closed .top-pages { display: none; }   /* the drawer has them */
   .chat-title { max-width: 60%; }
   .thread { padding: 10px 14px 20px; gap: 22px; }
   .dock { padding: 0 10px 8px; }

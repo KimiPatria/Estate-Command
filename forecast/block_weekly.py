@@ -52,6 +52,31 @@ SOURCES = {
 }
 
 
+_EC = None
+
+
+def _estate_config():
+    global _EC
+    if _EC is None:
+        spec = importlib.util.spec_from_file_location("epms_estate_config_bw",
+                                                      os.path.join(_DIR, "estate_config.py"))
+        _EC = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_EC)
+    return _EC
+
+
+def source_path(key):
+    """oph.csv of a series: estates.yaml estates (live_<CODE> / stg_<CODE>) resolve
+    through the published run on every call; the older keys above are fixed paths."""
+    cfg = _estate_config().block_sources()
+    if key in cfg:
+        return cfg[key]
+    return SOURCES[key]
+
+
+SOURCES.update(_estate_config().block_sources())     # for listing; lookups use source_path()
+
+
 def _load_by_path(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
@@ -71,7 +96,7 @@ def load_daily_blocks(estate):
     """
     if estate not in SOURCES:
         raise ValueError(f"unknown estate {estate!r}; known: {sorted(SOURCES)}")
-    df = _daily.load_raw(SOURCES[estate])
+    df = _daily.load_raw(source_path(estate))
     df["key"] = (df["division_code"].astype(str).str.strip() + "/"
                  + df["block_code"].astype(str).str.strip())
     wide = df.pivot_table(index="harvest_date", columns="key", values="bunches_total",

@@ -1,0 +1,19 @@
+# What the forecast CI job installs (.github/workflows/forecast.yml): the forecast
+# pipeline and its tests only -- not the chat, RAG or tracing stacks in
+# requirements.txt. Chronos is never installed in CI: the Lab build runs with
+# FORECAST_STUB_INFERENCE (forecast/lab/build_artifacts.py _stub_job).
+pandas>=2.2
+numpy>=2.1
+scipy>=1.15
+statsmodels>=0.14
+lightgbm>=4.6
+joblib>=1.4
+scikit-learn>=1.6
+pyyaml>=6.0
+python-dotenv>=1.0
+sqlalchemy>=2.0,<2.1
+fastapi>=0.110
+pydantic>=2.6
+httpx>=0.27
+pytest>=8.0
+ruff>=0.6

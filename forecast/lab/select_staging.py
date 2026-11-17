@@ -44,6 +44,9 @@ import pandas as pd
 _LAB = os.path.dirname(os.path.abspath(__file__))
 
 RULE_ID = "staging-default-2026-11-10"
+# Artifact models added to the lab after 2026-11-10. The fixed rule chose among the
+# artifact models of its day, so these are left out (added 2026-11-13).
+ADDED_LATER = ("chronos2_weekly_seasadj",)
 STEPS = (1, 2, 3)
 YARDSTICK = "naive_trailing3"
 FALLBACK = "naive_trailing3"
@@ -72,7 +75,9 @@ def _rows(reg, model, estate):
 def decide(reg):
     """Apply the rule. Returns the selection dict (not yet written)."""
     estates = reg.estates_of("staging")
-    artifact_models = [m["id"] for m in reg.MODELS if m["source"] == "artifact"]
+    # the artifact models the rule was written over; an arm added later is not one
+    artifact_models = [m["id"] for m in reg.MODELS
+                       if m["source"] == "artifact" and m["id"] not in ADDED_LATER]
     frames = {e: {m: _rows(reg, m, e) for m in artifact_models + [YARDSTICK]} for e in estates}
 
     missing = [e for e in estates if frames[e][YARDSTICK] is None]

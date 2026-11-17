@@ -1,3 +1,45 @@
+# Intent router + prompt caching (2026-11-12, chat_intent.py)
+
+Golden chat `--runs 3` (`results/golden_chat_20261112_100217.json`): **75/78**.
+
+| | Result |
+|---|---|
+| 21 earlier cases | 60/63. st_001 and st_002 each lost one run to "Could not connect to the endpoint URL" (Bedrock network, 09:50); ov_003 once wrote `workdone_activity_name LIKE '%FIELD%'` for "mandays of field work" (SQL writer, prompt text unchanged) |
+| 5 new intent cases (in_001..in_005: greeting, two definitions, context follow-up, query after a definition) | 15/15 |
+
+Prompt cache over the run window: 64% of input tokens read from cache (sql_generation 71%, chat_intent 83%,
+chat_explain 72%, chat_answer 37%). domain_check no longer runs (its decision is part of chat_intent).
+A 10-turn live chat on a cold cache read 48%.
+
+---
+
+# Nova, before and after the chat harness fixes (2026-11-11, buildplan_chat_harness.md)
+
+Nova 2 Lite (main) / Nova Pro (reasoning, corrections, planner) / Nova Lite (routing).
+Golden chat = `evals/run_golden_chat.py --runs 3`; sql_eval = `sql_eval.py`, 36 live cases, 3 runs each, median.
+
+| | Before | After |
+|---|---|---|
+| Golden chat, 16 original cases | 47/48 (97.9%) | 47/48 (97.9%) |
+| Golden chat, 5 new overview cases | — | 15/15 |
+| Golden chat, all 21 | — | 62/63 (98.4%) |
+| Distinct SQL across 3 runs, cases with more than one | 8 of 16 | 2 of 16 |
+| sql_eval with examples, old setting (k=2, near-copies of the case allowed) | 0.639 | 0.667 |
+| sql_eval with examples, near-copies (similarity >= 0.90) excluded | — | 0.667 |
+| sql_eval without examples (code path unchanged: run-to-run variance) | 0.583 | 0.556 |
+
+The one golden miss is st_005 (1 of 3): after the overview answer, the follow-up router once answered
+"Total ripe bunches per hectare" from the conversation instead of querying.
+
+Found and fixed while measuring (a mid-build run fell to 68.8%):
+- Chroma reports an exact match as distance -0.000; a lower bound of 0 dropped every exact near-copy.
+- Deleting ids in place corrupted the Chroma example index ("Error finding id"), silently removing all
+  staging examples. The index is now rebuilt from the database at every start and never edited in place.
+- A seed whose question names a period, shown for a question that names none, made the writer drop the
+  default period (0/3 -> 3/3 with a period-mismatch penalty in example ranking and a no-period seed).
+
+---
+
 # Text-to-SQL Baseline — Groq / openai-gpt-oss-120b
 
 *Run `sqlrun_20260708_151309` · 2026-07-08 · 36 golden cases (`evals/sql_cases.yaml`) · no few-shot examples · full summary in `results/sqlrun_20260708_151309_summary.json`, MLflow experiment `text2sql-evals`*

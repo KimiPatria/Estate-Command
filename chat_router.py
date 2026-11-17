@@ -17,6 +17,8 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import nullcontext
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
 
@@ -28,6 +30,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import chat_charts
 import chat_events
+import chat_forecast
+import chat_intent
+import chat_overview
 from chat_conversation import (
     ROUTE_CHAT,
     ROUTE_CLARIFY,
@@ -35,6 +40,7 @@ from chat_conversation import (
     chart_followup,
     clarify_gate,
     is_confirmation,
+    is_overview,
     is_smalltalk,
     names_period,
     pipeline_turns,
@@ -64,12 +70,14 @@ from config import (
     CHAT_DEFAULT_MODEL,
     CHAT_ESCALATE_TO_REASONING,
     CHAT_MODELS,
+    CHAT_SCHEMA_CHECK,
+    CHAT_SQL_FIX_ATTEMPTS,
     ESTATE_ORDER,
     ESTATES,
     RAG_SOURCE_DEFAULT,
 )
 import data_sources
-from error_handler import is_off_domain
+from error_handler import is_off_domain, known_on_domain
 from estates import detect_estate_mentions, strip_estate_mentions
 from guardrails import apply_input_guardrails, apply_output_guardrails
 import llm_client
@@ -77,9 +85,10 @@ from llm import call_llm, get_provider, PROVIDER_LABELS
 from model_routing import answer_tier
 from prompt_builder import build_sql_messages, extract_sql
 from prompts import load_prompt
-from query_history import record_query, set_success
+from query_history import record_query, set_success, set_verified
 from rag_sources import SessionContext, SqlRagSource, VALID_SOURCES, dispatch as dispatch_rag
 from retrieval import retrieve_tables, retrieve_examples
+import sql_schema_check
 from sql_validator import validate, ensure_limit
 
 log = logging.getLogger("epms-chat")
@@ -101,6 +110,7 @@ def _build_answer_messages(
     failed_estates: Optional[list[str]] = None,
     data_through: Optional[str] = None,
     period_note: Optional[str] = None,
+    notes: Optional[list[str]] = None,
 ) -> list[dict]:
     preview = rows[:50]
     preview_json = json.dumps(preview, default=str, ensure_ascii=False)
@@ -126,6 +136,8 @@ def _build_answer_messages(
         )
     if period_note:
         extra += f"\nPeriod: {period_note}"
+    for note in notes or []:
+        extra += f"\nNote: {note}"
     return [
         {"role": "system", "content": _CHAT_ANSWER_SYSTEM_PROMPT},
         {
@@ -233,6 +245,8 @@ class ChatResponse(BaseModel):
     steps: list[dict] = []          # what the pipeline did, in order (chat_events)
     turn_id: Optional[int] = None   # id of the stored turn, for feedback
     elapsed_ms: int = 0
+    sql_outcome: Optional[str] = None   # generate_and_run outcome: first_ok, fixed_lint, kept_empty ...
+    parts: list[dict] = []          # overview: one entry per measure {measure, label, question, sql, outcome, row_count}
 
 
 class FeedbackRequest(BaseModel):
@@ -296,6 +310,20 @@ def _coerce(v):
     return v
 
 
+# Queries running at once on one database. The staging SQL Server is a single
+# server: four overview parts at once ran into its 15 s query timeout, where
+# each alone takes about a second. Waiting for a slot does not count against
+# the timeout.
+_DB_CONCURRENCY = 2
+_db_slots: dict[int, threading.BoundedSemaphore] = {}
+_db_slots_lock = threading.Lock()
+
+
+def _db_slot(engine_obj) -> threading.BoundedSemaphore:
+    with _db_slots_lock:
+        return _db_slots.setdefault(id(engine_obj), threading.BoundedSemaphore(_DB_CONCURRENCY))
+
+
 def _execute_safe(
     sql: str, max_rows: int = 200, engine_obj=None, dialect: str = "postgresql"
 ) -> tuple[list[str], list[dict], Optional[str]]:
@@ -304,7 +332,7 @@ def _execute_safe(
     engine_obj = engine if engine_obj is None else engine_obj
     try:
         limited = ensure_limit(sql, max_rows, dialect)
-        with engine_obj.connect() as conn:
+        with _db_slot(engine_obj), engine_obj.connect() as conn:
             result = conn.execute(text(limited))
             columns = list(result.keys())
             # fetchmany, not fetchall: T-SQL has no trailing LIMIT, so the cap
@@ -417,7 +445,7 @@ def _derived_facts(columns: list[str], rows: list[dict]) -> dict:
     kinds = chat_charts.profile(columns, rows)[2]
     measures = [c for c in columns if kinds.get(c) == "number"
                 and sum(is_num(r.get(c)) for r in rows) >= 2]
-    for col in measures[:3]:
+    for col in measures[:4]:
         vals = [(name(r), float(r[col])) for r in rows if is_num(r.get(col))]
         total = sum(v for _, v in vals)
         ranked = sorted(vals, key=lambda x: -x[1])
@@ -487,7 +515,12 @@ def _route_followup(message: str, turns: list[dict]) -> str:
 
     Sees text Q&A only (answers truncated) plus a one-line note about which
     turns still have data rows available. Falls back to 'sql' on any failure.
+    On /chat the intent router (chat_intent.classify) has usually decided
+    already, and its decision stands.
     """
+    preset = chat_intent.preset_route()
+    if preset:
+        return preset
     if chart_followup(message, turns):
         return "context"
     if widens_scope(message):
@@ -503,60 +536,62 @@ def _route_followup(message: str, turns: list[dict]) -> str:
             )
     user_content = "\n".join(lines) + f"\n\nNew question: {message}"
 
-    try:
-        result = llm_client.chat(
-            [
-                {"role": "system", "content": _ROUTER_SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-            tier="routing",
-            temperature=0,
-            # 20 tokens sometimes truncated the JSON mid-object; 60 is safe.
-            max_tokens=60,
-            json_mode=True,
-            task="chat_route",
-        )
-        route = json.loads(result.text).get("route", "sql")
-        return route if route in ("context", "sql") else "sql"
-    except Exception as exc:
-        log.warning("[chat] follow-up router failed: %s — defaulting to sql", exc)
+    decided = llm_client.chat_json(
+        [
+            {"role": "system", "content": _ROUTER_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
+        name="route", schema=_ROUTE_SCHEMA,
+        description="Record whether the new question is answered from the conversation or a new query.",
+        tier="routing", max_tokens=150, task="chat_route",
+    )
+    if decided is None:
+        log.warning("[chat] follow-up router gave no decision — defaulting to sql")
         return "sql"
+    return decided["route"]
+
+
+_ROUTE_SCHEMA = {
+    "type": "object",
+    "properties": {"route": {
+        "type": "string", "enum": ["context", "sql"],
+        "description": "context: answer from the conversation and the rows already fetched; "
+                       "sql: run a new database query"}},
+    "required": ["route"],
+}
+
+
+def _context_turn(t: dict) -> str:
+    """One turn as the context answer sees it: the same text every time it is
+    shown, so the conversation is read back from the prompt cache."""
+    parts = [f"Q: {_truncate(t['question'], 300)}"]
+    if t["sql"]:
+        parts.append(f"SQL used (returned {t['row_count']} rows): {t['sql']}")
+    parts.append(f"A: {_truncate(t['answer'], 500)}")
+    if t["rows"]:
+        rows = t["rows"][:CHAT_HISTORY_MAX_ROWS]
+        parts.append(
+            f"Columns: {t['columns']}\n"
+            f"Summary stats (over all {t['row_count']} rows): "
+            f"{json.dumps(t['stats'], default=str, ensure_ascii=False)}\n"
+            f"Derived facts (computed exactly): "
+            f"{json.dumps(_derived_facts(t['columns'], t['rows']), default=str, ensure_ascii=False)}\n"
+            f"Rows (first {len(rows)} of {t['row_count']}): "
+            f"{json.dumps(rows, default=str, ensure_ascii=False)}")
+    return "\n".join(parts) + "\n"
 
 
 def _build_context_messages(message: str, turns: list[dict],
                             chart_shown: bool = False) -> list[dict]:
-    """Prompt for answering from history. Tiered payload: text Q&A for recent
-    turns, full rows only for the last CHAT_HISTORY_DATA_TURNS data-bearing
-    turns, capped at CHAT_HISTORY_MAX_ROWS rows each."""
-    text_turns = turns[-CHAT_HISTORY_TEXT_TURNS:]
-    data_turns = [t for t in turns if t["rows"]][-CHAT_HISTORY_DATA_TURNS:]
-
-    parts: list[str] = ["Conversation so far:"]
-    for t in text_turns:
-        parts.append(f"Q: {_truncate(t['question'], 300)}")
-        # Rows for data-bearing turns are appended below (with their SQL);
-        # for row-less turns the SQL alone still grounds meta-questions.
-        if t["sql"] and t not in data_turns:
-            parts.append(f"SQL used (returned {t['row_count']} rows): {t['sql']}")
-        parts.append(f"A: {_truncate(t['answer'], 500)}")
-
-    for t in data_turns:
-        rows = t["rows"][:CHAT_HISTORY_MAX_ROWS]
-        rows_json  = json.dumps(rows, default=str, ensure_ascii=False)
-        stats_json = json.dumps(t["stats"], default=str, ensure_ascii=False)
-        parts.append(
-            f"\nData fetched earlier for: {_truncate(t['question'], 200)}\n"
-            f"SQL: {t['sql']}\n"
-            f"Columns: {t['columns']}\n"
-            f"Summary stats (over all {t['row_count']} rows): {stats_json}\n"
-            f"Derived facts (computed exactly): "
-            f"{json.dumps(_derived_facts(t['columns'], t['rows']), default=str, ensure_ascii=False)}\n"
-            f"Rows (first {len(rows)} of {t['row_count']}): {rows_json}"
-        )
-
+    """Prompt for answering from history: the turns of the conversation window
+    (chat_intent.window), each with its rows (up to CHAT_HISTORY_MAX_ROWS),
+    then the new question. Only the new question and the note change from
+    one request to the next."""
+    parts: list[str] = ["Conversation so far (with the data fetched for each turn):\n"
+                        + chat_intent.transcript(turns, _context_turn)]
     if chart_shown:
-        parts.append("\nNOTE: a chart of the most recent data above is now shown to the user.")
-    parts.append(f"\nFollow-up question: {message}")
+        parts.append("NOTE: a chart of the most recent data above is now shown to the user.")
+    parts.append(f"Follow-up question: {message}")
     return [
         {"role": "system", "content": _CONTEXT_ANSWER_SYSTEM_PROMPT},
         {"role": "user", "content": "\n".join(parts)},
@@ -777,13 +812,112 @@ def _smalltalk(sid: str, message: str, turns: list[dict], source: str,
     return resp
 
 
+ROUTE_EXPLAIN = "explain"
+
+_EXPLAIN_FALLBACK = (
+    "I couldn't look that definition up just now. Try asking for the figure itself, "
+    "and I'll show how it was worked out."
+)
+
+
+def _explain(sid: str, message: str, turns: list[dict], source: str,
+             model_id: Optional[str], db: "data_sources.DataSource", t0: float) -> ChatResponse:
+    """What a term or measure means, how it is worked out, what the data covers:
+    answered from the source's reference text (rules, measures, topics), no query."""
+    history = pipeline_turns(turns)
+    chat_events.step("answer", "Looking it up in the definitions")
+    try:
+        with llm_client.model_override(model_id):
+            text, provider, usage = _answer_llm(
+                chat_intent.explain_messages(message, history),
+                max_tokens=450, task="chat_explain", tier=answer_tier(message))
+    except Exception as exc:
+        log.warning("[chat] explain failed: %s", exc)
+        text, provider, usage = "", None, {}
+    chat_events.done("answer")
+    resp = ChatResponse(
+        answer=apply_output_guardrails(text.strip() or _EXPLAIN_FALLBACK, context="chat"),
+        session_id=sid, route=ROUTE_EXPLAIN, source=source,
+        database=db.id, database_label=db.label,
+        provider=provider, provider_label=usage.get("model") or provider,
+    )
+    if text.strip():
+        resp.suggestions = suggest_followups(message, resp.answer, [], [], history)
+    resp = _finish(resp, t0)
+    resp.turn_id = add_turn(sid, message, resp.answer, route=ROUTE_EXPLAIN, meta={
+        "estates": list(history[-1]["meta"].get("estates", [])) if history else [],
+        "database": db.id,
+        "suggestions": resp.suggestions,
+        "steps": resp.steps,
+        "model": resp.provider_label,
+        "elapsed_ms": resp.elapsed_ms,
+    })
+    return resp
+
+
+def _off_domain(sid: str, message: str, turns: list[dict], source: str,
+                db: "data_sources.DataSource", t0: float) -> ChatResponse:
+    """Nothing to do with the plantation: say what the assistant is for, no model call."""
+    history = pipeline_turns(turns)
+    resp = _finish(ChatResponse(
+        answer=_OFF_DOMAIN_ANSWER, session_id=sid, route=ROUTE_CHAT, source=source,
+        database=db.id, database_label=db.label, error_type="off_domain",
+        suggestions=[] if history else db.starters[:3],
+    ), t0)
+    resp.turn_id = add_turn(sid, message, resp.answer, route=ROUTE_CHAT, meta={
+        "estates": list(history[-1]["meta"].get("estates", [])) if history else [],
+        "database": db.id,
+        "suggestions": resp.suggestions,
+        "error_type": "off_domain",
+        "elapsed_ms": resp.elapsed_ms,
+    })
+    return resp
+
+
+ROUTE_FORECAST = chat_forecast.ROUTE
+
+
+def _forecast(sid: str, message: str, turns: list[dict], source: str,
+              model_id: Optional[str], db: "data_sources.DataSource", t0: float) -> ChatResponse:
+    """The production forecast, read from the forecast page's own figures: no query
+    (chat_forecast.py). The retry after a figure check does not stream, so the page
+    never shows two drafts."""
+    history = pipeline_turns(turns)
+    with llm_client.model_override(model_id):
+        out = chat_forecast.respond(message, history, db, ask=_answer_llm, ask_quiet=call_llm)
+    answer = apply_output_guardrails(out["answer"], context="chat")
+    if out.get("link"):
+        answer = f"{answer}\n\n{out['link']}"
+    resp = ChatResponse(
+        answer=answer, session_id=sid, route=ROUTE_FORECAST, source=source,
+        database=db.id, database_label=db.label,
+        provider=out.get("provider"), provider_label=out.get("provider_label"),
+        chart=out.get("chart"), suggestions=out.get("suggestions") or [],
+        estates_used=out.get("labels") or [],
+    )
+    resp = _finish(resp, t0)
+    resp.turn_id = add_turn(sid, message, resp.answer, route=ROUTE_FORECAST, meta={
+        # The SQL scope is untouched: a forecast turn neither narrows nor widens it.
+        "estates": list(history[-1]["meta"].get("estates", [])) if history else [],
+        "database": db.id,
+        "forecast": out.get("scope"),
+        "chart": resp.chart,
+        "suggestions": resp.suggestions,
+        "steps": resp.steps,
+        "model": resp.provider_label,
+        "elapsed_ms": resp.elapsed_ms,
+    })
+    return resp
+
+
 def _chat_message(req: ChatRequest, message: str, source: str, model_id: Optional[str],
                   db: "data_sources.DataSource") -> ChatResponse:
     t0 = time.monotonic()
     if req.replace_last and req.session_id:
         delete_last_turn(req.session_id)
     sid = ensure_session(req.session_id, message)
-    turns = get_turns(sid, limit=CHAT_HISTORY_TEXT_TURNS + CHAT_HISTORY_DATA_TURNS)
+    turns = get_turns(sid, limit=max(chat_intent.FETCH_TURNS,
+                                     CHAT_HISTORY_TEXT_TURNS + CHAT_HISTORY_DATA_TURNS))
     if req.replace_last and not turns:
         update_session(sid, title=message)      # the first message was edited
     log.info('[chat] message="%s" session=%s source=%s db=%s model=%s turns=%d',
@@ -792,12 +926,25 @@ def _chat_message(req: ChatRequest, message: str, source: str, model_id: Optiona
     # The knowledge base holds documents; these checks are about database queries.
     uses_data = source != "knowledge_base"
     answering_us = bool(turns) and turns[-1]["route"] == ROUTE_CLARIFY
-    if uses_data and is_smalltalk(message) and not answering_us:
-        return _smalltalk(sid, message, turns, source, model_id, db, t0)
-
     # "Run it" agrees to what the last answer offered: nothing to ask about.
     agreeing = bool(turns) and not answering_us and is_confirmation(message)
-    asked = clarify_gate(message, turns) if uses_data and not agreeing else None
+
+    intent = None
+    if uses_data:
+        intent, _ = chat_intent.classify(message, pipeline_turns(turns),
+                                         agreeing=agreeing, answering_us=answering_us)
+        if intent == chat_intent.CHAT:
+            return _smalltalk(sid, message, turns, source, model_id, db, t0)
+        if intent == chat_intent.EXPLAIN:
+            return _explain(sid, message, turns, source, model_id, db, t0)
+        if intent == chat_intent.OFF_DOMAIN:
+            return _off_domain(sid, message, turns, source, db, t0)
+        if intent == chat_intent.FORECAST:
+            return _forecast(sid, message, turns, source, model_id, db, t0)
+
+    # A follow-up about what is on screen points at it: nothing to ask about.
+    asked = (clarify_gate(message, turns)
+             if uses_data and not agreeing and intent != chat_intent.CONTEXT else None)
     if asked:
         turn_id = add_turn(sid, message, asked["question"], route=ROUTE_CLARIFY,
                            meta={"options": asked["options"], "database": db.id})
@@ -812,7 +959,8 @@ def _chat_message(req: ChatRequest, message: str, source: str, model_id: Optiona
         question = resolve_confirmation(message, history)
     session = SessionContext(session_id=sid, turns=history)
     try:
-        with llm_client.model_override(model_id):
+        with llm_client.model_override(model_id), chat_intent.preset(intent), \
+                (known_on_domain() if intent else nullcontext()):
             result = dispatch_rag(source, question, session, sql_source=_SQL_SOURCE)
     except Exception as exc:
         log.warning("[chat] source=%s failed: %s", source, exc)
@@ -845,8 +993,10 @@ def _chat_message(req: ChatRequest, message: str, source: str, model_id: Optiona
         error_type=result.error_type,
         estates_used=result.estates_used,
         estates_failed=result.estates_failed,
+        sql_outcome=result.sql_outcome,
+        parts=result.parts,
     )
-    ran_query = result.route == "sql" and not resp.error_type
+    ran_query = result.route in ("sql", "overview") and not resp.error_type
     if ran_query:
         resp.estates_carried = [_scope_label(db, e)
                                 for e in carried_estates(question, history)]
@@ -879,16 +1029,24 @@ def _chat_message(req: ChatRequest, message: str, source: str, model_id: Optiona
             "model": resp.provider_label,
             "elapsed_ms": resp.elapsed_ms,
             "query_id": extras.get("query_id"),
+            "sql_outcome": resp.sql_outcome,
+            "parts": resp.parts,
         },
     )
     return resp
 
 
-def _run_sql_pipeline(
-    sid: str, message: str, turns: list[dict], t0: float
-) -> tuple[ChatResponse, Optional[dict]]:
+def _resolve_scope(message: str, turns: list[dict]) -> tuple[list[str], list[str], str]:
+    """(scope ids to run on, staging estate codes, the question as the SQL writer sees it)."""
+    estate_ids, entity_codes, sql_question, _ = _scope(message, turns)
+    return estate_ids, entity_codes, sql_question
+
+
+def _scope(message: str, turns: list[dict]) -> tuple[list[str], list[str], str, Optional[str]]:
+    """_resolve_scope(), plus the staging scope hint on its own (None on live)."""
     src = data_sources.active()
     entity_codes: list[str] = []
+    hint: Optional[str] = None
     # "Estate C against the other estates": named, but set against the rest, so
     # every estate is queried and the one named is only the focus.
     widen = widens_scope(message)
@@ -913,6 +1071,385 @@ def _run_sql_pipeline(
         # SQL generation only — table retrieval and the final answer still see
         # the original message. See strip_estate_mentions() docstring for why.
         sql_question = strip_estate_mentions(message, mentioned_estates) if mentioned_estates else message
+    return estate_ids, entity_codes, sql_question, hint
+
+
+# ── writing, checking and running one query ────────────────────────────────
+
+_MAX_ROWS = 200
+
+# A question about the most recent days can be empty because the data has not
+# been loaded yet; asking the writer to "fix" it would only move the period.
+_RECENT = re.compile(
+    r"\b(?:today|yesterday|tonight|this\s+(?:week|month)|(?:last|past)\s+\d+\s+(?:days?|weeks?|months?)"
+    r"|hari\s+ini|kemarin|minggu\s+ini|bulan\s+ini|\d+\s+(?:hari|minggu|bulan)\s+terakhir)\b", re.IGNORECASE)
+
+_TIMEOUT = re.compile(r"HYT00|timeout expired|statement timeout|canceling statement", re.IGNORECASE)
+
+_EMPTY_FINDING = (
+    "Suspicious result: the query returned no rows. Check every filter against the DDL and the business "
+    "rules: the date column and range, the case of text values, code formats (WERKS '00EC' against ESTNR "
+    "'EC'), and joins that can match nothing. If the filters are right and there is simply no data, "
+    "return the same SQL unchanged.")
+_ZERO_FINDING = (
+    "Suspicious result: the query returned one row whose figures are all zero or empty. Check the filters "
+    "and joins as for an empty result. If zero is the true answer, return the same SQL unchanged.")
+
+_FIX_STATUS = {
+    "lint": "It broke a data rule, correcting it",
+    "schema": "A name in the query does not exist, correcting it",
+    "exec": "The database rejected the query",
+    "empty": "No rows came back, checking the query",
+    "suspicious": "The figures look wrong, checking the query",
+}
+
+# What the answer is told when a doubtful result is all there is.
+_KEPT_NOTE = {
+    "suspicious": "a check found figures that look implausible for this data ({why}). Say in one short "
+                  "sentence that these figures may be wrong and should be checked; no technical detail.",
+}
+
+
+@dataclass
+class RunResult:
+    """What generate_and_run() did: the query that stands, its per-estate results, and how it got there."""
+    sql: Optional[str] = None
+    exec_results: dict = field(default_factory=dict)
+    ok_estates: list = field(default_factory=list)
+    failed_estates: list = field(default_factory=list)
+    # first_ok | fixed_<kind> | kept_<kind> | failed | no_sql | unsafe, where kind is
+    # schema | lint | exec | empty | suspicious (the first problem found)
+    outcome: str = "failed"
+    provider: str = ""
+    attempts: int = 0
+    run_step: str = "run"
+    findings: list = field(default_factory=list)      # [(kind, message)] in order
+    notes: list = field(default_factory=list)         # for the answer prompt
+    truncated: bool = False
+
+    @property
+    def ran(self) -> bool:
+        return bool(self.ok_estates)
+
+
+def _pre_run_finding(sql: str, question: str) -> tuple[Optional[str], Optional[str]]:
+    """(kind, message) for a query that must not run as written, else (None, None)."""
+    src = data_sources.active()
+    if CHAT_SCHEMA_CHECK != "off":
+        finding = sql_schema_check.check(sql, src.dialect, src.id)
+        if finding:
+            if CHAT_SCHEMA_CHECK == "enforce":
+                return "schema", finding
+            log.info("[chat] schema check (log only): %s", finding[:160])
+    finding = src.lint(sql, question) if src.lint else None
+    return ("lint", finding) if finding else (None, None)
+
+
+def _result_finding(columns: list[str], rows: list[dict], question: str,
+                    sql: str) -> tuple[Optional[str], Optional[str]]:
+    """(kind, message) for rows that ran but cannot be the answer, else (None, None)."""
+    if not rows:
+        return "empty", _EMPTY_FINDING
+    # One total per estate (or a single one) that is zero everywhere: the
+    # query matched nothing, like an empty result. A longer table with some
+    # zero rows is a real answer.
+    if len(rows) <= len(data_sources.active().scope_order) or len(rows) == 1:
+        vals = [v for r in rows for k, v in r.items() if k != "_source_estate" and not isinstance(v, str)]
+        if vals and all(v is None or v == 0 for v in vals):
+            return "empty", _ZERO_FINDING
+    src = data_sources.active()
+    finding = src.check_result(columns, rows, question, sql) if src.check_result else None
+    return ("suspicious", finding) if finding else (None, None)
+
+
+def _norm_sql(sql: str) -> str:
+    """Whitespace-insensitive, but case-sensitive: 'ec' -> 'EC' is a real correction."""
+    return re.sub(r"\s+", " ", (sql or "").strip().rstrip(";"))
+
+
+def generate_and_run(sql_question: str, question: str, table_cards, examples, history_block,
+                     estate_ids: list[str], *, step_prefix: str = "", what: str = "") -> RunResult:
+    """Write the query, check it, run it, and correct it until it stands.
+
+    Before a query runs: the safety validator, then the schema check (every
+    table and column exists), then the source's lint (valid SQL that gives
+    wrong numbers). After it runs: an estate that failed while others answered
+    is run once more as it is (the estates share one schema, so that is a
+    connection or timeout, not the SQL); then the rows themselves are checked
+    (empty, all zero, figures no real query gives).
+
+    Every problem goes back to the writer with exactly what was wrong, up to
+    CHAT_SQL_FIX_ATTEMPTS times, on the reasoning tier. A query still flagged
+    before running is never run. A query that ran but looked wrong is kept as
+    the fallback, and only replaced by one that passes every check.
+    """
+    src = data_sources.active()
+    res = RunResult()
+
+    def sid_(name: str) -> str:
+        return f"{step_prefix}{name}"
+
+    about = f": {what}" if what else ""      # several queries at once (overview): say which is which
+    chat_events.step(sid_("sql"), f"Writing the query{about}")
+    raw_sql, res.provider, usage = call_llm(
+        build_sql_messages(sql_question, table_cards, examples, history_block=history_block),
+        max_tokens=800, temperature=0, task="sql_generation")
+    log.info("[chat] SQL gen provider=%s input=%d output=%d",
+             res.provider, usage["input_tokens"], usage["output_tokens"])
+    sql = extract_sql(raw_sql)
+    chat_events.done(sid_("sql"), sql=sql or None, status="done" if sql else "error",
+                     detail=None if sql else "No query could be written")
+    if not sql:
+        res.outcome = "no_sql"
+        return res
+
+    held: Optional[tuple] = None           # the first query that ran but looked wrong
+    exec_results: dict = {}
+    for attempt in range(1, CHAT_SQL_FIX_ATTEMPTS + 2):
+        res.attempts = attempt
+        run_step = sid_("run" if attempt == 1 else ("rerun" if attempt == 2 else f"rerun{attempt - 1}"))
+        ok, reason = validate(sql, src.dialect)
+        if not ok:
+            log.info("[chat] SQL validation failed: %s", reason)
+            if attempt == 1:
+                chat_events.done(sid_("sql"), status="error", detail="The query was not safe to run", sql=sql)
+                res.sql, res.outcome = sql, "unsafe"
+                return res
+            break
+
+        kind, finding = _pre_run_finding(sql, question)
+        if finding:
+            # Valid SQL that names something missing or would give wrong numbers: never run it.
+            log.info("[chat] query flagged before running (%s): %s", kind, finding[:140])
+            chat_events.step(run_step, f"Checking the query{about}")
+            exec_results = {e: ([], [], finding) for e in estate_ids}
+        else:
+            chat_events.step(run_step, (f"Running on {src.label}" if attempt == 1
+                                        else f"Running again on {src.label}") + about)
+            exec_results = _execute_multi(sql, estate_ids, _MAX_ROWS)
+            failed = [e for e in estate_ids if exec_results[e][2]]
+            if failed and (len(failed) < len(estate_ids)
+                           or all(_TIMEOUT.search(exec_results[e][2]) for e in failed)):
+                # Some estates answered (the SQL is fine there), or the server was too
+                # busy: run the same SQL once more rather than have it rewritten.
+                log.info("[chat] %s failed (%s), running it once more", failed,
+                         exec_results[failed[0]][2][:80])
+                exec_results.update(_execute_multi(sql, failed, _MAX_ROWS))
+        ok_e = [e for e in estate_ids if not exec_results[e][2]]
+        failed_e = [e for e in estate_ids if exec_results[e][2]]
+
+        if ok_e:
+            columns = exec_results[ok_e[0]][0]
+            rows = [r for e in ok_e for r in exec_results[e][1]]
+            kind, finding = _result_finding(columns, rows, question, sql)
+            if not finding:
+                first = res.findings[0][0] if res.findings else None
+                res.outcome = f"fixed_{first}" if first else "first_ok"
+                res.sql, res.exec_results, res.ok_estates, res.failed_estates = sql, exec_results, ok_e, failed_e
+                res.run_step = run_step
+                res.truncated = any(len(exec_results[e][1]) >= _MAX_ROWS for e in ok_e)
+                return res
+            if held is None:
+                held = (sql, exec_results, ok_e, failed_e, kind, finding, run_step)
+        else:
+            kind = kind or "exec"
+            finding = finding or exec_results[estate_ids[0]][2]
+
+        res.findings.append((kind, finding))
+        no_retry = kind == "empty" and bool(_RECENT.search(question))
+        if attempt > CHAT_SQL_FIX_ATTEMPTS or no_retry:
+            if not (held and held[6] == run_step):
+                chat_events.done(run_step, status="error", detail=_FIX_STATUS.get(kind))
+            break
+        chat_events.done(run_step, status="error", detail=_FIX_STATUS.get(kind))
+        log.info("[chat] attempt %d: %s — asking for a correction: %s", attempt, kind, str(finding)[:140])
+
+        fix_step = sid_("fix" if attempt == 1 else f"fix{attempt}")
+        chat_events.step(fix_step, f"Correcting the query{about}")
+        prior = finding if len(res.findings) == 1 else (
+            f"{finding}\nThe attempt before that also failed: {res.findings[-2][1]}")
+        raw_retry, res.provider, _ = call_llm(
+            build_sql_messages(sql_question, table_cards, examples, prior_error=prior,
+                               prior_sql=sql, history_block=history_block),
+            max_tokens=800, temperature=0, task="sql_self_correction",
+            # The default model got it wrong: the corrections go to the stronger one.
+            tier="reasoning" if CHAT_ESCALATE_TO_REASONING else "main")
+        new_sql = extract_sql(raw_retry)
+        chat_events.done(fix_step, sql=new_sql or None,
+                         detail=None if new_sql and _norm_sql(new_sql) != _norm_sql(sql)
+                         else "No different query could be written")
+        if not new_sql or _norm_sql(new_sql) == _norm_sql(sql):
+            break           # nothing new to try; "unchanged" is also the writer saying the result is right
+        sql = new_sql
+
+    if held:
+        h_sql, h_exec, h_ok, h_failed, h_kind, h_finding, h_step = held
+        res.sql, res.exec_results, res.ok_estates, res.failed_estates = h_sql, h_exec, h_ok, h_failed
+        res.outcome, res.run_step = f"kept_{h_kind}", h_step
+        res.truncated = any(len(h_exec[e][1]) >= _MAX_ROWS for e in h_ok)
+        if h_kind in _KEPT_NOTE:
+            res.notes.append(_KEPT_NOTE[h_kind].format(why=h_finding.split(":", 1)[-1].split(".")[0].strip()))
+        return res
+    res.sql, res.exec_results, res.outcome, res.run_step = sql, exec_results, "failed", run_step
+    res.failed_estates = list(estate_ids)
+    return res
+
+
+def _merge_estates(res: RunResult, estate_ids: list[str]) -> tuple[list[str], list[dict], dict]:
+    """(columns, rows tagged by estate when several ran, per-estate breakdown)."""
+    src = data_sources.active()
+    multi_estate = len(estate_ids) > 1
+    columns = res.exec_results[res.ok_estates[0]][0]
+    combined_rows: list[dict] = []
+    breakdown: dict[str, dict] = {}
+    for eid in res.ok_estates:
+        est_columns, est_rows, _ = res.exec_results[eid]
+        label = src.scopes[eid]["label"]
+        combined_rows.extend([{**r, "_source_estate": label} for r in est_rows] if multi_estate else est_rows)
+        breakdown[label] = {"row_count": len(est_rows), **_compute_stats(est_columns, est_rows)}
+    if multi_estate and "_source_estate" not in columns:
+        columns = columns + ["_source_estate"]
+    return columns, combined_rows, breakdown
+
+
+# ── broad questions: several measures side by side (chat_overview.py) ──────
+
+_OVERVIEW_SYSTEM_PROMPT = load_prompt("chat_overview_system")
+_OVERVIEW_TIMEOUT_S = 60
+
+
+def _run_overview_pipeline(sid: str, message: str, turns: list[dict], t0: float
+                           ) -> Optional[tuple[ChatResponse, Optional[dict]]]:
+    """Answer a broad question with 2 to 4 measures, or None to answer it the plain way."""
+    src = data_sources.active()
+    estate_ids, entity_codes, _, hint = _scope(message, turns)
+    single = len(entity_codes) == 1 if src.entities else len(estate_ids) == 1
+
+    chat_events.step("plan", "Choosing what to look at")
+    plan = chat_overview.plan(message, src, single_estate=single)
+    if plan is None:
+        chat_events.done("plan", status="error", detail="Answering it as one question")
+        return None
+    chat_events.done("plan", detail=", ".join(m.label for m in plan.measures)
+                     + f" per {plan.grain}, {plan.period_label}")
+
+    def one(i: int, measure):
+        q = chat_overview.sub_question(measure, plan, src)
+        cards, _ = retrieve_tables(q, k=5)
+        if not cards:
+            return q, [], None
+        try:
+            examples = retrieve_examples(q, k=3)
+        except Exception:
+            examples = []
+        sql_q = f"{q}\n{hint}" if hint else q
+        return q, cards, generate_and_run(sql_q, q, cards, examples, None, estate_ids,
+                                          step_prefix=f"p{i}.", what=measure.label)
+
+    pool = ThreadPoolExecutor(max_workers=len(plan.measures))
+    # One copy of the context per part: it carries the data source, the model
+    # choice and the step recorder, and a context cannot be entered twice at once.
+    futures = [pool.submit(contextvars.copy_context().run, one, i, m)
+               for i, m in enumerate(plan.measures, 1)]
+    pool.shutdown(wait=False)
+    parts: list[dict] = []
+    results: list[tuple] = []
+    tables: list[str] = []
+    deadline = time.monotonic() + _OVERVIEW_TIMEOUT_S
+    for measure, fut in zip(plan.measures, futures):
+        try:
+            q, cards, res = fut.result(timeout=max(0.1, deadline - time.monotonic()))
+        except chat_events.Cancelled:
+            raise
+        except Exception as exc:
+            log.warning("[overview] %s failed: %s", measure.id, exc)
+            q, cards, res = chat_overview.sub_question(measure, plan, src), [], None
+        tables.extend(c.name for c in cards if c.name not in tables)
+        ran = res is not None and res.ran
+        part = {"measure": measure.id, "label": measure.label, "question": q,
+                "sql": res.sql if res else None, "outcome": res.outcome if res else "failed",
+                "findings": [k for k, _ in res.findings] if res else [], "row_count": 0}
+        if ran:
+            columns, rows, _ = _merge_estates(res, estate_ids)
+            part["row_count"] = len(rows)
+            if rows:              # a measure with no data is named in the answer, not merged
+                results.append((measure, columns, rows, res))
+            chat_events.done(res.run_step, rows=len(rows),
+                             detail=f"{len(rows):,} row{'' if len(rows) == 1 else 's'}")
+        elif res is not None:
+            chat_events.done(res.run_step, status="error", detail="The query could not be run")
+        parts.append(part)
+
+    outcome = ",".join(p["outcome"] for p in parts)
+    chat_events.attach("sql_outcome", f"overview:{outcome}")
+    failed = [p["label"] for p in parts if not p["row_count"]]
+    if not results:
+        return ChatResponse(answer=_SQL_FAIL_ANSWER, session_id=sid, route="overview",
+                            tables_used=tables, error_type="no_data", parts=parts,
+                            sql_outcome=f"overview:{outcome}"), None
+
+    # A part kept although its figures looked implausible is shown on its own,
+    # never side by side with the sound ones.
+    sound = [(m, c, r) for m, c, r, res in results if not res.outcome.startswith("kept_suspicious")]
+    merged = chat_overview.merge(sound, plan.grain, src)
+    if merged:
+        columns, rows, in_table = merged
+    else:
+        _, columns, rows, _ = results[0]
+        in_table = [results[0][0].id]
+    apart = [(m, c, r) for m, c, r, _ in results if m.id not in in_table]
+    _show_result(columns, rows, len(rows))
+    chart_future = _start_chart(message, columns, rows)
+
+    notes = [n for *_, res in results for n in res.notes]
+    lines = [f"Question: {message}", f"Period: {plan.period_label}",
+             "Measures looked at: " + "; ".join(f"{p['label']} ({p['question']})" for p in parts)]
+    if failed:
+        lines.append("Could not be retrieved: " + ", ".join(failed))
+    lines += [f"Note: {n}" for n in notes]
+    stats = _compute_stats(columns, rows)
+    derived = _derived_facts(columns, rows)
+    lines.append(f"Table columns: {columns}\nRows: "
+                 + json.dumps(rows[:50], default=str, ensure_ascii=False))
+    for m, c, r in apart:
+        lines.append(f"Part '{m.label}', shown apart from the table: columns {c}, rows (first 20): "
+                     + json.dumps(r[:20], default=str, ensure_ascii=False))
+    if derived:
+        lines.append("Derived facts (computed exactly; quote these, do not calculate your own): "
+                     + json.dumps(derived, default=str, ensure_ascii=False))
+
+    chat_events.step("answer", "Writing the answer")
+    answer_raw, provider_used, usage = _answer_llm(
+        [{"role": "system", "content": _OVERVIEW_SYSTEM_PROMPT}, {"role": "user", "content": "\n\n".join(lines)}],
+        max_tokens=800, task="chat_overview_answer", tier="reasoning")
+    chat_events.done("answer")
+    _wait_chart(chart_future)
+    answer = apply_output_guardrails(answer_raw.strip() or _NO_DATA_ANSWER, context="chat")
+
+    used_labels = ([src.entities[c]["label"] for c in entity_codes] if src.entities
+                   else [src.scopes[e]["label"] for e in estate_ids])
+    log.info("[overview] done %.2fs measures=%s grain=%s merged=%s outcome=%s",
+             time.monotonic() - t0, [m.id for m in plan.measures], plan.grain, bool(merged), outcome)
+    return ChatResponse(
+        answer=answer, session_id=sid, route="overview",
+        sql="\n\n".join(f"-- {p['label']}\n{p['sql']}" for p in parts if p["sql"]),
+        columns=columns, rows=rows[:200], row_count=len(rows), tables_used=tables,
+        provider=provider_used,
+        provider_label=usage.get("model") if provider_used == "bedrock" and usage.get("model")
+        else PROVIDER_LABELS.get(provider_used, provider_used),
+        estates_used=used_labels, parts=parts, sql_outcome=f"overview:{outcome}",
+    ), stats
+
+
+def _run_sql_pipeline(
+    sid: str, message: str, turns: list[dict], t0: float
+) -> tuple[ChatResponse, Optional[dict]]:
+    src = data_sources.active()
+    if src.measures and is_overview(message):
+        overview = _run_overview_pipeline(sid, message, turns, t0)
+        if overview is not None:
+            return overview
+    estate_ids, entity_codes, sql_question = _resolve_scope(message, turns)
 
     # ── 1. Retrieve tables (augmented with the prior question on follow-ups) ─
     chat_events.step("tables", "Finding the right tables")
@@ -936,46 +1473,21 @@ def _run_sql_pipeline(
 
     # ── 2. Few-shot examples ──────────────────────────────────────────────
     try:
-        examples = retrieve_examples(message, k=2)
+        examples = retrieve_examples(message, k=3)
     except Exception:
         examples = []
 
-    # ── 3. Generate SQL (text-only history so follow-ups resolve) ────────
-    chat_events.step("sql", "Writing the query")
+    # ── 3-5. Write, check, run and correct the query ──────────────────────
     history_block = _sql_history_block(turns) if turns else None
-    sql_messages = build_sql_messages(
-        sql_question, table_cards, examples, history_block=history_block,
-    )
-    raw_sql, provider_used, usage = call_llm(
-        sql_messages, max_tokens=800, temperature=0, task="sql_generation"
-    )
-    log.info(
-        "[chat] SQL gen provider=%s input=%d output=%d",
-        provider_used, usage["input_tokens"], usage["output_tokens"],
-    )
+    res = generate_and_run(sql_question, message, table_cards, examples, history_block, estate_ids)
+    chat_events.attach("sql_outcome", res.outcome)
+    provider_used = res.provider
+    sql = res.sql
+    run_step = res.run_step
 
-    sql = extract_sql(raw_sql)
-    chat_events.done("sql", sql=sql or None, status="done" if sql else "error",
-                     detail=None if sql else "No query could be written")
-    if not sql:
-        log.info("[chat] no SQL extracted")
+    if res.outcome in ("no_sql", "unsafe"):
         return ChatResponse(
-            answer=_NO_DATA_ANSWER,
-            session_id=sid,
-            tables_used=table_names,
-            provider=provider_used,
-            provider_label=PROVIDER_LABELS.get(provider_used, provider_used),
-            used_llm_fallback=used_llm_fallback,
-            error_type="no_data",
-        ), None
-
-    # ── 4. Validate SQL ───────────────────────────────────────────────────
-    ok, reason = validate(sql, src.dialect)
-    if not ok:
-        chat_events.done("sql", status="error", detail="The query was not safe to run", sql=sql)
-        log.info("[chat] SQL validation failed: %s", reason)
-        return ChatResponse(
-            answer=_SQL_FAIL_ANSWER,
+            answer=_NO_DATA_ANSWER if res.outcome == "no_sql" else _SQL_FAIL_ANSWER,
             session_id=sid,
             sql=sql,
             tables_used=table_names,
@@ -983,60 +1495,15 @@ def _run_sql_pipeline(
             provider_label=PROVIDER_LABELS.get(provider_used, provider_used),
             used_llm_fallback=used_llm_fallback,
             error_type="no_data",
+            sql_outcome=res.outcome,
         ), None
 
-    # ── 5. Execute across the relevant estate(s) (retry once if ALL fail) ──
-    run_step = "run"
-    lint_err = src.lint(sql, message) if src.lint else None
-    if lint_err:
-        # Valid SQL that would give wrong numbers: don't run it, have it corrected.
-        log.info("[chat] query flagged before running: %s", lint_err[:120])
-        chat_events.step(run_step, "Checking the query")
-        exec_results = {e: ([], [], lint_err) for e in estate_ids}
-    else:
-        chat_events.step(run_step, f"Running on {src.label}")
-        exec_results = _execute_multi(sql, estate_ids)
-    ok_estates = [e for e in estate_ids if not exec_results[e][2]]
-    failed_estates = [e for e in estate_ids if exec_results[e][2]]
-
-    if not ok_estates:
-        first_err = exec_results[estate_ids[0]][2]
-        log.info("[chat] SQL exec error on all estates — retrying once: %s", first_err[:120])
-        chat_events.done(run_step, status="error",
-                         detail="It broke a data rule, correcting it" if lint_err
-                         else "The database rejected the query")
-        chat_events.step("fix", "Correcting the query")
-        retry_messages = build_sql_messages(
-            sql_question, table_cards, examples,
-            prior_error=first_err, prior_sql=sql,
-            history_block=history_block,
-        )
-        # The default model's first attempt failed: escalate the single retry.
-        raw_retry, provider_used, usage = call_llm(
-            retry_messages, max_tokens=800, temperature=0, task="sql_self_correction",
-            tier="reasoning" if CHAT_ESCALATE_TO_REASONING else "main",
-        )
-        sql_retry = extract_sql(raw_retry)
-        chat_events.done("fix", sql=sql_retry or None)
-        if sql_retry:
-            ok2, _ = validate(sql_retry, src.dialect)
-            if ok2 and src.lint and src.lint(sql_retry, message):
-                ok2 = False              # still wrong: better no answer than a wrong one
-            if ok2:
-                run_step = "rerun"
-                chat_events.step(run_step, f"Running again on {src.label}")
-                exec_results = _execute_multi(sql_retry, estate_ids)
-                ok_estates = [e for e in estate_ids if not exec_results[e][2]]
-                failed_estates = [e for e in estate_ids if exec_results[e][2]]
-                if ok_estates:
-                    sql = sql_retry
-
-    if not ok_estates:
+    if not res.ran:
         chat_events.done(run_step, status="error", detail="The query could not be run")
-        log.info("[chat] SQL still failing after retry on every estate")
+        log.info("[chat] SQL still failing after %d attempt(s) on every estate", res.attempts)
         record_query(
             message, sql, provider_used, table_names,
-            success=False, error=exec_results[estate_ids[0]][2], source=src.id,
+            success=False, error=res.exec_results[estate_ids[0]][2], source=src.id,
         )
         return ChatResponse(
             answer=_SQL_FAIL_ANSWER,
@@ -1047,23 +1514,13 @@ def _run_sql_pipeline(
             provider_label=PROVIDER_LABELS.get(provider_used, provider_used),
             used_llm_fallback=used_llm_fallback,
             error_type="no_data",
+            sql_outcome=res.outcome,
         ), None
 
     # ── 6. Merge per-estate results, compute stats & build answer ─────────
     multi_estate = len(estate_ids) > 1
-    columns = exec_results[ok_estates[0]][0]
-    combined_rows: list[dict] = []
-    estate_breakdown: dict[str, dict] = {}
-    for eid in ok_estates:
-        est_columns, est_rows, _ = exec_results[eid]
-        label = src.scopes[eid]["label"]
-        tagged_rows = (
-            [{**r, "_source_estate": label} for r in est_rows] if multi_estate else est_rows
-        )
-        combined_rows.extend(tagged_rows)
-        estate_breakdown[label] = {"row_count": len(est_rows), **_compute_stats(est_columns, est_rows)}
-    if multi_estate and "_source_estate" not in columns:
-        columns = columns + ["_source_estate"]
+    ok_estates, failed_estates = res.ok_estates, res.failed_estates
+    columns, combined_rows, estate_breakdown = _merge_estates(res, estate_ids)
 
     chat_events.done(
         run_step, rows=len(combined_rows),
@@ -1083,6 +1540,9 @@ def _run_sql_pipeline(
         failed_estates=failed_labels or None,
         data_through=src.data_through(),
         period_note=None if names_period(message) else _period_note(sql),
+        notes=res.notes + ([
+            f"only the first {_MAX_ROWS} rows{' per estate' if multi_estate else ''} were read, so any "
+            "sum of these rows is a partial sum: never present it as a total."] if res.truncated else []),
     )
     a_tier = answer_tier(message)
     chat_events.step("answer", "Writing the answer")
@@ -1107,8 +1567,13 @@ def _run_sql_pipeline(
     answer = _with_period(answer, message, sql)
 
     # ── 7. Record to history & refresh index ─────────────────────────────
+    # Only a query that passed every check may become an example for later
+    # questions; one kept although it looked wrong (empty, implausible) is
+    # recorded but never shown to the SQL writer.
+    sound = res.outcome == "first_ok" or res.outcome.startswith("fixed_")
     chat_events.attach("query_id", record_query(
-        message, sql, provider_used, table_names, success=True, source=src.id))
+        message, sql, provider_used, table_names, success=sound, source=src.id,
+        row_count=len(combined_rows)))
     try:
         from retrieval import refresh_query_history_index
         refresh_query_history_index()
@@ -1134,6 +1599,7 @@ def _run_sql_pipeline(
         used_llm_fallback=used_llm_fallback,
         estates_used=used_labels,
         estates_failed=failed_labels,
+        sql_outcome=res.outcome,
     ), stats
 
 
@@ -1174,10 +1640,17 @@ def feedback(req: FeedbackRequest):
         return JSONResponse(status_code=404, content={"detail": "turn not found"})
     query_id = meta.get("query_id")
     if query_id:
-        set_success(query_id, req.rating != "down")
-        if req.rating == "down":
+        if req.rating == "up":
+            # A person vouches for it: it becomes a verified example, ranked
+            # ahead of the ones that only passed the checks.
+            set_verified(query_id)
+            from retrieval import remember_example
+            remember_example(query_id, meta.get("database"))
+        elif req.rating == "down":
+            set_success(query_id, False)
             from retrieval import forget_example
             forget_example(query_id, meta.get("database"))
+        # A cleared rating changes nothing: the query keeps the standing it earned by its checks.
     return {"ok": True}
 
 

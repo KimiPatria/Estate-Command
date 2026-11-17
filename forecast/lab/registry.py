@@ -50,7 +50,9 @@ import pandas as pd
 
 _LAB = os.path.dirname(os.path.abspath(__file__))
 _FORECAST = os.path.dirname(_LAB)
-ARTIFACT_DIR = os.path.join(_FORECAST, "experiments", "lab")
+# ARTIFACT_DIR is resolved on every access (module __getattr__ below): it is the
+# lab/ tree of the published run (forecast/runs/current.json), or of a refresh in
+# progress, or the legacy forecast/experiments/lab before the first run.
 
 MAX_H = 12
 COMPLETE_SHARE = 0.9
@@ -69,23 +71,24 @@ GRAIN_LABEL = {"month": "Monthly", "week": "Weekly"}
 # entries, because the windows differ and a model built on one says nothing
 # about the other. Staging estates carry no weather: only EC has a weather file,
 # and the staging arms are compared across all three estates.
-ESTATES = {
-    "k3": {"label": "K3", "blocks": "k3", "served": "k3", "source": "live",
-           "features": os.path.join(_FORECAST, "features_estate_monthly.csv"),
-           "weather": os.path.join(_FORECAST, "weather_nasa_power_history.csv")},
-    "ec": {"label": "EC", "blocks": "EC", "served": "ec", "source": "live", "features": None,
-           "weather": os.path.join(_FORECAST, "EC", "weather_nasa_power_history.csv")},
-    "eb": {"label": "EB", "blocks": "EB", "served": None, "source": "live",
-           "features": None, "weather": None},
-    "ea": {"label": "EA", "blocks": "EA", "served": None, "source": "live",
-           "features": None, "weather": None},
-    "stg_ec": {"label": "EC", "blocks": "stg_EC", "served": None, "source": "staging",
-               "features": None, "weather": None},
-    "stg_eb": {"label": "EB", "blocks": "stg_EB", "served": None, "source": "staging",
-               "features": None, "weather": None},
-    "stg_ea": {"label": "EA", "blocks": "stg_EA", "served": None, "source": "staging",
-               "features": None, "weather": None},
-}
+# The estates come from forecast/estates.yaml (estate_config.lab_estates): one list
+# for the extract, the lab and the page. Each spec: label, blocks (block_weekly key),
+# served (legacy ensemble estate or None), source, region, features, weather.
+_ec_spec = importlib.util.spec_from_file_location("epms_estate_config",
+                                                  os.path.join(_FORECAST, "estate_config.py"))
+_estate_config = importlib.util.module_from_spec(_ec_spec)
+_ec_spec.loader.exec_module(_estate_config)
+ESTATES = _estate_config.lab_estates()
+
+
+def artifact_dir():
+    return _estate_config.lab_dir()
+
+
+def __getattr__(name):
+    if name == "ARTIFACT_DIR":
+        return artifact_dir()
+    raise AttributeError(name)
 SOURCES = ("live", "staging")
 
 
@@ -127,6 +130,38 @@ MODELS = [
      "source": "artifact", "family": "Chronos-2 zero-shot",
      "about": "One forecast on the estate's weekly total (months: weeks spread "
               "over their days). k3 leak-free backtest: step-1 MASE 0.730."},
+    # Same model and weekly input as estate weekly, so it keeps that arm's green and is
+    # told apart by its dash, the legend and the table view (no 7th hue passed the
+    # validator, see FREE_COLOURS).
+    {"id": "chronos2_weekly_seasadj", "label": "Chronos-2 · estate weekly, seasonally adjusted",
+     "color": "#008300", "dash": [12, 3, 3, 3], "grains": ["month", "week"],
+     "source": "artifact", "family": "Chronos-2 zero-shot",
+     "about": "Estate weekly with the season taken out first: the weekly series is divided "
+              "by the seasonal profile's index (fitted only on months before the origin, "
+              "pooled within source and region), Chronos-2 forecasts what is left, and the "
+              "index is multiplied back. Off -- plain estate weekly -- until the estate has "
+              "seen all 12 months of the year. Staging, origins with a year of context: "
+              "13.8% sMAPE steps 1-3 vs 18.6%, and 15% vs 49% at step 6 (2026-11-13)."},
+    # Lab challengers (never served: the page serves Chronos-2, build plan D1).
+    # Colours re-validated 2026-11-12 with the dataviz validator, all pairs on the
+    # light surface: aqua passes the normal-vision floor (15.6 vs the green) and its
+    # CVD separation from magenta (6.1, deutan) sits in the 6-8 band that is legal
+    # with secondary encoding -- the dash below, the legend and the table view. The
+    # profile is a statistical yardstick, so it is drawn like the baselines: a
+    # neutral ink with its own dash, not a categorical hue (no 7th hue passed).
+    {"id": "combo_weekly_profile", "label": "Chronos-2 weekly + seasonal profile",
+     "color": "#1baf7a", "dash": [10, 3], "grains": ["month"], "source": "derived",
+     "family": "Combination", "members": ["chronos2_estate_weekly", "seasonal_profile"],
+     "weights": [0.5, 0.5],
+     "about": "Mean of Chronos-2 estate weekly and the seasonal profile, fixed 50/50 "
+              "(never tuned). The two fail in opposite ways (Chronos holds a peak too "
+              "long, the profile is slow on level shifts). Staging, origins with a "
+              "year of context: 11.3% sMAPE steps 1-3 vs 18.9% for Chronos alone."},
+    {"id": "seasonal_profile", "label": "Seasonal profile", "color": "#3e4744",
+     "dash": [1, 3], "grains": ["month"], "source": "live", "family": "Statistical",
+     "about": "log bunches = estate level + amplitude x a month-of-year shape shared "
+              "by the estates of the same source and region; level from the last 3 "
+              "deseasonalised months (forecast/lab/seasonal_profile.py)."},
     {"id": "naive_trailing3", "label": "Naive · last-3 mean", "color": "#8a938f",
      "dash": [2, 3], "grains": ["month", "week"], "source": "live",
      "family": "Baseline",
@@ -151,6 +186,7 @@ def _load_by_path(name, path):
 
 
 bw = _load_by_path("epms_block_weekly", os.path.join(_FORECAST, "block_weekly.py"))
+seasonal_profile = _load_by_path("epms_seasonal_profile", os.path.join(_LAB, "seasonal_profile.py"))
 
 
 # -- history -----------------------------------------------------------------------
@@ -283,6 +319,11 @@ def static_availability(model_id, estate, grain):
         return False, "no weather history for this estate (forecast/fetch_nasa_weather.py)"
     if model_id == "seasonal_naive" and len(history(estate, grain)) < SEASON[grain]:
         return False, f"needs a full year of history ({SEASON[grain]} {grain}s)"
+    if m["source"] == "derived":
+        for member in m["members"]:
+            ok, reason = static_availability(member, estate, grain)
+            if not ok:
+                return False, f"{model_spec(member)['label']}: {reason}"
     return True, ""
 
 
@@ -291,6 +332,9 @@ def static_availability(model_id, estate, grain):
 # whose target period is inside history. Every model is scored on the SAME
 # origins (backtest_origins), always from context <= origin only.
 BACKTEST_COLS = ["origin", "step", "period", "actual", "pred", "scoreable"]
+# Arms with a real interval at the grain (the model's own 10th-90th percentile)
+# also write these, so the interval's coverage can be measured on the backtest.
+BAND_COLS = ["lower", "upper"]
 
 
 def backtest_origins(estate, grain):
@@ -306,23 +350,27 @@ def context_until(estate, grain, i):
     return h.loc[h["context_ok"], "value"].to_numpy(dtype=float)
 
 
-def backtest_rows(estate, grain, i, preds):
-    """Rows for origin position i given its forecast (MAX_H values)."""
+def backtest_rows(estate, grain, i, preds, lower=None, upper=None):
+    """Rows for origin position i given its forecast (MAX_H values) and, for an arm
+    with a real interval, its lower/upper bounds (same length)."""
     h = history(estate, grain)
     rows = []
     for step in range(1, MAX_H + 1):
         j = i + step
         if j >= len(h):
             break
-        rows.append({"origin": period_str(h["period"].iloc[i], grain), "step": step,
-                     "period": period_str(h["period"].iloc[j], grain),
-                     "actual": float(h["value"].iloc[j]), "pred": float(preds[step - 1]),
-                     "scoreable": bool(h["scoreable"].iloc[j])})
+        row = {"origin": period_str(h["period"].iloc[i], grain), "step": step,
+               "period": period_str(h["period"].iloc[j], grain),
+               "actual": float(h["value"].iloc[j]), "pred": float(preds[step - 1]),
+               "scoreable": bool(h["scoreable"].iloc[j])}
+        if lower is not None and upper is not None:
+            row["lower"], row["upper"] = float(lower[step - 1]), float(upper[step - 1])
+        rows.append(row)
     return rows
 
 
 def backtest_path(model_id, estate, grain):
-    return os.path.join(ARTIFACT_DIR, "backtest", model_id, f"{estate}_{grain}.csv")
+    return os.path.join(artifact_dir(), "backtest", model_id, f"{estate}_{grain}.csv")
 
 
 def backtest(model_id, estate, grain):
@@ -346,6 +394,15 @@ def backtest(model_id, estate, grain):
             rows += backtest_rows(estate, grain, i, preds)
         df = pd.DataFrame(rows, columns=BACKTEST_COLS).dropna(subset=["pred"])
         return (df, "") if len(df) else (None, f"needs a full year of history before a target")
+    if model_id == "seasonal_profile":
+        rows = []
+        for i in backtest_origins(estate, grain):
+            ctx = seasonal_profile.group_context(ESTATES, month_history, estate, h["period"].iloc[i])
+            if estate in ctx:
+                rows += backtest_rows(estate, grain, i, seasonal_profile.forecast(estate, ctx, MAX_H))
+        return pd.DataFrame(rows, columns=BACKTEST_COLS), ""
+    if m["source"] == "derived":
+        return derived_backtest(model_id, estate, grain)
     if model_id == "served_ensemble":
         spec = ESTATES[estate]
         if not (spec["served"] and spec["features"] and grain == "month"):
@@ -364,9 +421,27 @@ def backtest(model_id, estate, grain):
     return pd.read_csv(path, dtype={"origin": str, "period": str}), ""
 
 
+def derived_backtest(model_id, estate, grain):
+    """Weighted mean of the members' walk-forward predictions, on the (origin, step)
+    rows every member has."""
+    m = model_spec(model_id)
+    frames = []
+    for member in m["members"]:
+        df, why = backtest(member, estate, grain)
+        if df is None or df.empty:
+            return None, f"{model_spec(member)['label']}: {why or 'no backtest rows'}"
+        frames.append(df.set_index(["origin", "step"]))
+    idx = frames[0].index
+    for f in frames[1:]:
+        idx = idx.intersection(f.index)
+    base = frames[0].loc[idx, ["period", "actual", "scoreable"]].copy()
+    base["pred"] = sum(w * f.loc[idx, "pred"].astype(float) for w, f in zip(m["weights"], frames))
+    return base.reset_index()[BACKTEST_COLS], ""
+
+
 # -- artifacts ----------------------------------------------------------------------
 def artifact_path(model_id, estate, grain):
-    return os.path.join(ARTIFACT_DIR, model_id, f"{estate}_{grain}.json")
+    return os.path.join(artifact_dir(), model_id, f"{estate}_{grain}.json")
 
 
 def read_artifact(model_id, estate, grain):
@@ -378,7 +453,7 @@ def read_artifact(model_id, estate, grain):
 
 
 def read_manifest():
-    path = os.path.join(ARTIFACT_DIR, "manifest.json")
+    path = os.path.join(artifact_dir(), "manifest.json")
     if not os.path.exists(path):
         return None
     with open(path, encoding="utf-8") as fh:

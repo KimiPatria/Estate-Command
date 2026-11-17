@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPMS · Production Outlook</title>
+<script>
+  // Theme before first paint (same key as the chat page), so a dark-mode user never sees a white flash.
+  (function () {
+    var t = null;
+    try { t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('chat-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23115e6e'/%3E%3Cpath d='m16 6 2.5 7.4L26 15.3l-7.5 2.5L16 25.3l-2.5-7.5L6 15.3l7.5-1.9Z' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/chat-static/vendor/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+.hidden { display: none !important; }
+
+/* ── title row ─────────────────────────────────────────────────────── */
+.ol-sub { font-size: 13px; color: var(--muted); }
+.hz-toggle, .scope-chips { display: flex; align-items: center; }
+.analyst-link {
+  font-size: 12.5px; font-weight: 500; color: var(--muted); text-decoration: none;
+  padding: 5px 10px; border-radius: 99px; white-space: nowrap;
+}
+.analyst-link:hover { color: var(--text); background: var(--bg-hover); }
+
+/* ── content ───────────────────────────────────────────────────────── */
+.fc-content { flex: 1; overflow-y: auto; padding: 20px 18px 36px; }
+.ol-wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+.headline {
+  font-size: 22px; font-weight: 600; letter-spacing: -.4px; line-height: 1.35;
+  display: flex; align-items: flex-start; gap: 10px; animation: fadeUp .35s var(--ease) both;
+}
+.headline .dir {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; margin-top: -1px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+.headline .dir svg { width: 20px; height: 20px; }
+.headline .span { color: var(--muted); font-weight: 400; }
+.rev-note { font-size: 13.5px; color: var(--text-2); margin-top: -8px; padding-left: 44px; }
+.track { font-size: 13px; color: var(--text-2); margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+.track b { font-weight: 600; color: var(--text); }
+.track .dots { display: inline-flex; gap: 3px; }
+.track .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.track .dot.miss { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border-2); }
+.stale-note {
+  font-size: 12.5px; color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-bd);
+  border-radius: 10px; padding: 7px 12px; align-self: flex-start;
+}
+
+/* ── tiles ─────────────────────────────────────────────────────────── */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  animation: fadeUp .4s var(--ease) both;
+}
+.tile .t-label { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.tile .t-value { font-size: 26px; font-weight: 600; letter-spacing: -.5px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.tile .t-value .unit { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 5px; letter-spacing: 0; }
+.tile .t-sub { font-size: 12.5px; color: var(--text-2); }
+.tile.na .t-value { color: var(--muted); }
+.tile.na { background: var(--bg-soft); border-style: dashed; }
+.t-value.up::before, .t-value.down::before { font-size: 15px; margin-right: 6px; vertical-align: 3px; }
+.t-value.up::before { content: '▲'; }
+.t-value.down::before { content: '▼'; }
+
+/* ── chart card ────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px 18px; animation: fadeUp .45s var(--ease) both;
+}
+.card-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.card-head h2 { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.card-head .q { font-size: 12.5px; color: var(--muted); }
+.legend { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+.lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-2); }
+.lg.off { color: var(--muted); }
+.sw { display: inline-block; width: 18px; height: 0; }
+.sw.actual { border-top: 2px solid var(--accent); }
+.sw.fcst { border-top: 2px dashed var(--s4); }
+.sw.ly { border-top: 2px dotted var(--muted); }
+.sw.budget { border-top: 2px dashed var(--border-2); }
+.sw.band {
+  height: 11px; border-radius: 3px;
+  background: color-mix(in srgb, var(--s4) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--s4) 40%, transparent);
+}
+.sw.under { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--text-2); background: var(--surface); }
+.chart-box { position: relative; height: 440px; }
+
+.numbers { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.numbers summary {
+  font-size: 13px; font-weight: 500; color: var(--accent); cursor: pointer; list-style: none;
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 0;
+}
+.numbers summary::-webkit-details-marker { display: none; }
+.numbers summary::before { content: '▸'; transition: transform .15s; }
+.numbers[open] summary::before { transform: rotate(90deg); }
+.tbl-scroll { overflow-x: auto; margin-top: 8px; }
+.ol-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ol-table th {
+  font-size: 12px; font-weight: 500; color: var(--muted); text-align: right;
+  padding: 7px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.ol-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.ol-table th:first-child, .ol-table td:first-child { text-align: left; }
+.ol-table td:first-child { font-weight: 500; }
+.ol-table tr:last-child td { border-bottom: none; }
+.ol-table .muted { color: var(--muted); }
+
+/* ── estates ───────────────────────────────────────────────────────── */
+.est-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.est {
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px 8px; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  transition: border-color .15s, background .15s;
+}
+.est:hover { border-color: var(--border-2); background: var(--bg-soft); }
+.est.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.est-top { display: flex; align-items: baseline; gap: 8px; }
+.est-name { font-size: 14px; font-weight: 600; }
+.est-dir { margin-left: auto; font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.est-val { font-size: 19px; font-weight: 600; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.est-val .unit { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; letter-spacing: 0; }
+.est-yoy { font-size: 12.5px; color: var(--text-2); }
+.est-yoy.na { color: var(--muted); }
+.est-spark { position: relative; height: 72px; margin-top: 4px; }
+
+/* ── needs strip ───────────────────────────────────────────────────── */
+.needs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  font-size: 12.5px; color: var(--muted); padding: 2px 4px;
+}
+.needs:empty { display: none; }
+.needs .n-lbl { font-weight: 600; color: var(--text-2); }
+.needs .n-item::before { content: '○'; margin-right: 6px; }
+
+/* ── states ────────────────────────────────────────────────────────── */
+.center-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 90px 20px; color: var(--muted); text-align: center;
+}
+.spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite;
+}
+.err-box { padding: 14px 18px; font-size: 13px; line-height: 1.6; max-width: 560px; }
+
+@media (max-width: 900px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chart-box { height: 340px; }
+  .headline { font-size: 19px; }
+}
+@media (max-width: 560px) {
+  .fc-content { padding: 16px 16px 28px; }
+  .tile .t-value { font-size: 22px; }
+  .chart-box { height: 280px; }
+  .legend { margin-left: 0; gap: 10px; }
+}
+</style>
+<link rel="stylesheet" href="/forecast-static/theme.css?v=1">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="/chat" aria-label="EPMS AI, chat">
+    <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
+  </a>
+  <span class="page-name">Production Outlook</span>
+  <nav class="app-nav" aria-label="Pages">
+    <a href="/chat">Chat</a>
+    <a href="/report">Report</a>
+    <a href="/forecast" class="on" aria-current="page">Forecast</a>
+  </nav>
+  <div class="top-right">
+    <a class="analyst-link" id="analyst-link" href="/forecast/analyst">Analyst view →</a>
+    <button class="icon-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme"></button>
+  </div>
+</header>
+
+<div class="fc-titlebar">
+  <div>
+    <div class="fc-title" id="ol-title">Production outlook</div>
+    <div class="ol-sub" id="ol-sub">&nbsp;</div>
+  </div>
+  <div class="fc-meta">
+    <div class="scope-chips" id="scope-chips" role="group" aria-label="Estate"></div>
+    <div class="hz-toggle" id="hz-toggle" role="group" aria-label="How far ahead">
+      <button class="hz-btn active" data-hz="3">3 months</button>
+      <button class="hz-btn" data-hz="6">6 months</button>
+    </div>
+    <div class="pop-anchor">
+      <button type="button" class="chip" id="db-chip" aria-haspopup="dialog" aria-expanded="false"
+              title="Database the forecast is read from" hidden></button>
+      <div class="popover" id="db-pop" role="dialog" aria-label="Database" hidden></div>
+    </div>
+  </div>
+</div>
+
+<div class="fc-content">
+  <div class="ol-wrap">
+
+    <div id="state-loading" class="center-state">
+      <div class="spinner"></div>
+      <p>Loading the outlook…</p>
+    </div>
+
+    <div id="state-error" class="center-state hidden">
+      <div class="err-box" id="err-msg"></div>
+      <button class="btn-refresh" id="retry-btn">↻ Retry</button>
+    </div>
+
+    <div id="state-result" class="ol-wrap hidden" style="width:100%">
+
+      <h1 class="headline" id="headline"></h1>
+      <div class="rev-note hidden" id="rev-note"></div>
+      <div class="stale-note hidden" id="stale-note"></div>
+
+      <div class="tiles" id="tiles"></div>
+
+      <section class="card" id="trend-card" aria-labelledby="trend-title">
+        <div class="card-head">
+          <div>
+            <h2 id="trend-title">Production trend</h2>
+            <div class="q">Where is production heading? Monthly harvest, in bunches.</div>
+          </div>
+          <div class="legend" id="trend-legend">
+            <span class="lg"><span class="sw actual"></span>Actual</span>
+            <span class="lg"><span class="sw fcst"></span>Forecast</span>
+            <span class="lg"><span class="sw band"></span>Likely range</span>
+            <span class="lg"><span class="sw ly"></span>Last year</span>
+            <span class="lg off" id="lg-under"><span class="sw under"></span>Incomplete records</span>
+            <span class="lg off" title="Monthly budget not loaded"><span class="sw budget"></span>Budget · N/A</span>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="trend-chart" role="img" aria-label="Monthly production: actuals, forecast and last year"></canvas></div>
+        <p class="track hidden" id="track"></p>
+
+        <details class="numbers" id="numbers">
+          <summary>See the numbers</summary>
+          <div class="tbl-scroll">
+            <table class="ol-table">
+              <thead><tr><th>Month</th><th>Expected</th><th>Likely range</th><th>Last year</th><th>vs last year</th><th>Budget</th></tr></thead>
+              <tbody id="num-body"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <section class="card" id="est-card" aria-labelledby="est-title">
+        <div class="card-head">
+          <div>
+            <h2 id="est-title">By estate</h2>
+            <div class="q">Which estates are up or down on last year? Select one to open it.</div>
+          </div>
+        </div>
+        <div class="est-grid" id="est-grid"></div>
+      </section>
+
+      <div class="needs" id="needs"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/forecast-static/theme.js?v=1"></script>
+<script>
+'use strict';
+
+let C = Theme.chart();
+let chart = null;
+let lastData = null;
+let currentHorizon = 3;
+let currentScope = 'all';     // 'all' = the database's group view, otherwise an estate id
+let loadSeq = 0;
+
+Theme.onChange(() => { C = Theme.chart(); if (lastData) { renderChart(lastData); renderEstates(lastData); } });
+
+/* ── boot ─────────────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('retry-btn').addEventListener('click', () => loadOutlook());
+  document.querySelectorAll('#hz-toggle .hz-btn').forEach(btn => btn.addEventListener('click', () => {
+    const hz = +btn.dataset.hz;
+    if (hz === currentHorizon) return;
+    currentHorizon = hz;
+    paintHorizon();
+    loadOutlook();
+  }));
+  Theme.db.onChange(() => { currentScope = 'all'; lastData = null; loadOutlook(); });
+  try { const q = new URLSearchParams(location.search).get('estate'); if (q) currentScope = q; } catch (e) {}
+  Theme.db.init('/forecast/sources').then(() => loadOutlook());
+});
+
+/* ── fetch ────────────────────────────────────────────────────────── */
+async function loadOutlook() {
+  const source = Theme.db.current;
+  const seq = ++loadSeq;
+  // The live group view serves K3 (the live estates end on different months, so
+  // there is no honest sum; see forecast_router.page_payload). Staging sums them.
+  const estate = (source === 'live' && currentScope === 'all') ? 'k3' : currentScope;
+  if (source === 'live' && currentHorizon === 3 && estate === 'k3' && window.__FORECAST_DATA__) {
+    try { show('result'); render(window.__FORECAST_DATA__); return; }
+    catch (e) { console.error('[outlook] injected render failed, fetching instead:', e); }
+  }
+  show('loading');
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30000);
+    const res = await fetch('/forecast/data?horizon=' + currentHorizon + '&estate=' + encodeURIComponent(estate)
+      + '&source=' + encodeURIComponent(source), { signal: ctrl.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (seq !== loadSeq) return;
+    if (!res.ok) throw new Error(data.detail || ('Server error ' + res.status));
+    show('result');
+    await new Promise(r => requestAnimationFrame(r));
+    render(data);
+  } catch (err) {
+    if (seq !== loadSeq) return;
+    document.getElementById('err-msg').textContent = (err && err.name === 'AbortError')
+      ? 'The outlook took too long to load. Please retry.'
+      : (err && err.message ? err.message : 'Could not load the outlook.');
+    show('error');
+  }
+}
+
+function show(which) {
+  for (const s of ['loading', 'error', 'result'])
+    document.getElementById('state-' + s).classList.toggle('hidden', s !== which);
+}
+
+/* ── render ───────────────────────────────────────────────────────── */
+function render(data) {
+  lastData = data;
+  const scope = data.scope || {};
+  if (currentScope !== 'all' && !(scope.estates || []).some(e => e.id === currentScope && e.modeled)) currentScope = 'all';
+  if (data.horizon) currentHorizon = data.horizon;
+  paintHorizon(data.horizon_choices);
+  renderScope(data);
+  renderHeader(data);
+  renderHeadline(data);
+  renderTiles(data);
+  renderChart(data);
+  renderNumbers(data);
+  renderTrack(data);
+  renderRevision(data);
+  renderEstates(data);
+  renderNeeds(data);
+  const a = document.getElementById('analyst-link');
+  const q = new URLSearchParams();
+  if (Theme.db.current !== 'live') q.set('db', Theme.db.current);
+  if (currentScope !== 'all') q.set('estate', currentScope);
+  a.href = '/forecast/analyst' + (q.toString() ? '?' + q : '');
+}
+
+function paintHorizon(choices) {
+  document.querySelectorAll('#hz-toggle .hz-btn').forEach(b => {
+    if (choices) b.classList.toggle('hidden', !choices.includes(+b.dataset.hz));
+    b.classList.toggle('active', +b.dataset.hz === currentHorizon);
+  });
+}
+
+function renderScope(data) {
+  const estates = ((data.scope || {}).estates || []).filter(e => e.modeled);
+  const chips = [{ id: 'all', label: 'All estates' }].concat(estates.map(e => ({ id: e.id, label: e.label })));
+  const box = document.getElementById('scope-chips');
+  box.innerHTML = chips.map(c => `<button class="scope-chip${c.id === currentScope ? ' active' : ''}" data-scope="${esc(c.id)}">${esc(c.label)}</button>`).join('');
+  box.querySelectorAll('.scope-chip').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.scope === currentScope) return;
+    currentScope = b.dataset.scope;
+    loadOutlook();
+  }));
+}
+
+/** Who the numbers are for: an estate's name, or the group when the series is a sum. */
+function subject(data) {
+  const label = data.series_label || (data.scope || {}).series_label || '';
+  return label.includes('+') ? 'Group' : label;
+}
+
+function renderHeader(data) {
+  const hist = data.history || [];
+  const last = hist.length ? hist[hist.length - 1].month : null;
+  const label = data.series_label || '';
+  const who = label.includes('+') ? label.split(' + ').join(', ') + ' combined' : label + ' estate';
+  document.getElementById('ol-title').textContent = 'Production outlook';
+  document.getElementById('ol-sub').textContent = who + (last ? ' · actuals to ' + mLabel(last) : '');
+}
+
+/** Where the forecast path goes, in words. Starts at the last actual month (or the
+    first forecast month when that last month is incomplete), ends at the last
+    forecast month; a turn inside the window is named when it is clear (>5%). */
+function direction(data) {
+  const hist = data.history || [], fc = data.forecast || [];
+  if (!fc.length) return null;
+  const a = hist[hist.length - 1];
+  const pts = (a && !a.underrecorded ? [{ month: a.month, v: a.value }] : [])
+    .concat(fc.map(f => ({ month: f.month, v: f.ensemble })));
+  const start = pts[0], end = pts[pts.length - 1], mid = pts.slice(1, -1);
+  const TH = 0.03, TURN = 0.05;
+  const chg = start.v ? (end.v - start.v) / start.v : 0;
+  const trend = chg > TH ? 'up' : chg < -TH ? 'down' : 'flat';
+  if (mid.length) {
+    const peak = mid.reduce((m, p) => p.v > m.v ? p : m), trough = mid.reduce((m, p) => p.v < m.v ? p : m);
+    if (peak.v > Math.max(start.v, end.v) * (1 + TURN)) {
+      const at = mLabel(peak.month);
+      return { kind: 'peak', text: { up: 'rise to a peak in ' + at + ', then ease',
+                                     flat: 'peak in ' + at + ', then ease back',
+                                     down: 'peak in ' + at + ', then fall' }[trend],
+               short: { up: 'peaks, then eases', flat: 'peaks, then eases back', down: 'peaks, then falls' }[trend] };
+    }
+    if (trough.v < Math.min(start.v, end.v) * (1 - TURN)) {
+      const at = mLabel(trough.month);
+      return { kind: 'dip', text: { up: 'dip in ' + at + ', then rise',
+                                    flat: 'dip in ' + at + ', then recover',
+                                    down: 'fall to a low in ' + at + ', then partly recover' }[trend],
+               short: { up: 'dips, then rises', flat: 'dips, then recovers', down: 'falls, then partly recovers' }[trend] };
+    }
+  }
+  return { kind: trend, text: { up: 'rise', down: 'ease', flat: 'hold steady' }[trend],
+           short: { up: 'rising', down: 'easing', flat: 'steady' }[trend] };
+}
+
+const DIR_ICON = {
+  up:   '<path d="M4 17 10 11l4 4 6-7"/><path d="M14 8h6v6"/>',
+  down: '<path d="M4 7l6 6 4-4 6 7"/><path d="M14 16h6v-6"/>',
+  flat: '<path d="M4 12h15"/><path d="m15 8 4 4-4 4"/>',
+  peak: '<path d="M3 17 9 8l4 5 3-3 5 7"/>',
+  dip:  '<path d="M3 7l6 9 4-5 3 3 5-7"/>',
+};
+
+function renderHeadline(data) {
+  const fc = data.forecast || [];
+  const d = direction(data);
+  const el = document.getElementById('headline');
+  if (!d) { el.textContent = 'No forecast is available for this selection.'; return; }
+  const span = monthSpan(fc[0].month, fc[fc.length - 1].month);
+  el.innerHTML = `<span class="dir" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${DIR_ICON[d.kind]}</svg></span>`
+    + `<span>${esc(subject(data))} production is expected to ${esc(d.text)} over the next ${fc.length} months `
+    + `<span class="span">(${esc(span)})</span></span>`;
+  const st = document.getElementById('stale-note');
+  st.textContent = data.stale ? (data.stale_note || 'The forecast is older than the latest data.') : '';
+  st.classList.toggle('hidden', !data.stale);
+}
+
+/** Same calendar months one year earlier, from the recorded history; null when any is missing. */
+function lastYear(hist, months) {
+  const by = new Map(hist.map(h => [h.month, h]));
+  let total = 0, incomplete = 0;
+  for (const m of months) {
+    const p = by.get(minusYear(m));
+    if (!p || p.value == null) return null;
+    total += p.value;
+    if (p.underrecorded) incomplete++;
+  }
+  return { total, incomplete };
+}
+
+function renderTiles(data) {
+  const fc = data.forecast || [], hist = data.history || [];
+  const n = fc.length;
+  const total = fc.reduce((s, f) => s + f.ensemble, 0);
+  const first = fc[0];
+  const ly = lastYear(hist, fc.map(f => f.month));
+  const yoy = ly && ly.total ? (total - ly.total) / ly.total * 100 : null;
+  const lyYears = [...new Set(fc.map(f => mParts(minusYear(f.month)).y))].join('–');
+  const tiles = [
+    first ? { label: 'Next month · ' + mLabel(first.month), value: fmtNum(first.ensemble), unit: 'bunches',
+              sub: 'Likely ' + fmtNum(lo(first)) + ' – ' + fmtNum(hi(first)) }
+          : { label: 'Next month', value: 'N/A', na: true, sub: '' },
+    { label: 'Next ' + n + ' months', value: fmtNum(total), unit: 'bunches', sub: 'Tonnes: N/A' },
+    yoy == null
+      ? { label: 'vs last year', value: 'N/A', na: true, sub: 'Last year incomplete' }
+      : { label: 'vs last year', value: Math.abs(yoy).toFixed(1) + '%', cls: yoy >= 0 ? 'up' : 'down',
+          sub: 'Same ' + n + ' months of ' + lyYears + (ly.incomplete ? ' · ' + ly.incomplete + ' with incomplete records' : '') },
+    { label: 'vs budget', value: 'N/A', na: true, sub: 'Budget not loaded' },
+  ];
+  document.getElementById('tiles').innerHTML = tiles.map((t, i) => `
+    <div class="tile${t.na ? ' na' : ''}" style="animation-delay:${i * 50}ms">
+      <span class="t-label">${esc(t.label)}</span>
+      <span class="t-value ${t.cls || ''}">${esc(t.value)}${t.unit ? `<span class="unit">${esc(t.unit)}</span>` : ''}</span>
+      <span class="t-sub">${esc(t.sub)}</span>
+    </div>`).join('');
+}
+
+/* "Likely range" is the 80% range where the payload has it, else the measured band. */
+function lo(f) { return f.lower80 != null ? f.lower80 : f.lower; }
+function hi(f) { return f.upper80 != null ? f.upper80 : f.upper; }
+
+const HIST_MONTHS = 12;
+
+/** The centerpiece: last 12 months of actuals, the forecast fanning out from the
+    last actual month with its likely range, and last year's line underneath. */
+function renderChart(data) {
+  const allHist = data.history || [], fc = data.forecast || [];
+  const hist = allHist.slice(-HIST_MONTHS);
+  const N = hist.length, M = fc.length;
+  const labels = hist.map(h => h.month).concat(fc.map(f => f.month));
+  const byMonth = new Map(allHist.map(h => [h.month, h]));
+  const ai = N - 1;                                   // anchor: last actual month
+
+  const actual = hist.map(h => h.value).concat(new Array(M).fill(null));
+  const fcLine = new Array(N + M).fill(null), up = new Array(N + M).fill(null), dn = new Array(N + M).fill(null);
+  if (ai >= 0) fcLine[ai] = up[ai] = dn[ai] = hist[ai].value;
+  fc.forEach((f, i) => { fcLine[N + i] = f.ensemble; up[N + i] = hi(f); dn[N + i] = lo(f); });
+  const ly = labels.map(m => { const p = byMonth.get(minusYear(m)); return p ? p.value : null; });
+  const under = hist.map(h => !!h.underrecorded).concat(new Array(M).fill(false));
+  document.getElementById('lg-under').classList.toggle('hidden', !under.some(Boolean));
+
+  // Divider at the last actual month, and the values at the ends of the lines.
+  const marks = {
+    id: 'olMarks',
+    afterDatasetsDraw(c) {
+      const { ctx, chartArea: { top, bottom } } = c;
+      ctx.save();
+      if (ai >= 0 && M) {
+        const x = c.scales.x.getPixelForValue(ai);
+        ctx.beginPath(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.strokeStyle = C.divider;
+        ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = C.muted; ctx.font = '500 11.5px Inter, sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('Forecast →', x + 6, top + 12);
+      }
+      const label = (i, v, text, dy) => {
+        if (v == null) return;
+        const x = c.scales.x.getPixelForValue(i), y = c.scales.y.getPixelForValue(v);
+        ctx.font = '600 12px Inter, sans-serif'; ctx.fillStyle = C.text; ctx.textAlign = 'left';
+        ctx.fillText(fmtNum(v), x + 9, y + 4 + (dy || 0));
+        if (text) { ctx.font = '500 11px Inter, sans-serif'; ctx.fillStyle = C.muted; ctx.fillText(text, x + 9, y + 17 + (dy || 0)); }
+      };
+      const end = N + M - 1;
+      if (M) {
+        const lyEnd = ly[end], fEnd = fcLine[end];
+        // keep the two end labels apart when the lines finish close together
+        const apart = lyEnd != null && Math.abs(c.scales.y.getPixelForValue(lyEnd) - c.scales.y.getPixelForValue(fEnd)) < 30;
+        const below = apart && lyEnd < fEnd;
+        label(end, fEnd, 'Forecast', apart && !below ? 14 : (apart ? -14 : 0));
+        if (lyEnd != null) label(end, lyEnd, 'Last year', apart ? (below ? 14 : -14) : 0);
+      }
+      ctx.restore();
+    },
+  };
+
+  const cfg = {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '_hi', data: up, borderColor: 'transparent', backgroundColor: Theme.alpha(C.fc, .16),
+          pointRadius: 0, pointHoverRadius: 0, fill: '+1', tension: .3 },
+        { label: '_lo', data: dn, borderColor: 'transparent', pointRadius: 0, pointHoverRadius: 0, fill: false, tension: .3 },
+        { label: 'Last year', data: ly, borderColor: C.muted, borderWidth: 1.75, borderDash: [2, 4],
+          pointRadius: 0, pointHoverRadius: 0, fill: false, tension: .3, spanGaps: true },
+        { label: 'Actual', data: actual, borderColor: C.actual, borderWidth: 2.25, fill: false, tension: .3,
+          pointRadius: (x) => under[x.dataIndex] ? 4 : 0, pointHoverRadius: 5,
+          pointBackgroundColor: C.surface, pointBorderColor: C.text2, pointBorderWidth: 2 },
+        { label: 'Forecast', data: fcLine, borderColor: C.fc, borderWidth: 2.25, borderDash: [6, 4], fill: false, tension: .3,
+          pointRadius: (x) => x.dataIndex === ai ? 0 : 4.5, pointHoverRadius: (x) => x.dataIndex === ai ? 0 : 6,
+          pointBackgroundColor: C.fc, pointBorderColor: C.surface, pointBorderWidth: 2 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 450 },
+      layout: { padding: { right: 72, top: 4 } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...Theme.tooltip(), displayColors: false,
+          // one block per month, written in words
+          filter: (item) => item.datasetIndex === item.chart.data.datasets.findIndex(
+            (d, k) => !d.label.startsWith('_') && d.data[item.dataIndex] != null && k >= 2),
+          callbacks: {
+            title: (items) => items.length ? mLabel(items[0].label) : '',
+            label: (item) => tipLines(item.dataIndex),
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false },
+          ticks: { color: C.tick, font: { size: 11.5 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10,
+            callback(v) { return mShort(this.getLabelForValue(v)); } } },
+        y: { grid: { color: C.grid }, border: { display: false },
+          ticks: { color: C.tick, font: { size: 11.5 }, maxTicksLimit: 6, callback: (v) => fmtNum(v) } },
+      },
+    },
+    plugins: [marks],
+  };
+
+  function tipLines(i) {
+    const out = [];
+    if (i >= N) {
+      const f = fc[i - N];
+      out.push('Expected: ' + fmtFull(f.ensemble) + ' bunches');
+      out.push('Likely: ' + fmtFull(lo(f)) + ' – ' + fmtFull(hi(f)));
+    } else {
+      out.push('Actual: ' + fmtFull(actual[i]) + ' bunches');
+      if (under[i]) out.push('Records incomplete this month');
+    }
+    if (ly[i] != null) out.push('Last year: ' + fmtFull(ly[i]));
+    return out;
+  }
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('trend-chart'), cfg);
+}
+
+function renderNumbers(data) {
+  const fc = data.forecast || [], hist = data.history || [];
+  const by = new Map(hist.map(h => [h.month, h]));
+  document.getElementById('num-body').innerHTML = fc.map(f => {
+    const p = by.get(minusYear(f.month));
+    const lyv = p ? p.value : null;
+    const chg = lyv ? (f.ensemble - lyv) / lyv * 100 : null;
+    return `<tr><td>${esc(mLabel(f.month))}</td><td>${fmtFull(f.ensemble)}</td>
+      <td class="muted">${fmtFull(lo(f))} – ${fmtFull(hi(f))}</td>
+      <td>${fmtFull(lyv)}${p && p.underrecorded ? ' <span class="muted">(incomplete)</span>' : ''}</td>
+      <td>${chg == null ? 'N/A' : (chg >= 0 ? '▲ ' : '▼ ') + Math.abs(chg).toFixed(1) + '%'}</td>
+      <td class="muted">N/A</td></tr>`;
+  }).join('');
+}
+
+/** How often next-month forecasts landed close, in words (instead of an error metric). */
+function renderTrack(data) {
+  const t = data.track_record, el = document.getElementById('track');
+  el.classList.toggle('hidden', !t);
+  if (!t) return;
+  const dots = (t.hits || []).map((h, i) => `<span class="dot${h ? '' : ' miss'}" title="${esc(mLabel(t.months[i]))}: ${h ? 'within' : 'outside'} ±${t.tol_pct}%"></span>`).join('');
+  el.innerHTML = `<span class="dots" aria-hidden="true">${dots}</span><span>Tested on the last ${t.n} months `
+    + `(${esc(monthSpan(t.first_month, t.last_month))}), next-month forecasts landed within ±${t.tol_pct}% of actual `
+    + `in <b>${t.within} of ${t.n}</b>.</span>`;
+}
+
+/** The change since the previous forecast of the same months (shadow log), when there is one. */
+function renderRevision(data) {
+  const r = data.revision, el = document.getElementById('rev-note');
+  const show = !!(r && r.pct != null);
+  el.classList.toggle('hidden', !show);
+  if (!show) return;
+  const word = Math.abs(r.pct) < 1 ? 'Little changed' : (r.pct > 0 ? 'Up ' : 'Down ') + Math.abs(r.pct).toFixed(1) + '%';
+  el.textContent = word + ' since the previous forecast for '
+    + monthSpan(r.months[0], r.months[r.months.length - 1]) + ' (made with data to ' + mLabel(r.previous_anchor) + ').';
+}
+
+/* ── estates: one mini chart each, biggest drop vs last year first ── */
+let sparks = [];
+const SPARK_HIST = 6;      // months of actuals before the forecast, so the forecast gets room
+const DIR_GLYPH = { up: '↗', down: '↘', flat: '→', peak: '↗↘', dip: '↘↗' };
+
+function renderEstates(data) {
+  const estates = ((data.scope || {}).estates || []).filter(e => e.modeled && e.tile && e.tile.spark);
+  const card = document.getElementById('est-card');
+  card.classList.toggle('hidden', estates.length < 2);
+  sparks.forEach(c => c.destroy());
+  sparks = [];
+  if (estates.length < 2) return;
+  const rank = (e) => e.tile.yoy_pct == null ? Infinity : e.tile.yoy_pct;
+  estates.sort((a, b) => rank(a) - rank(b));
+  const grid = document.getElementById('est-grid');
+  grid.innerHTML = estates.map(e => {
+    const t = e.tile, s = t.spark;
+    const d = direction({ history: s.history, forecast: s.forecast }) || { kind: 'flat', short: 'steady' };
+    const yoy = t.yoy_pct == null
+      ? '<div class="est-yoy na">vs last year N/A</div>'
+      : `<div class="est-yoy">${t.yoy_pct >= 0 ? '▲' : '▼'} ${Math.abs(t.yoy_pct).toFixed(1)}% vs last year</div>`;
+    return `<button class="est${e.id === currentScope ? ' on' : ''}" data-scope="${esc(e.id)}" title="Open ${esc(e.label)}">
+      <div class="est-top"><span class="est-name">${esc(e.label)}</span>
+        <span class="est-dir">${DIR_GLYPH[d.kind]} ${esc(d.short)}</span></div>
+      <div class="est-val">${fmtNum(t.total)}<span class="unit">bunches · ${esc(shortSpan(t.first_month, t.last_month))}</span></div>
+      ${yoy}
+      <div class="est-spark"><canvas aria-label="${esc(e.label)}: last 12 months and forecast"></canvas></div>
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('.est').forEach((b, i) => {
+    b.addEventListener('click', () => {
+      if (b.dataset.scope === currentScope) return;
+      currentScope = b.dataset.scope;
+      loadOutlook();
+    });
+    sparks.push(miniChart(b.querySelector('canvas'), estates[i].tile.spark));
+  });
+}
+
+/** Shape only: actual line, forecast dashed from the last actual month, likely range shaded. */
+function miniChart(canvas, s) {
+  const hist = s.history.slice(-SPARK_HIST), fc = s.forecast, N = hist.length, M = fc.length, ai = N - 1;
+  const labels = hist.map(h => h.month).concat(fc.map(f => f.month));
+  const actual = hist.map(h => h.value).concat(new Array(M).fill(null));
+  const line = new Array(N + M).fill(null), up = new Array(N + M).fill(null), dn = new Array(N + M).fill(null);
+  if (ai >= 0) line[ai] = up[ai] = dn[ai] = hist[ai].value;
+  fc.forEach((f, i) => { line[N + i] = f.ensemble; up[N + i] = hi(f); dn[N + i] = lo(f); });
+  return new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: '_hi', data: up, borderColor: 'transparent', backgroundColor: Theme.alpha(C.fc, .16), pointRadius: 0, fill: '+1', tension: .3 },
+      { label: '_lo', data: dn, borderColor: 'transparent', pointRadius: 0, fill: false, tension: .3 },
+      { label: 'Actual', data: actual, borderColor: C.actual, borderWidth: 2, pointRadius: 0, pointHoverRadius: 3, fill: false, tension: .3 },
+      { label: 'Forecast', data: line, borderColor: C.fc, borderWidth: 2, borderDash: [4, 3], pointRadius: 0, pointHoverRadius: 3, fill: false, tension: .3 },
+    ] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 350 },
+      layout: { padding: { top: 4, bottom: 2, left: 2, right: 2 } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: {
+        ...Theme.tooltip(), displayColors: false, padding: 7,
+        filter: (item) => item.datasetIndex === (item.dataIndex >= N ? 3 : 2),
+        callbacks: {
+          title: (items) => items.length ? mLabel(items[0].label) : '',
+          label: (item) => (item.dataIndex >= N ? 'Expected: ' : 'Actual: ') + fmtFull(item.parsed.y),
+        } } },
+      scales: { x: { display: false }, y: { display: false, grace: '6%' } },
+    },
+  });
+}
+
+/** What the page is waiting for, in one line: the inputs behind each N/A. */
+function renderNeeds(data) {
+  const missing = ((data.scope || {}).estates || []).filter(e => !e.modeled).map(e => e.label);
+  const items = ['Average bunch weight per estate, for tonnes', 'Monthly budget per estate, for vs budget'];
+  if (missing.length) items.push('A forecast model for ' + missing.join(', '));
+  document.getElementById('needs').innerHTML = '<span class="n-lbl">Needs</span>'
+    + items.map(t => `<span class="n-item">${esc(t)}</span>`).join('');
+}
+
+/* ── formatting ───────────────────────────────────────────────────── */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function mParts(s) { const [y, m] = String(s).split('-'); return { y: +y, m: +m }; }
+function mLabel(s) { const p = mParts(s); return (MONTHS[p.m - 1] || '?') + ' ' + p.y; }
+function mShort(s) { const p = mParts(s); return (MONTHS[p.m - 1] || '?') + " '" + String(p.y).slice(2); }
+/** "May – Jul 2026", or "Nov 2026 – Apr 2027" across a year end. */
+function monthSpan(a, b) {
+  if (a === b) return mLabel(a);
+  const pa = mParts(a), pb = mParts(b);
+  return pa.y === pb.y ? MONTHS[pa.m - 1] + ' – ' + mLabel(b) : mLabel(a) + ' – ' + mLabel(b);
+}
+/** "May – Jul '26", or "Nov '26 – Jan '27". */
+function shortSpan(a, b) {
+  const pa = mParts(a), pb = mParts(b);
+  return pa.y === pb.y ? MONTHS[pa.m - 1] + ' – ' + mShort(b) : mShort(a) + ' – ' + mShort(b);
+}
+function minusYear(s) { const p = mParts(s); return (p.y - 1) + '-' + String(p.m).padStart(2, '0'); }
+function fmtFull(v) { return (v == null || isNaN(v)) ? 'N/A' : Math.round(v).toLocaleString('en-US'); }
+function fmtNum(v) {
+  if (v == null || isNaN(v)) return 'N/A';
+  const n = +v;
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return Math.round(n / 1e3) + 'K';
+  return String(Math.round(n));
+}
+function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+</script>
+</body>
+</html>

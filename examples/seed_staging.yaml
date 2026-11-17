@@ -1,0 +1,254 @@
+# Hand-written few-shot examples for the EPMS STAGING database (SQL Server, all estates).
+#
+# Each pair is shown to the SQL writer when a user asks something similar, as a
+# verified example. They follow business_rules_staging.txt: WERKS on OPH / GWO /
+# OVT and ESTNR on FDN / BLK / DIV / EST, PRFNR on ATD / EMP / MEM; current master
+# rows KDATE = '9999-12-31'; FDN weight once per SPB; BHA in its own subquery;
+# the inline date expressions of rule 10, and the last 12 full months when no
+# period is asked for.
+#
+# Questions must NOT copy an eval question (evals/golden_chat.yaml): the loader
+# rejects any at cosine similarity >= 0.90.
+#
+#   python evals/seed_examples.py --check
+#   python evals/seed_examples.py --apply
+
+- question: "Ripe bunches per estate for each month of this year"
+  sql: |
+    SELECT e.NAME1 AS estate, YEAR(o.BUDAT) AS year, MONTH(o.BUDAT) AS month,
+           SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches
+    FROM OPH o
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.WERKS IS NOT NULL AND o.BUDAT >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+    GROUP BY e.NAME1, YEAR(o.BUDAT), MONTH(o.BUDAT)
+    ORDER BY estate, year, month
+
+- question: "Loose fruit (brondolan) collected by each estate in the previous month"
+  sql: |
+    SELECT e.NAME1 AS estate, SUM(TRY_CAST(o.ZBRONDOLAN AS decimal(18,2))) AS loose_fruit
+    FROM OPH o
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.WERKS IS NOT NULL
+      AND o.BUDAT >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+      AND o.BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    GROUP BY e.NAME1
+    ORDER BY loose_fruit DESC
+
+- question: "Top 10 harvesters by ripe bunches in Estate B during August 2026"
+  sql: |
+    SELECT TOP 10 o.EMPNR, MAX(e.ENAME) AS harvester, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS ripe_bunches
+    FROM OPH o
+    JOIN EMP e ON e.EMPNR = o.EMPNR AND o.BUDAT BETWEEN e.KDATB AND e.KDATE
+    WHERE o.WERKS = '00EB' AND o.BUDAT >= '2026-08-01' AND o.BUDAT < '2026-09-01'
+    GROUP BY o.EMPNR
+    ORDER BY ripe_bunches DESC
+
+- question: "Tonnes sent to the mill day by day from Estate A in September 2026"
+  sql: |
+    SELECT t.d AS day, SUM(t.w) / 1000.0 AS tonnes
+    FROM (SELECT ESTNR, SPB, MIN(BUDAT) AS d, MAX(WB_QTY_TOTAL) AS w FROM FDN
+          WHERE ESTNR = 'EA' AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01'
+          GROUP BY ESTNR, SPB) t
+    WHERE t.w > 0
+    GROUP BY t.d
+    ORDER BY t.d
+  notes: rule 5, the trip weight taken once per SPB
+
+- question: "Mill deliveries in tonnes for every estate, month by month since January 2026"
+  sql: |
+    SELECT e.NAME1 AS estate, YEAR(t.d) AS year, MONTH(t.d) AS month, SUM(t.w) / 1000.0 AS tonnes
+    FROM (SELECT ESTNR, SPB, MIN(BUDAT) AS d, MAX(WB_QTY_TOTAL) AS w FROM FDN
+          WHERE BUDAT >= '2026-01-01' GROUP BY ESTNR, SPB) t
+    JOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'
+    WHERE t.w > 0
+    GROUP BY e.NAME1, YEAR(t.d), MONTH(t.d)
+    ORDER BY estate, year, month
+
+- question: "Tonnage carried by each truck in October 2026"
+  sql: |
+    SELECT TOP 20 t.NOPOLISI AS truck, COUNT(*) AS trips, SUM(t.w) / 1000.0 AS tonnes
+    FROM (SELECT ESTNR, SPB, MAX(NOPOLISI) AS NOPOLISI, MAX(WB_QTY_TOTAL) AS w FROM FDN
+          WHERE BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY ESTNR, SPB) t
+    WHERE t.w > 0
+    GROUP BY t.NOPOLISI
+    ORDER BY tonnes DESC
+
+- question: "Which divisions of Estate C get the most bunches out of each planted hectare this year?"
+  sql: |
+    SELECT d.NAME1 AS division, h.bunches, a.ha, h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha
+    FROM (SELECT b.ESTNR, b.DIVNR, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS bunches
+          FROM OPH o
+          JOIN BLK b ON b.ESTNR = RIGHT(o.WERKS, 2) AND b.BLOCK = o.BLOCK AND b.KDATE = '9999-12-31'
+          WHERE o.WERKS = '00EC' AND o.BUDAT >= '2026-01-01' AND o.BUDAT < '2027-01-01'
+          GROUP BY b.ESTNR, b.DIVNR) h
+    JOIN (SELECT ESTNR, DIVNR, SUM(BHA) AS ha FROM BLK
+          WHERE KDATE = '9999-12-31' AND ESTNR = 'EC' GROUP BY ESTNR, DIVNR) a
+      ON a.ESTNR = h.ESTNR AND a.DIVNR = h.DIVNR
+    JOIN DIV d ON d.ESTNR = h.ESTNR AND d.DIVNR = h.DIVNR AND d.KDATE = '9999-12-31'
+    ORDER BY bunches_per_ha DESC
+  notes: rule 11 per division; OPH reaches the division through BLK, the area is summed apart
+
+- question: "Land productivity: bunches per mature hectare in every estate"
+  sql: |
+    SELECT e.NAME1 AS estate, h.bunches, a.ha, h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha
+    FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS bunches FROM OPH
+          WHERE WERKS IS NOT NULL
+            AND BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+          GROUP BY WERKS) h
+    JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a
+      ON a.ESTNR = RIGHT(h.WERKS, 2)
+    JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+    ORDER BY bunches_per_ha DESC
+  notes: no period asked, so the last 12 full months (rule 10); the area summed apart (rule 11)
+
+- question: "Mature planted hectares in each estate"
+  sql: |
+    SELECT e.NAME1 AS estate, SUM(b.BHA) AS mature_ha, COUNT(*) AS blocks
+    FROM BLK b
+    JOIN EST e ON e.ESTNR = b.ESTNR AND e.KDATE = '9999-12-31'
+    WHERE b.KDATE = '9999-12-31' AND b.BHA > 0
+    GROUP BY e.NAME1
+    ORDER BY mature_ha DESC
+
+- question: "How many blocks of each block state does every estate have?"
+  sql: |
+    SELECT b.ESTNR AS estate, b.BSTATE AS block_state, COUNT(*) AS blocks
+    FROM BLK b
+    WHERE b.KDATE = '9999-12-31'
+    GROUP BY b.ESTNR, b.BSTATE
+    ORDER BY estate, blocks DESC
+
+- question: "Person-days lost to mangkir in each estate during September 2026"
+  sql: |
+    SELECT PRFNR AS estate, COUNT(*) AS mangkir_person_days
+    FROM ATD
+    WHERE ATDCD = 'M' AND PRFNR IS NOT NULL AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01'
+    GROUP BY PRFNR
+    ORDER BY mangkir_person_days DESC
+  notes: person-days are rows; people would be COUNT(DISTINCT EMPNR)
+
+- question: "Breakdown of attendance codes for Estate A in the previous month"
+  sql: |
+    SELECT a.ATDCD AS code, c.[DESC] AS description, COUNT(*) AS person_days,
+           COUNT(DISTINCT a.EMPNR) AS people
+    FROM ATD a
+    LEFT JOIN ATC c ON c.CODE = a.ATDCD
+    WHERE a.PRFNR = 'ESTATE A'
+      AND a.BUDAT >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+      AND a.BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    GROUP BY a.ATDCD, c.[DESC]
+    ORDER BY person_days DESC
+
+- question: "Sick leave days taken in every estate so far this year"
+  sql: |
+    SELECT PRFNR AS estate, COUNT(*) AS sick_days, COUNT(DISTINCT EMPNR) AS people
+    FROM ATD
+    WHERE ATDCD IN ('S1', 'S2') AND PRFNR IS NOT NULL AND BUDAT >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+    GROUP BY PRFNR
+    ORDER BY sick_days DESC
+
+- question: "Man-days per activity in Estate B over the previous month"
+  sql: |
+    SELECT TOP 15 a.ACTVT_NAME AS activity, SUM(g.HKINP) AS man_days
+    FROM GWO g
+    JOIN ACT a ON a.ACTVT_NO = g.ACTVT_NO
+    WHERE g.WERKS = '00EB'
+      AND g.BUDAT >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+      AND g.BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    GROUP BY a.ACTVT_NAME
+    ORDER BY man_days DESC
+
+- question: "Man-days spent on manuring in each estate this year"
+  sql: |
+    SELECT e.NAME1 AS estate, SUM(g.HKINP) AS man_days
+    FROM GWO g
+    JOIN ACT a ON a.ACTVT_NO = g.ACTVT_NO
+    JOIN EST e ON e.WERKS = g.WERKS AND e.KDATE = '9999-12-31'
+    WHERE a.ACTVT_NAME LIKE '%PUPUK%' AND g.BUDAT >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+    GROUP BY e.NAME1
+    ORDER BY man_days DESC
+  notes: activity names are Indonesian (manuring = PEMUPUKAN, pruning = PEMANGKASAN, spraying =
+    SEMPROT, weeding = BABAT / GARUK PIRINGAN), matched with LIKE; MENGE is never added across activities
+
+- question: "Overtime hours per estate for each month of 2026"
+  sql: |
+    SELECT PRFNR AS estate, MONTH(BUDAT) AS month, SUM(NHOUR) AS overtime_hours
+    FROM OVT
+    WHERE PRFNR IS NOT NULL AND BUDAT >= '2026-01-01' AND BUDAT < '2027-01-01'
+    GROUP BY PRFNR, MONTH(BUDAT)
+    ORDER BY estate, month
+
+- question: "Current employees by job in every estate"
+  sql: |
+    SELECT PRFNR AS estate, JBCDE AS job, COUNT(DISTINCT EMPNR) AS employees
+    FROM EMP
+    WHERE KDATE = '9999-12-31' AND PRFNR IS NOT NULL
+    GROUP BY PRFNR, JBCDE
+    ORDER BY estate, employees DESC
+
+- question: "berapa jumlah pemanen di masing-masing kebun saat ini"
+  sql: |
+    SELECT PRFNR AS kebun, COUNT(DISTINCT EMPNR) AS jumlah_pemanen
+    FROM EMP
+    WHERE KDATE = '9999-12-31' AND JBCDE = 'HARVESTERS' AND PRFNR IS NOT NULL
+    GROUP BY PRFNR
+    ORDER BY jumlah_pemanen DESC
+
+- question: "total janjang matang tiap kebun pada bulan kemarin"
+  sql: |
+    SELECT e.NAME1 AS kebun, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS janjang_matang
+    FROM OPH o
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.WERKS IS NOT NULL
+      AND o.BUDAT >= DATEADD(month, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+      AND o.BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+    GROUP BY e.NAME1
+    ORDER BY janjang_matang DESC
+
+- question: "Average ripe bunches one harvester brings in per working day, by estate"
+  sql: |
+    SELECT e.NAME1 AS estate, AVG(d.bunches) AS bunches_per_harvester_day, COUNT(*) AS harvester_days
+    FROM (SELECT WERKS, EMPNR, BUDAT, SUM(CAST(ZMASAK AS decimal(18,2))) AS bunches FROM OPH
+          WHERE WERKS IS NOT NULL
+            AND BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+          GROUP BY WERKS, EMPNR, BUDAT) d
+    JOIN EST e ON e.WERKS = d.WERKS AND e.KDATE = '9999-12-31'
+    GROUP BY e.NAME1
+    ORDER BY bunches_per_harvester_day DESC
+  notes: no period asked, so the last 12 full months (rule 10); output per harvester per day first, then averaged
+
+- question: "When was the most recent harvest recorded in each estate?"
+  sql: |
+    SELECT e.NAME1 AS estate, MAX(o.BUDAT) AS latest_harvest
+    FROM OPH o
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.WERKS IS NOT NULL
+    GROUP BY e.NAME1
+    ORDER BY latest_harvest DESC
+
+- question: "Net delivered weight for each estate"
+  sql: |
+    SELECT e.NAME1 AS estate, SUM(t.w) / 1000.0 AS tonnes
+    FROM (SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w FROM FDN
+          WHERE BUDAT >= DATEADD(month, -12, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+            AND BUDAT < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+          GROUP BY ESTNR, SPB) t
+    JOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'
+    WHERE t.w > 0
+    GROUP BY e.NAME1
+    ORDER BY tonnes DESC
+  notes: the default period, and the weight once per trip
+
+- question: "Harvest tickets of this month that are not yet on a delivery note, per estate"
+  sql: |
+    SELECT e.NAME1 AS estate, COUNT(*) AS tickets_not_delivered
+    FROM OPH o
+    JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+    WHERE o.WERKS IS NOT NULL
+      AND o.BUDAT >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+      AND o.BUDAT < DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+      AND NOT EXISTS (SELECT 1 FROM FDN f WHERE f.OPH = o.OPH)
+    GROUP BY e.NAME1
+    ORDER BY tickets_not_delivered DESC

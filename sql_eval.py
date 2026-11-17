@@ -174,7 +174,8 @@ def _call_llm_retry(messages, *, task: str, max_tokens: int = 800, attempts: int
             time.sleep(wait)
 
 
-def eval_case(case: dict, *, k: int, with_examples: bool, prices: dict) -> dict:
+def eval_case(case: dict, *, k: int, with_examples: bool, prices: dict,
+              example_min_distance: float = 0.10) -> dict:
     from prompt_builder import build_sql_messages, extract_sql
     from retrieval import retrieve_tables, retrieve_examples
     from sql_validator import validate
@@ -202,12 +203,14 @@ def eval_case(case: dict, *, k: int, with_examples: bool, prices: dict) -> dict:
         row.update(status="no_tables", exec_match=False)
         return row
 
-    # 2. few-shot examples (off by default: query history contains these very
-    #    questions, which would leak answers into the prompt)
+    # 2. few-shot examples (off by default). Query history holds these very
+    #    questions, so a stored question at cosine similarity >= 0.90 to the
+    #    case (distance <= 0.10) is left out: the case must not be answered by
+    #    its own stored answer. Same k as the chat page.
     examples = []
     if with_examples:
         try:
-            examples = retrieve_examples(case["query"], k=2)
+            examples = retrieve_examples(case["query"], k=3, min_distance=example_min_distance)
         except Exception:
             examples = []
 
@@ -381,7 +384,8 @@ def run(args) -> dict:
     prices = _load_prices()
     model = llm_client.resolve_model(tier="main")
     meta = {"llm_provider": LLM_PROVIDER, "model": model,
-            "with_examples": bool(args.with_examples), "k": args.k}
+            "with_examples": bool(args.with_examples), "k": args.k,
+            "example_min_distance": getattr(args, "example_min_distance", 0.10)}
     print(f"Provider={LLM_PROVIDER} model={model} cases={len(cases)} "
           f"with_examples={bool(args.with_examples)}\n")
 
@@ -393,6 +397,7 @@ def run(args) -> dict:
     for i, case in enumerate(cases, 1):
         try:
             row = eval_case(case, k=args.k, with_examples=args.with_examples,
+                            example_min_distance=getattr(args, "example_min_distance", 0.10),
                             prices=prices)
         except Exception as exc:
             row = {"case_id": case["id"], "status": "harness_error",
@@ -434,4 +439,7 @@ if __name__ == "__main__":
                     help="only execute every expected_sql; no LLM calls")
     ap.add_argument("--sleep", type=float, default=2.0)
     ap.add_argument("--no-mlflow", action="store_true")
+    ap.add_argument("--example-min-distance", type=float, default=0.10,
+                    help="with --with-examples: drop stored questions closer than this to the case "
+                         "(0.10 = cosine similarity 0.90; 0 reproduces the old, leaky setting)")
     run(ap.parse_args())

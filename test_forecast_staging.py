@@ -135,7 +135,9 @@ def test_step_bands_measure_each_step_and_fill_unscored_ones_with_the_widest():
     bands = fs._step_bands(bt, 3)
     assert bands[1]["band_pct"] == 0.0 and bands[1]["n"] == 2
     assert bands[2]["band_pct"] == 40.0 and bands[2]["n"] == 1                  # 2*50/250
-    assert bands[3] == {"band_pct": 40.0, "n": 0, "coverage": None}
+    # an unscored step takes the widest measured band, and the widest 80% half-width
+    # (|100 - 150| / 150 = 33.3%, Phase 2 of buildplan_forecast_mlops.md)
+    assert bands[3] == {"band_pct": 40.0, "n": 0, "coverage": None, "band80_pct": 33.3}
 
 
 def test_tile_compares_with_the_same_months_a_year_earlier_or_not_at_all():
@@ -145,6 +147,54 @@ def test_tile_compares_with_the_same_months_a_year_earlier_or_not_at_all():
     assert t["total"] == 330 and t["yoy_total"] == 300 and t["yoy_pct"] == 10.0
     assert (t["first_month"], t["last_month"]) == ("2026-05", "2026-07")
     assert fs.tile({"history": hist[:2], "forecast": fc, "avg_band_pct": 9.5})["yoy_pct"] is None
+
+
+def test_track_record_counts_next_month_forecasts_within_ten_percent_over_the_last_twelve():
+    origins = [str(pd.Period("2025-01", "M") + i) for i in range(14)]
+    rows = []
+    for i, o in enumerate(origins):
+        rows.append((o, 1, 100.0, 100.0 + (5 if i % 2 else 20)))   # alternately 5% and 20% off
+        rows.append((o, 2, 100.0, 300.0))                           # later steps are not counted
+    bt = pd.DataFrame(rows, columns=["origin", "step", "actual", "pred"]).set_index(["origin", "step"])
+    t = fs._track_record(bt)
+    assert (t["n"], t["within"], t["tol_pct"]) == (12, 6, 10)
+    assert (t["first_month"], t["last_month"]) == ("2025-04", "2026-03")   # target = origin + 1
+    assert t["hits"] == [i % 2 == 1 for i in range(2, 14)] and len(t["months"]) == 12   # in month order
+    assert fs._track_record(bt.iloc[:10]) is None                          # 5 scored months: too few
+
+
+def test_revision_compares_the_same_months_with_the_previous_issue(tmp_path):
+    log = tmp_path / "shadow_log.csv"
+    pd.DataFrame([
+        # an older issue of the served model, anchor 2026-09, covering Oct-Dec
+        *[("2026-10-01", "stg_ea", "month", "2026-09", "m1", "v", s, p, 90.0, 0, 0, "staging")
+          for s, p in enumerate(["2026-10", "2026-11", "2026-12"], 1)],
+        *[("2026-10-01", "stg_eb", "month", "2026-09", "m2", "v", s, p, 10.0, 0, 0, "staging")
+          for s, p in enumerate(["2026-10", "2026-11", "2026-12"], 1)],
+        # another model, and the current issue itself: both ignored
+        ("2026-10-01", "stg_ea", "month", "2026-09", "other", "v", 2, "2026-11", 999.0, 0, 0, "staging"),
+        ("2026-11-01", "stg_ea", "month", "2026-10", "m1", "v", 1, "2026-11", 999.0, 0, 0, "staging"),
+    ], columns=["issued_at", "estate", "grain", "anchor", "model", "version", "step", "period",
+                "pred", "lower", "upper", "source"]).to_csv(log, index=False)
+    fc = [{"month": m, "ensemble": 110} for m in ("2026-11", "2026-12", "2027-01")]
+    servings = [{"estate": "ea", "model": "m1"}, {"estate": "eb", "model": "m2"}]
+    r = fs._revision("staging", servings, "2026-10", fc, log_path=log)
+    assert r["months"] == ["2026-11", "2026-12"] and r["previous_anchor"] == "2026-09"
+    assert (r["previous"], r["current"], r["pct"]) == (200, 220, 10.0)
+    # an estate without an earlier issue: no group comparison
+    assert fs._revision("staging", servings + [{"estate": "ec", "model": "m1"}], "2026-10", fc, log_path=log) is None
+    assert fs._revision("staging", servings, "2026-09", fc, log_path=log) is None   # nothing earlier
+
+
+def test_tile_carries_the_last_year_of_actuals_and_the_forecast_for_the_mini_chart():
+    hist = [{"month": f"2025-{m:02d}", "value": m, "underrecorded": m == 9} for m in range(1, 13)] \
+         + [{"month": "2026-01", "value": 13, "underrecorded": False}]
+    fc = [{"month": "2026-02", "ensemble": 14, "lower": 12, "upper": 16, "lower80": 11, "upper80": 17, "band_pct": 9}]
+    s = fs.tile({"history": hist, "forecast": fc})["spark"]
+    assert [h["month"] for h in s["history"]] == [f"2025-{m:02d}" for m in range(2, 13)] + ["2026-01"]
+    assert [h["month"] for h in s["history"] if h["underrecorded"]] == ["2025-09"]
+    assert s["forecast"] == [{"month": "2026-02", "ensemble": 14, "lower": 12, "upper": 16,
+                              "lower80": 11, "upper80": 17}]
 
 
 def test_group_is_the_row_by_row_sum_of_the_estates():
@@ -233,7 +283,12 @@ def test_live_and_staging_payloads_share_one_shape():
     missing = set(live) - set(staging) - only_live
     assert not missing, f"the page reads these from live but staging lacks them: {sorted(missing)}"
     assert set(staging["forecast"][0]) <= set(live["forecast"][0])
-    assert live["source"] == "live" and live["components"] and live["horizon_choices"] == [3, 6, 12]
+    assert live["source"] == "live"
+    if live.get("fallback"):        # K3 on the ensemble fallback keeps the ensemble's shape
+        assert live["components"] and live["horizon_choices"] == [3, 6, 12]
+    else:                           # Chronos-2 served (buildplan_forecast_mlops.md D1/D9)
+        assert live["components"] == [] and live["horizon_choices"] == [3, 6]
+        assert live["model_id"].startswith("chronos2_")
     assert all("tile" in e for e in live["scope"]["estates"] if e["modeled"])
 
 

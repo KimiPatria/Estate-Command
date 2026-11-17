@@ -22,8 +22,10 @@ the same settings as the leak-free benchmark -- and the band is the model's own
 10th-90th percentile, but only where that is a real interval for the number
 drawn: a forecast of one series at the grain shown. Per-block (or per-week)
 percentiles do not add up to a percentile of the sum -- summed they give a band
-several times too wide -- so the block sum, and the estate-weekly model's
-monthly view, carry no band.
+several times too wide -- so the block sum, and the estate-weekly models' monthly
+views (plain and seasonally adjusted), carry no band. The adjusted arm's weekly
+band is its quantiles times the seasonal index: the index is a known positive
+constant per week, so the 10th and 90th percentiles map through it unchanged.
 
 Rebuild whenever the estate data changes (the page flags artifacts whose anchor
 no longer matches the latest data; forecast/lab/shadow.py --rebuild runs this):
@@ -56,6 +58,10 @@ _LAB = os.path.dirname(os.path.abspath(__file__))
 _FORECAST = os.path.dirname(_LAB)
 
 CHECKPOINT = "amazon/chronos-2"
+# Hugging Face commit the lab runs on, pinned so a refresh never silently picks up
+# new weights (the revision cached here on 2026-11-12). Change it deliberately,
+# rebuild every artifact and say so: a new revision is a new model version.
+CHECKPOINT_REVISION = "29ec3766d36d6f73f0696f85560a422f50e8498c"
 QUANTILE_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 MIN_BLOCK_WEEKS = 4
 BAND_80 = "80% interval (model's 10th-90th percentile)"
@@ -88,7 +94,7 @@ class _Deferred(Exception):
 # ONE call of it, then writes the artifacts -- so the same code serves a local
 # build (the call runs in this process) and a SageMaker build (--remote: the
 # call runs as a GPU training job and its return value comes back).
-def _chronos_job(requests, checkpoint, quantile_levels, batch_size=256):
+def _chronos_job(requests, checkpoint, quantile_levels, batch_size=256, revision=None):
     """Zero-shot Chronos-2 quantiles for a list of requests.
 
     requests  [(inputs, horizon)]: inputs is a list of series (arrays, or dicts
@@ -103,11 +109,13 @@ def _chronos_job(requests, checkpoint, quantile_levels, batch_size=256):
     import time as _time
 
     import numpy as _np
+    if os.environ.get("FORECAST_STUB_INFERENCE"):
+        return _stub_job(requests, quantile_levels)
     import torch
     from chronos import Chronos2Pipeline
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    pipe = Chronos2Pipeline.from_pretrained(checkpoint, device_map=device)
+    pipe = Chronos2Pipeline.from_pretrained(checkpoint, device_map=device, revision=revision)
     t0, out, n = _time.perf_counter(), [], 0
     for k, (inputs, horizon) in enumerate(requests):
         q, _ = pipe.predict_quantiles(
@@ -119,6 +127,25 @@ def _chronos_job(requests, checkpoint, quantile_levels, batch_size=256):
               f"{_time.perf_counter() - t0:.0f}s elapsed", flush=True)
     return {"device": device, "seconds": round(_time.perf_counter() - t0, 1),
             "n_series": n, "quantiles": out}
+
+
+def _stub_job(requests, quantile_levels):
+    """CI stand-in for the model run (FORECAST_STUB_INFERENCE=1): the mean of the
+    last three context values, flat, with quantiles spread +/-20%. Same shapes as
+    _chronos_job, no torch or Chronos, deterministic. Never set in production."""
+    levels = np.asarray(quantile_levels, dtype=float)
+    spread = 1.0 + 0.4 * (levels - 0.5)
+    out, n = [], 0
+    for inputs, horizon in requests:
+        series = []
+        for x in inputs:
+            v = np.asarray(x["target"] if isinstance(x, dict) else x, dtype=float)
+            v = v[~np.isnan(v)]
+            base = float(v[-3:].mean()) if len(v) else 0.0
+            series.append(np.tile(base * spread, (horizon, 1)).astype(np.float32))
+        out.append(series)
+        n += len(inputs)
+    return {"device": "stub", "seconds": 0.0, "n_series": n, "quantiles": out}
 
 
 class _Batch:
@@ -154,7 +181,8 @@ def _predict(inputs, horizon):
             raise RuntimeError(f"{_Batch.key}: the model run returned {len(got)} series, "
                                f"this pass built {len(inputs)} (horizon {horizon})")
         return _post(got)
-    return _post(_chronos_job([(inputs, horizon)], CHECKPOINT, QUANTILE_LEVELS)["quantiles"][0])
+    return _post(_chronos_job([(inputs, horizon)], CHECKPOINT, QUANTILE_LEVELS,
+                              revision=CHECKPOINT_REVISION)["quantiles"][0])
 
 
 def _sagemaker():
@@ -173,7 +201,7 @@ def run_remote(requests, args):
                        job_name_prefix=JOB_PREFIX)
     print(f"Launching SageMaker job on {args.instance_type} (blocks until done). If this "
           f"process dies while it runs, collect it with --recover-job <job name>.", flush=True)
-    return fn(requests, CHECKPOINT, QUANTILE_LEVELS)
+    return fn(requests, CHECKPOINT, QUANTILE_LEVELS, revision=CHECKPOINT_REVISION)
 
 
 def recover_remote(job_name, args):
@@ -258,6 +286,26 @@ def weekly_inputs(estate, grain, i, per_block):
     return [s.astype(np.float32) for s in series], cutoff, weeks
 
 
+def seasadj_inputs(estate, grain, i):
+    """The estate weekly input with the season divided out (chronos2_weekly_seasadj).
+
+    Returns (series, cutoff, weeks, future_index, adj): series is the one weekly total
+    divided by its bins' seasonal index, future_index the index of the `weeks` bins
+    to forecast (None when the adjustment is off -- the series is then the plain one).
+    The index is fitted on complete months ending on or before the cutoff only.
+    """
+    series, cutoff, weeks = weekly_inputs(estate, grain, i, per_block=False)
+    adj = reg.seasonal_profile.adjustment(reg.ESTATES, reg.month_history, estate, cutoff)
+    if not series or not adj["active"]:
+        return series, cutoff, weeks, None, adj
+    sp = reg.seasonal_profile
+    ends = bw.weekly_bins(reg.daily_blocks(estate), cutoff).index[-len(series[0]):]
+    w_idx = sp.bin_index(ends, adj["amp"], adj["shape"])
+    f_idx = sp.bin_index([cutoff + pd.Timedelta(days=7 * k) for k in range(1, weeks + 1)],
+                         adj["amp"], adj["shape"])
+    return [(series[0] / w_idx).astype(np.float32)], cutoff, weeks, f_idx, adj
+
+
 def to_grain(values, grain, cutoff, anchor):
     """Weekly values -> the grain's MAX_H steps (months: spread weeks over days)."""
     if grain == "week":
@@ -276,6 +324,26 @@ def _forecast_positions(model, estate, grain, positions):
         for (inp, notes), (mean, lo, hi) in zip(built, preds):
             n = len(inp["target"] if isinstance(inp, dict) else inp)
             out.append((mean, lo, hi, n, [f"{n} months of context"] + notes))
+        return out
+
+    if model == "chronos2_weekly_seasadj":
+        built = [seasadj_inputs(estate, grain, i) for i in positions]
+        if not any(b[0] for b in built):
+            raise Skip("no weekly series before the cutoff")
+        preds = _predict([b[0][0] for b in built if b[0]], max(b[2] for b in built))
+        out, k = [], 0
+        for i, (series, cutoff, weeks, f_idx, adj) in zip(positions, built):
+            if not series:
+                out.append(None)
+                continue
+            mean, lo, hi = (a[:weeks] for a in preds[k])
+            k += 1
+            if f_idx is not None:          # the index is positive, so quantiles map through it
+                mean, lo, hi = mean * f_idx, lo * f_idx, hi * f_idx
+            anchor = h["period"].iloc[i]
+            mean, lo, hi = (to_grain(a, grain, cutoff, anchor) for a in (mean, lo, hi))
+            out.append((mean, lo, hi, len(series[0]),
+                        [f"{len(series[0])} weeks of context", adj["note"]]))
         return out
 
     per_block = model == "chronos2_blocks"
@@ -306,7 +374,7 @@ def _forecast_positions(model, estate, grain, positions):
 
 def _has_band(model, grain):
     return model in ("chronos2_monthly", "chronos2_monthly_cov") or (
-        model == "chronos2_estate_weekly" and grain == "week")
+        model in ("chronos2_estate_weekly", "chronos2_weekly_seasadj") and grain == "week")
 
 
 # -- writers ----------------------------------------------------------------------------
@@ -340,10 +408,12 @@ def backtest(model, estate, grain):
     if not positions:
         raise Skip(f"no origin has {reg.MIN_BACKTEST_CONTEXT[grain]} {grain}s of history")
     rows = []
+    band = _has_band(model, grain)
     for i, res in zip(positions, _forecast_positions(model, estate, grain, positions)):
         if res is not None:
-            rows += reg.backtest_rows(estate, grain, i, res[0])
-    return pd.DataFrame(rows, columns=reg.BACKTEST_COLS)
+            rows += (reg.backtest_rows(estate, grain, i, res[0], res[1], res[2]) if band
+                     else reg.backtest_rows(estate, grain, i, res[0]))
+    return pd.DataFrame(rows, columns=reg.BACKTEST_COLS + (reg.BAND_COLS if band else []))
 
 
 ARTIFACT_MODELS = [m["id"] for m in reg.MODELS if m["source"] == "artifact"]
@@ -424,7 +494,7 @@ def main():
             res = run_remote(requests, args)
             run_info = {"where": "sagemaker", "instance_type": args.instance_type}
         else:
-            res = _chronos_job(requests, CHECKPOINT, QUANTILE_LEVELS)
+            res = _chronos_job(requests, CHECKPOINT, QUANTILE_LEVELS, revision=CHECKPOINT_REVISION)
         if len(res["quantiles"]) != len(requests):
             raise SystemExit(f"the model run returned {len(res['quantiles'])} results for "
                              f"{len(requests)} requests: not the build this command describes")
@@ -461,7 +531,8 @@ def main():
     _Batch.mode = None
 
     manifest.update({"built_at": datetime.now().isoformat(timespec="seconds"),
-                     "checkpoint": CHECKPOINT, "cross_learning": False, "last_run": run_info})
+                     "checkpoint": CHECKPOINT, "checkpoint_revision": CHECKPOINT_REVISION,
+                     "cross_learning": False, "last_run": run_info})
     os.makedirs(reg.ARTIFACT_DIR, exist_ok=True)
     with open(os.path.join(reg.ARTIFACT_DIR, "manifest.json"), "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=1)

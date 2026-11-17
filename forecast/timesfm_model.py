@@ -392,7 +392,7 @@ def forecast_with_bands(values, horizon=3, backend=DEFAULT_BACKEND,
     """Single-series convenience returning (point, lower, upper).
 
     Matches the interface convention the repo already used for its previous
-    foundation-model attempt (see forecast/serving.py's ttm_model call).
+    foundation-model attempt (the TTM serving layer, forecast/serving.py, removed 2026-11-12).
     """
     if lo not in QUANTILE_LEVELS or hi not in QUANTILE_LEVELS:
         raise ValueError(f"lo/hi must be in {QUANTILE_LEVELS}")

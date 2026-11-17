@@ -167,23 +167,15 @@ def call_routing_llm(messages: list[dict]) -> list[str]:
     Always uses the cheap routing model (independent of the user-facing toggle).
     Returns [] on any failure — caller is expected to fall back to a heuristic.
     """
-    try:
-        result = llm_client.chat(
-            messages, tier="routing",
-            temperature=0, max_tokens=400, json_mode=True, task="table_routing",
-        )
-    except Exception as e:
-        log.warning("Routing LLM call failed: %s", e)
+    data = llm_client.chat_json(
+        messages, name="select_tables",
+        schema={"type": "object", "required": ["tables"], "properties": {
+            "tables": {"type": "array", "maxItems": 5, "items": {"type": "string"},
+                       "description": "names of the most relevant tables, empty if none"}}},
+        description="Record the tables needed to answer the query.",
+        tier="routing", max_tokens=400, task="table_routing",
+    )
+    if data is None:
+        log.warning("Routing LLM gave no table list")
         return []
-
-    try:
-        data = json.loads(result.text)
-    except json.JSONDecodeError:
-        log.warning("Routing LLM returned non-JSON: %r", result.text[:200])
-        return []
-
-    tables = data.get("tables") if isinstance(data, dict) else None
-    if not isinstance(tables, list):
-        log.warning("Routing LLM JSON missing 'tables' list: %r", data)
-        return []
-    return [str(t).strip() for t in tables if isinstance(t, (str,)) and t.strip()]
+    return [t.strip() for t in data["tables"] if t.strip()]

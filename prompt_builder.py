@@ -98,7 +98,10 @@ def build_sql_messages(
     tokens_schema = _estimate_tokens(schema_block)
     tokens_q      = _estimate_tokens(question)
 
-    parts: list[str] = [f"Schema:\n{schema_block}"]
+    # The same tables give the same schema text (it is alphabetized), so
+    # follow-ups and corrections read it back from the prompt cache.
+    from llm_client import CACHE_POINT
+    parts: list[str] = [f"Schema:\n{schema_block}{CACHE_POINT}"]
 
     if examples:
         ex_lines = []

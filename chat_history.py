@@ -136,14 +136,21 @@ def _parse_turn(r) -> dict:
 
 
 def get_turns(session_id: str, limit: int = 20) -> list[dict]:
-    """Most recent turns of a session, oldest first."""
+    """Most recent turns of a session, oldest first. Each carries `pos`, its
+    place in the whole session (0 = first), so a window of turns can be cut
+    at the same places whatever `limit` was asked for (chat_intent.window)."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT * FROM (SELECT * FROM chat_turns WHERE session_id = ? "
-            "ORDER BY id DESC LIMIT ?) ORDER BY id ASC",
+            "SELECT * FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY id) - 1 AS pos "
+            "FROM chat_turns WHERE session_id = ?) ORDER BY id DESC LIMIT ?",
             (session_id, limit),
         ).fetchall()
-    return [_parse_turn(r) for r in rows]
+    turns = []
+    for r in reversed(rows):
+        t = _parse_turn(r)
+        t["pos"] = r["pos"]
+        turns.append(t)
+    return turns
 
 
 def list_sessions(limit: int = 200) -> list[dict]:

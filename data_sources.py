@@ -39,6 +39,21 @@ STAGING = "staging"
 _ROOT = Path(__file__).parent
 
 
+@dataclass(frozen=True)
+class Measure:
+    """One figure the overview planner may choose for a broad question.
+
+    `question` is how the SQL writer is asked for it ({grain} and {period} are
+    filled in by the planner's code, never by the model), worded the way the
+    seed examples and the lint rules expect. `grains` are the breakdowns the
+    data supports: attendance has no block, deliveries no division.
+    """
+    id: str
+    label: str
+    question: str
+    grains: tuple[str, ...] = ("estate", "division", "block", "month")
+
+
 @dataclass
 class DataSource:
     id: str
@@ -75,8 +90,29 @@ class DataSource:
     # when the query is sound. A flagged query is not run: it goes back for one
     # correction, and it is never kept as an example for later questions.
     lint: Optional[Callable[[str, str], Optional[str]]] = None
+    # A check on the rows a query returned, for figures no real query gives
+    # (negative bunches, under one bunch per hectare). check_result(columns,
+    # rows, question, sql) returns a message for the SQL writer, or None.
+    check_result: Optional[Callable[[list, list, str, str], Optional[str]]] = None
     starters: list[str] = field(default_factory=list)
     entities: dict[str, dict] = field(default_factory=dict)  # staging: estate code -> {werks,label,aliases}
+    # What a broad question ("how is Estate C performing?") is answered with:
+    # the planner picks 2 to 4 of these (chat_overview.py).
+    measures: list[Measure] = field(default_factory=list)
+
+    def entity_code(self, value) -> Optional[str]:
+        """The staging estate code a value in a result names: '00EC', 'EC',
+        'ESTATE C', 'PLASMA 1', 'ESTATE PLASMA 1', 'Estate C (EC)' -> 'EC' / 'P1'."""
+        text = str(value or "").strip()
+        up = text.upper()
+        for code, ent in self.entities.items():
+            if up in (code, ent["werks"], ent["prfnr"], ent["prfnr"].removeprefix("ESTATE ").strip(),
+                      ent["label"].upper()):
+                return code
+        for code, ent in self.entities.items():
+            if ent["pattern"].fullmatch(text):
+                return code
+        return None
 
     @property
     def available(self) -> bool:
@@ -317,6 +353,42 @@ def _staging_lint(sql: str, question: str = "") -> Optional[str]:
     return None
 
 
+# ── results no real query gives ────────────────────────────────────────────
+# Lint catches the known wrong shapes before a query runs; these catch what
+# slipped through by the figures it produced. Column names are the only clue to
+# what a figure measures, so the checks only fire on names that say so.
+
+_MEASURE_NAME = re.compile(
+    r"bunch|janjang|jjg|tandan|tonn|\bton|_ton|weight|berat|kg|manday|man_day|hectar|hektar"
+    r"|count|jumlah|total|qty|_sum\b|sum_", re.IGNORECASE)
+_SIGNED_NAME = re.compile(r"chang|diff|delta|selisih|growth|varian|gap|vs|minus|margin|deviat", re.IGNORECASE)
+_PER_AREA_NAME = re.compile(r"per_?ha\b|per_?hect|per_?hekt|_ha$|/ha|yield|_per_ha_", re.IGNORECASE)
+_BUNCH_NAME = re.compile(r"bunch|janjang|jjg|tandan", re.IGNORECASE)
+
+
+def _numbers(rows: list[dict], col: str) -> list[float]:
+    return [float(r[col]) for r in rows
+            if isinstance(r.get(col), (int, float)) and not isinstance(r.get(col), bool)]
+
+
+def check_result(columns: list[str], rows: list[dict], question: str = "", sql: str = "") -> Optional[str]:
+    """Figures that mean the query is wrong rather than the plantation unusual."""
+    for col in columns:
+        vals = _numbers(rows, col)
+        if not vals:
+            continue
+        if _MEASURE_NAME.search(col) and not _SIGNED_NAME.search(col) and min(vals) < 0:
+            return (f"Suspicious result: {col} has negative values ({min(vals):,.2f}), which a count, total "
+                    "or weight cannot have. Check for a subtraction or join that should not be there.")
+        if _PER_AREA_NAME.search(col) and _BUNCH_NAME.search(col):
+            low = [v for v in vals if 0 < v < 1]
+            if low:
+                return (f"Suspicious result: {col} is below one bunch per hectare ({low[0]:.3f}), which happens "
+                        "when the block area is added once per harvest row. Sum the area in its own subquery "
+                        "that reads only the block table, sum the bunches in another, then divide the two totals.")
+    return None
+
+
 def _live_excludes(name: str) -> bool:
     """Tables hidden from the live retrieval index.
 
@@ -329,6 +401,39 @@ def _live_excludes(name: str) -> bool:
     if name in {"t_abw", "t_checkpoint", "t_checkpoint_detail", "t_checkpoint_loader"}:
         return True
     return "coconut" in name.lower()
+
+
+_LIVE_MEASURES = [
+    Measure("ripe_bunches", "Ripe bunches", "Total ripe bunches harvested{grain}{period}"),
+    Measure("total_bunches", "Total bunches", "Total bunches harvested{grain}{period}"),
+    Measure("ripeness_rate", "Ripeness rate (%)",
+            "Ripe bunches as a percentage of all bunches harvested{grain}{period}"),
+    Measure("overripe_pct", "Overripe share (%)",
+            "Overripe bunches as a percentage of all bunches harvested{grain}{period}"),
+    Measure("bunches_per_ha", "Bunches per mature ha",
+            "Bunches harvested per hectare of mature planted area{grain}{period}",
+            ("estate", "division", "month")),
+    Measure("loose_fruit", "Loose fruit", "Total loose fruit collected{grain}{period}"),
+    Measure("mandays", "Work mandays", "Total mandays of field work done{grain}{period}",
+            ("estate", "division", "month")),
+    Measure("overtime", "Overtime duration", "Total overtime duration worked{grain}{period}",
+            ("estate", "division", "month")),
+]
+
+_STAGING_MEASURES = [
+    Measure("ripe_bunches", "Ripe bunches", "Total ripe bunches harvested{grain}{period}"),
+    Measure("tonnes_delivered", "Tonnes to the mill",
+            "Tonnes delivered to the mill{grain}{period}, counting each trip's weight once", ("estate", "month")),
+    Measure("loose_fruit", "Loose fruit", "Total loose fruit (brondolan) collected{grain}{period}"),
+    Measure("bunches_per_ha", "Bunches per mature ha",
+            "Ripe bunches per hectare of mature planted area{grain}{period}", ("estate", "division", "month")),
+    Measure("harvester_output", "Bunches per harvester-day",
+            "Average ripe bunches one harvester brings in per working day{grain}{period}", ("estate", "month")),
+    Measure("mandays", "Field man-days", "Total man-days of field work done{grain}{period}", ("estate", "month")),
+    Measure("absence", "Mangkir person-days",
+            "Number of mangkir (absent without leave) person-days{grain}{period}", ("estate", "month")),
+    Measure("overtime", "Overtime hours", "Total overtime hours worked{grain}{period}", ("estate", "month")),
+]
 
 
 _registry: dict[str, DataSource] | None = None
@@ -352,6 +457,8 @@ def _build() -> dict[str, DataSource]:
         history_collection="query_history",
         excludes=_live_excludes,
         lint=_live_lint,
+        check_result=check_result,
+        measures=_LIVE_MEASURES,
         topics=("harvest records (ripe and unripe bunches by block, division, employee and date), "
                 "employees and attendance, work done and overtime, blocks, divisions and estates"),
         starters=[
@@ -380,6 +487,8 @@ def _build() -> dict[str, DataSource]:
         curated_ddl=True,
         freshness_sql="SELECT CONVERT(varchar(10), MAX(BUDAT), 23) FROM OPH WHERE WERKS IS NOT NULL",
         lint=_staging_lint,
+        check_result=check_result,
+        measures=_STAGING_MEASURES,
         topics=("harvest tickets (ripe bunches and loose fruit by block, harvester and day), "
                 "deliveries to the mill and their tonnage, attendance, daily field work and man-days, "
                 "overtime, employees, and blocks with their area"),

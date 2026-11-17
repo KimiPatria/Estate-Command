@@ -225,8 +225,7 @@
   category: estate_scope
   turns:
     - "compare the operational efficiency of estate C againts other estates"
-    - "Total ripe bunches per hectare"
-  query: "run it"
+  query: "Total ripe bunches per hectare"
   reference_sql: |
     SELECT e.NAME1 AS estate, h.b / a.ha AS value
     FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
@@ -246,7 +245,7 @@
     GROUP BY e.NAME1
   rel_tol: 0.01
   sql_must_not: ["WERKS\\s*(=|IN)\\s*\\(?\\s*'00EC'\\s*\\)?\\s*(AND|GROUP|\\)|$)"]
-  notes: "a real conversation (2026-11-10). It stayed on Estate C at every turn, because naming C scoped the chat to C, and summed block area once per harvest ticket (1.11 bunches/ha from 13 million ha). No period was given: the rule's default is the last 12 full months."
+  notes: "a real conversation (2026-11-10). It stayed on Estate C at every turn, because naming C scoped the chat to C, and summed block area once per harvest ticket (1.11 bunches/ha from 13 million ha). No period was given: the rule's default is the last 12 full months. Then the first message was asked back ('which measure?') and the case ended on 'run it'; since the overview planner (2026-11-11) the first message is answered with several measures, so the per-hectare follow-up is what is scored: it must cover every estate, not stay on C."
 
 - id: st_006
   database: staging
@@ -308,3 +307,287 @@
   sql_must_not: ['oph_approved_date']
   sql_warn_not: ['oph_estate_code\s*(=|IN|LIKE)']
   notes: "BA named, set against the others: every estate's database must be queried, not only BA's"
+
+# ── broad questions: the overview planner (chat_overview.py) ──────────────
+#
+# kind: overview. The planner picks 2 to 4 measures, so the case holds a
+# reference query per measure it may pick (`measures`: id -> SQL with the same
+# shape as reference_sql). Each measure the answer shows is checked in its own
+# column of the merged table; at least two must be checked and all must match.
+#   expect_route: clarify   the question must still be asked back (a ranking)
+#   check: structure        only the shape is checked: the overview route, at least
+#                           two measures with rows, one merged table
+
+- id: ov_001
+  database: staging
+  category: overview
+  kind: overview
+  query: "How did the estates perform in September 2026?"
+  rel_tol: 0.01
+  measures:
+    ripe_bunches: |
+      SELECT e.NAME1 AS estate, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS value
+      FROM OPH o JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+      WHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01' GROUP BY e.NAME1
+    tonnes_delivered: |
+      SELECT e.NAME1 AS estate, SUM(t.w) / 1000.0 AS value
+      FROM (SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w FROM FDN
+            WHERE BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01' GROUP BY ESTNR, SPB) t
+      JOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'
+      WHERE t.w > 0 GROUP BY e.NAME1
+    loose_fruit: |
+      SELECT e.NAME1 AS estate, SUM(TRY_CAST(o.ZBRONDOLAN AS decimal(18,2))) AS value
+      FROM OPH o JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+      WHERE o.BUDAT >= '2026-09-01' AND o.BUDAT < '2026-10-01' GROUP BY e.NAME1
+    bunches_per_ha: |
+      SELECT e.NAME1 AS estate, h.b / a.ha AS value
+      FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+            WHERE WERKS IS NOT NULL AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01' GROUP BY WERKS) h
+      JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a
+        ON a.ESTNR = RIGHT(h.WERKS, 2)
+      JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+    harvester_output: |
+      SELECT e.NAME1 AS estate, AVG(d.b) AS value
+      FROM (SELECT WERKS, EMPNR, BUDAT, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+            WHERE WERKS IS NOT NULL AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01'
+            GROUP BY WERKS, EMPNR, BUDAT) d
+      JOIN EST e ON e.WERKS = d.WERKS AND e.KDATE = '9999-12-31' GROUP BY e.NAME1
+    mandays: |
+      SELECT e.NAME1 AS estate, SUM(g.HKINP) AS value
+      FROM GWO g JOIN EST e ON e.WERKS = g.WERKS AND e.KDATE = '9999-12-31'
+      WHERE g.BUDAT >= '2026-09-01' AND g.BUDAT < '2026-10-01' GROUP BY e.NAME1
+    absence: |
+      SELECT REPLACE(PRFNR, 'ESTATE PLASMA', 'PLASMA') AS estate, COUNT(*) AS value FROM ATD
+      WHERE ATDCD = 'M' AND PRFNR IS NOT NULL AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01'
+      GROUP BY PRFNR
+    overtime: |
+      SELECT REPLACE(PRFNR, 'ESTATE PLASMA', 'PLASMA') AS estate, SUM(NHOUR) AS value FROM OVT
+      WHERE PRFNR IS NOT NULL AND BUDAT >= '2026-09-01' AND BUDAT < '2026-10-01' GROUP BY PRFNR
+  notes: "a broad question across estates with a named month: every measure shown must be the database's figure, side by side per estate"
+
+- id: ov_002
+  database: staging
+  category: overview
+  kind: overview
+  query: "bagaimana kinerja semua kebun pada bulan Oktober 2026?"
+  rel_tol: 0.01
+  measures:
+    ripe_bunches: |
+      SELECT e.NAME1 AS estate, SUM(CAST(o.ZMASAK AS decimal(18,2))) AS value
+      FROM OPH o JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+      WHERE o.BUDAT >= '2026-10-01' AND o.BUDAT < '2026-11-01' GROUP BY e.NAME1
+    tonnes_delivered: |
+      SELECT e.NAME1 AS estate, SUM(t.w) / 1000.0 AS value
+      FROM (SELECT ESTNR, SPB, MAX(WB_QTY_TOTAL) AS w FROM FDN
+            WHERE BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY ESTNR, SPB) t
+      JOIN EST e ON e.ESTNR = t.ESTNR AND e.KDATE = '9999-12-31'
+      WHERE t.w > 0 GROUP BY e.NAME1
+    loose_fruit: |
+      SELECT e.NAME1 AS estate, SUM(TRY_CAST(o.ZBRONDOLAN AS decimal(18,2))) AS value
+      FROM OPH o JOIN EST e ON e.WERKS = o.WERKS AND e.KDATE = '9999-12-31'
+      WHERE o.BUDAT >= '2026-10-01' AND o.BUDAT < '2026-11-01' GROUP BY e.NAME1
+    bunches_per_ha: |
+      SELECT e.NAME1 AS estate, h.b / a.ha AS value
+      FROM (SELECT WERKS, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+            WHERE WERKS IS NOT NULL AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY WERKS) h
+      JOIN (SELECT ESTNR, SUM(BHA) AS ha FROM BLK WHERE KDATE = '9999-12-31' GROUP BY ESTNR) a
+        ON a.ESTNR = RIGHT(h.WERKS, 2)
+      JOIN EST e ON e.WERKS = h.WERKS AND e.KDATE = '9999-12-31'
+    harvester_output: |
+      SELECT e.NAME1 AS estate, AVG(d.b) AS value
+      FROM (SELECT WERKS, EMPNR, BUDAT, SUM(CAST(ZMASAK AS decimal(18,2))) AS b FROM OPH
+            WHERE WERKS IS NOT NULL AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01'
+            GROUP BY WERKS, EMPNR, BUDAT) d
+      JOIN EST e ON e.WERKS = d.WERKS AND e.KDATE = '9999-12-31' GROUP BY e.NAME1
+    mandays: |
+      SELECT e.NAME1 AS estate, SUM(g.HKINP) AS value
+      FROM GWO g JOIN EST e ON e.WERKS = g.WERKS AND e.KDATE = '9999-12-31'
+      WHERE g.BUDAT >= '2026-10-01' AND g.BUDAT < '2026-11-01' GROUP BY e.NAME1
+    absence: |
+      SELECT REPLACE(PRFNR, 'ESTATE PLASMA', 'PLASMA') AS estate, COUNT(*) AS value FROM ATD
+      WHERE ATDCD = 'M' AND PRFNR IS NOT NULL AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01'
+      GROUP BY PRFNR
+    overtime: |
+      SELECT REPLACE(PRFNR, 'ESTATE PLASMA', 'PLASMA') AS estate, SUM(NHOUR) AS value FROM OVT
+      WHERE PRFNR IS NOT NULL AND BUDAT >= '2026-10-01' AND BUDAT < '2026-11-01' GROUP BY PRFNR
+  notes: "the same in Bahasa Indonesia"
+
+- id: ov_003
+  database: live
+  category: overview
+  kind: overview
+  scope: all
+  query: "How did the estates perform in 2025?"
+  rel_tol: 0.01
+  measures:
+    ripe_bunches: |
+      SELECT SUM(bunches_ripe) AS value FROM t_oph
+      WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+        AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    total_bunches: |
+      SELECT SUM(bunches_total) AS value FROM t_oph
+      WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+        AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    ripeness_rate: |
+      SELECT SUM(bunches_ripe) * 100.0 / NULLIF(SUM(bunches_total), 0) AS value FROM t_oph
+      WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+        AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    overripe_pct: |
+      SELECT SUM(bunches_overripe) * 100.0 / NULLIF(SUM(bunches_total), 0) AS value FROM t_oph
+      WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+        AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    bunches_per_ha: |
+      SELECT h.b / NULLIF(a.ha, 0) AS value
+      FROM (SELECT SUM(bunches_total) AS b FROM t_oph
+            WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+              AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)) h
+      CROSS JOIN (SELECT SUM(block_hectarage)::numeric AS ha FROM m_block WHERE block_state = 'MATURE') a
+    loose_fruit: |
+      SELECT SUM(loose_fruits) AS value FROM t_oph
+      WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+        AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    mandays: |
+      SELECT SUM(workdone_mandays) AS value FROM t_workdone
+      WHERE workdone_date >= DATE '2025-01-01' AND workdone_date < DATE '2026-01-01'
+    overtime: |
+      SELECT SUM(overtime_duration) AS value FROM t_overtime
+      WHERE overtime_date >= DATE '2025-01-01' AND overtime_date < DATE '2026-01-01'
+  notes: "live: each estate is its own database, so each measure is one figure per database, merged on the estate"
+
+- id: ov_004
+  database: live
+  category: overview
+  expect_route: clarify
+  scope: all
+  query: "Who is the best harvester in 2025?"
+  notes: "a ranking still needs one measure: it must be asked back, not planned"
+
+- id: ov_005
+  database: staging
+  category: overview
+  kind: overview
+  check: structure
+  query: "how is Estate C performing?"
+  notes: "one estate, no period: broken down by month over the last 12 full months; only the shape is checked"
+
+# ── messages that need no query: the intent router (chat_intent.py) ───────
+#
+# Greetings, definitions and off-topic requests must not run SQL; a follow-up
+# about the rows on screen is answered from them.
+
+- id: in_001
+  database: staging
+  category: intent
+  expect_route: chat
+  query: "hello, what can you do??"
+  notes: "a greeting and a capability question together ran a query before the router"
+
+- id: in_002
+  database: staging
+  category: intent
+  expect_route: explain
+  query: "what does ripeness rate mean?"
+  notes: "a definition: answered from the rules and measures, no query"
+
+- id: in_003
+  database: staging
+  category: intent
+  expect_route: explain
+  query: "apa itu brondolan?"
+  notes: "the same in Indonesian"
+
+- id: in_004
+  database: staging
+  category: intent
+  expect_route: context
+  turns:
+    - "total ripe bunches per estate in 2025"
+  query: "which one is highest?"
+  notes: "the rows on screen answer it"
+
+- id: in_005
+  database: staging
+  category: intent
+  expect_route: sql
+  turns:
+    - "what does ripeness rate mean?"
+  query: "show it per estate for 2025"
+  notes: "after a definition, asking for the figure runs the query"
+
+# ── the forecast, read from the forecast page (chat_forecast.py) ───────────
+#
+# A forecast question never runs SQL: it is answered from the same figures the
+# /forecast page shows, on whichever database the chat is on (buildplan_chat_centre.md
+# Part B). Follow-ups stay on the forecast; a question about what already
+# happened goes back to the database.
+
+- id: fc_001
+  database: live
+  category: forecast
+  expect_route: forecast
+  query: "What is the production outlook for K3 for the next 3 months?"
+  notes: "the plain case on live"
+
+- id: fc_002
+  database: live
+  category: forecast
+  expect_route: forecast
+  turns:
+    - "Forecast for EC next 3 months"
+  query: "and EB?"
+  notes: "a follow-up names another estate and stays on the forecast"
+
+- id: fc_003
+  database: live
+  category: forecast
+  expect_route: forecast
+  turns:
+    - "Forecast for EC next 3 months"
+  query: "how sure is it?"
+  notes: "the likely range and the track record, from the same payload"
+
+- id: fc_004
+  database: live
+  category: forecast
+  expect_route: explain
+  query: "how does the forecast work?"
+  notes: "a how-it-works question is answered from the forecast notes, no figures"
+
+- id: fc_005
+  database: live
+  category: forecast
+  expect_route: sql
+  turns:
+    - "Forecast for EC next 3 months"
+  query: "what did we produce last month?"
+  notes: "a question about what already happened leaves the forecast for the database"
+
+- id: fc_006
+  database: staging
+  category: forecast
+  expect_route: forecast
+  query: "Perkiraan produksi 3 bulan ke depan untuk Estate C"
+  notes: "Indonesian, on staging"
+
+- id: fc_007
+  database: staging
+  category: forecast
+  expect_route: forecast
+  query: "Compare the forecast for each estate"
+  notes: "every staging estate plus the group, one bar per estate"
+
+- id: fc_008
+  database: staging
+  category: forecast
+  expect_route: forecast
+  turns:
+    - "production outlook for the next quarter"
+  query: "chart that"
+  notes: "the chart is drawn again without a model call"
+
+- id: fc_009
+  database: staging
+  category: forecast
+  expect_route: forecast
+  query: "forecast vs actual last month"
+  notes: "a forecast word wins over a past period"

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EPMS · Production Forecast</title>
+<title>EPMS · Forecast (analyst)</title>
 <script>
   // Theme before first paint (same key as the chat page), so a dark-mode user never sees a white flash.
   (function () {
@@ -275,6 +275,7 @@ a.btn-refresh { text-decoration: none; }
 .lg .swatch.line  { background: var(--accent); }
 .lg .swatch.fcst  { background: var(--gold); height: 0; border-top: 2px dashed var(--gold); }
 .lg .swatch.band  { height: 11px; border-radius: 3px; background: color-mix(in srgb, var(--s4) 14%, transparent); border: 1px solid color-mix(in srgb, var(--s4) 45%, transparent); }
+.lg .swatch.band80 { height: 11px; border-radius: 3px; background: color-mix(in srgb, var(--s4) 7%, transparent); border: 1px dashed color-mix(in srgb, var(--s4) 40%, transparent); }
 .lg .swatch.under { width: 9px; height: 9px; border-radius: 50%; background: var(--s2); }
 .chart-box { position: relative; height: 420px; }
 .chart-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
@@ -378,18 +379,17 @@ a.btn-refresh { text-decoration: none; }
 <body>
 
 <header class="topbar">
-  <a class="brand" href="/" aria-label="EPMS AI, dashboard">
+  <a class="brand" href="/chat" aria-label="EPMS AI, chat">
     <span class="brand-mark" data-ico="spark"></span><span>EPMS AI</span>
   </a>
   <span class="page-name">Production Forecast</span>
   <nav class="app-nav" aria-label="Pages">
-    <a href="/">Dashboard</a>
-    <a href="/report">Report</a>
     <a href="/chat">Chat</a>
+    <a href="/report">Report</a>
     <a href="/forecast" class="on" aria-current="page">Forecast</a>
   </nav>
   <div class="top-right">
-    <a class="top-link" href="/model-health" title="Model accuracy, interval calibration, data quality and drift"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Model health</span></a>
+    <a class="top-link" id="health-link" href="/model-health" title="Model accuracy, interval calibration, data quality and drift"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Model health</span></a>
     <span class="provider-pill" id="model-pill">N/A</span>
     <button class="icon-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme"></button>
   </div>
@@ -398,6 +398,7 @@ a.btn-refresh { text-decoration: none; }
 <div class="fc-titlebar">
   <span class="fc-title">Plantation Production Forecast <span class="accent">· next 3 months</span></span>
   <div class="fc-meta">
+    <nav class="view-tabs" aria-label="Forecast views"><a href="/forecast">Outlook</a><a href="/forecast/analyst" class="on">Analyst</a><a href="/forecast/compare">Compare sources</a></nav>
     <div class="pop-anchor">
       <button type="button" class="chip" id="db-chip" aria-haspopup="dialog" aria-expanded="false"
               title="Database the forecast is read from" hidden></button>
@@ -558,6 +559,7 @@ a.btn-refresh { text-decoration: none; }
             <span class="lg"><span class="swatch line"></span>Actual</span>
             <span class="lg"><span class="swatch fcst"></span>Forecast</span>
             <span class="lg"><span class="swatch band"></span><span id="band-legend">± sMAPE band</span></span>
+            <span class="lg hidden" id="lg-band80"><span class="swatch band80"></span><span>80% range</span></span>
             <span class="lg"><span class="swatch under"></span>Under-recorded month</span>
           </div>
         </div>
@@ -722,6 +724,9 @@ window.addEventListener('DOMContentLoaded', () => {
     resetInvestigatorPanel();
     loadForecast(false);
   });
+  // ?estate= opens on that estate (Model health links here after serving a candidate);
+  // applyScope falls back to the group view if it is not an estate of the database.
+  try { const q = new URLSearchParams(location.search).get('estate'); if (q) currentScope = q; } catch (e) {}
   Theme.db.init('/forecast/sources').then(() => loadForecast(false));
 });
 
@@ -739,7 +744,7 @@ async function loadForecast(refresh) {
   // server builds (forecast_sources.py).
   const estateParam = (source === 'live' && currentScope === 'all') ? 'k3' : currentScope;
   document.getElementById('loading-msg').textContent = source === 'live'
-    ? 'Fitting the forecast model on monthly production history…'
+    ? 'Reading the forecast built on the estate databases…'
     : 'Reading the forecast built on the staging database…';
   // Fast path: the server pre-injects the ML forecast into the page (see the
   // /forecast route — always k3's default payload), so first paint needs no
@@ -998,7 +1003,13 @@ function render(data) {
   document.getElementById('intel-card').classList.toggle('hidden', !caps.intelligence);
 
   // header meta
-  document.getElementById('model-pill').textContent = data.model_name || 'Ensemble';
+  const pill = document.getElementById('model-pill');
+  const picks = ((data.serving || {}).estates || []).filter(e => e.mode === 'override');
+  pill.textContent = (data.model_name || 'Ensemble') + (picks.length ? ' · manual pick' : '');
+  pill.title = picks.length
+    ? picks.map(p => p.estate_label + ': picked on Model health ' + (p.set_at || '').replace('T', ' ')
+                     + ' · rule pick ' + p.rule_model_label).join('\n')
+    : '';
 
   // update titlebar horizon label
   const accentEl = document.querySelector('.fc-title .accent');
@@ -1080,6 +1091,11 @@ let currentScope = 'all';   // 'all' = group roll-up, otherwise an estate id
 function applyScope(data) {
   const scope   = data.scope || {};
   const estates = scope.estates || [];
+  // Model health opens on the detail of the forecast in view (flags such as low evidence
+  // are per estate); its "All forecasts" link leads to the overview of every forecast.
+  const hl = document.getElementById('health-link');
+  if (hl) hl.href = '/model-health?db=' + encodeURIComponent(Theme.db.current)
+                  + '&estate=' + encodeURIComponent(currentScope || 'all');
   // Guard against a stale selection if an estate loses its model or its
   // block geometry (either is enough to keep a scope selectable).
   if (currentScope !== 'all' && !estates.some(e => e.id === currentScope && (e.modeled || e.has_blocks))) {
@@ -1782,7 +1798,8 @@ function renderKpis(data, fc, iv, isConf, nomPct, covPct) {
           sub: 'conformal ' + (iv.method.endsWith('aci') ? 'ACI' : 'split')
                + ' · coverage ' + (covPct ?? 'N/A') }
       : { cls:'', label:'Band half-width · step ' + hz, value: fmtPct(lastBand),
-          sub: 'step 1 ±' + fmtPct(firstBand) + ' → step ' + hz + ' ±' + fmtPct(lastBand) },
+          sub: 'step 1 ±' + fmtPct(firstBand) + ' → step ' + hz + ' ±' + fmtPct(lastBand)
+               + bandHeld(iv, hz) },
   ].filter(Boolean);
   row.innerHTML = cards.map((c, i) => `
     <div class="kpi-card ${c.cls}" style="animation-delay:${i*60}ms">
@@ -1833,6 +1850,16 @@ function renderChart(hist, fc, anchor, data) {
     loData[anchorIdx] = anchor.value;
   }
   fc.forEach((f, i) => { fcData[N + i] = f.ensemble; upData[N + i] = f.upper; loData[N + i] = f.lower; });
+  // Outer 80% range (Chronos-2 payloads): drawn first in the same translucent fill,
+  // so the inner sMAPE band, overlapping it, reads darker and the outer one lighter.
+  const has80 = fc.some(f => f.lower80 != null);
+  const up80 = new Array(N + M).fill(null), lo80 = new Array(N + M).fill(null);
+  if (has80) {
+    up80[anchorIdx] = lo80[anchorIdx] = upData[anchorIdx];
+    fc.forEach((f, i) => { up80[N + i] = f.upper80; lo80[N + i] = f.lower80; });
+  }
+  const lg80 = document.getElementById('lg-band80');
+  if (lg80) lg80.classList.toggle('hidden', !has80);
 
   const underFlag = hist.map(h => !!h.underrecorded).concat(new Array(M).fill(false));
 
@@ -1860,6 +1887,12 @@ function renderChart(hist, fc, anchor, data) {
     data: {
       labels,
       datasets: [
+        ...(has80 ? [
+          { label: '_upper80', data: up80, borderColor: 'transparent',
+            backgroundColor: C.fcFill, pointRadius: 0, fill: '+1', tension: .3, spanGaps: false },
+          { label: '_lower80', data: lo80, borderColor: 'transparent',
+            pointRadius: 0, fill: false, tension: .3, spanGaps: false },
+        ] : []),
         { label: '_upper', data: upData, borderColor: 'transparent',
           backgroundColor: C.fcFill, pointRadius: 0, fill: '+1', tension: .3, spanGaps: false },
         { label: '_lower', data: loData, borderColor: 'transparent',
@@ -1899,7 +1932,8 @@ function renderChart(hist, fc, anchor, data) {
               if (!it) return '';
               const f = fc[it.dataIndex - N];
               if (!f) return '';
-              return 'Range: ' + fmtFull(f.lower) + ' – ' + fmtFull(f.upper);
+              return 'Range: ' + fmtFull(f.lower) + ' – ' + fmtFull(f.upper)
+                + (f.lower80 != null ? '\n80% range: ' + fmtFull(f.lower80) + ' – ' + fmtFull(f.upper80) : '');
             },
           },
         },
@@ -1924,6 +1958,13 @@ const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','No
 function mParts(s) { const [y, m] = String(s).split('-'); return { y: +y, m: +m }; }
 function mLabel(s) { const p = mParts(s); return (_MONTHS[p.m-1] || '?') + ' ' + p.y; }
 function mShort(s) { const p = mParts(s); return (_MONTHS[p.m-1] || '?') + " '" + String(p.y).slice(2); }
+/** " · held 9 of 12" -- how often the drawn band held the actual at that step on the
+    backtest rows it was measured on (Chronos-2 and ensemble payloads alike). */
+function bandHeld(iv, step) {
+  const ps = ((iv || {}).per_step || {})[String(step)] || {};
+  const n = ps.coverage_n ?? ps.n_scored, c = ps.coverage;
+  return (c == null || !n) ? '' : ' · held ' + Math.round(c * n) + ' of ' + n;
+}
 function fmtPct(v) { return (v == null) ? 'N/A' : (Math.round(v * 10) / 10) + '%'; }
 function fmtFull(v) { return (v == null || isNaN(v)) ? 'N/A' : Math.round(v).toLocaleString('en-US'); }
 function fmtNum(v) {

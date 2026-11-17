@@ -11,9 +11,13 @@ CHAT_CSS = ROOT / "chat_static" / "chat.css"
 THEME_CSS = ROOT / "forecast_static" / "theme.css"
 PAGES = {
     "forecast": ROOT / "forecast_static" / "forecast.html",
+    "outlook": ROOT / "forecast_static" / "outlook.html",
     "model_health": ROOT / "forecast_static" / "model_health.html",
     "forecast_lab": ROOT / "experiment_static" / "forecast_lab.html",
+    "compare": ROOT / "forecast_static" / "compare.html",
 }
+# Pages that show both databases at once, so carry no Database control.
+BOTH_SOURCES = {"compare"}
 
 
 def _tokens(css: str, selector: str) -> dict:
@@ -43,7 +47,8 @@ def test_page_uses_the_shared_theme(name):
         "theme.css must load after the page's own <style> so the shared chrome wins"
     assert "localStorage.getItem('chat-theme')" in html, "theme must be set before first paint"
     assert 'id="theme-btn"' in html and 'class="topbar"' in html
-    assert 'id="db-chip"' in html, "every forecast page carries the Database control"
+    if name not in BOTH_SOURCES:
+        assert 'id="db-chip"' in html, "every forecast page carries the Database control"
 
 
 @pytest.mark.parametrize("name", sorted(PAGES))

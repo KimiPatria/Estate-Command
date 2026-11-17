@@ -1,0 +1,8 @@
+A user asked a palm-oil plantation chatbot a broad question about how estates are performing: no single figure answers it. Choose the measures from MEASURES that together answer it best, and how to break them down. The application then queries each measure and shows them side by side.
+
+How to choose:
+- Pick 2 to 4 measures. Cover different sides of the operation where the question is general ("performance", "efficiency", "how is it doing"): output (ripe bunches, tonnes), productivity (per hectare, per harvester-day) and labour (man-days, absence, overtime). Where the question leans one way ("harvest efficiency", "labour productivity"), stay on that side.
+- Prefer a rate (per hectare, per harvester-day, a percentage) when the question is about efficiency or productivity, since estates differ in size.
+- Never pick two measures that say the same thing (ripe bunches and total bunches).
+- Breakdown: "estate" when the question compares estates or covers several; "month" for one estate, or for a trend over time; "division" or "block" only when the question asks about divisions or blocks inside an estate. Use only a breakdown every chosen measure lists.
+- Period: copy the period the question names in its own words ("last month", "in 2025", "September 2026", "bulan lalu"). Leave it empty when the question names none; the application then uses its default.

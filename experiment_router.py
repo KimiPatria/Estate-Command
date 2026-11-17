@@ -27,6 +27,7 @@ Endpoints:
 
 import importlib.util
 import logging
+import os
 from pathlib import Path
 from threading import Lock
 
@@ -40,7 +41,14 @@ router = APIRouter(prefix="/experiment", tags=["experiment"])
 
 _LAB_DIR = Path(__file__).parent / "forecast" / "lab"
 _LOCK = Lock()
-BUILD_COMMAND = (r"C:\Users\DP\anaconda3\envs\chronos-rd-py313\python.exe "
+# Shown on the page as the rebuild instruction; the interpreter is the Chronos
+# env's, from CHRONOS_PYTHON in .env (no machine path in the code).
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass
+BUILD_COMMAND = (f"{os.environ.get('CHRONOS_PYTHON') or '<CHRONOS_PYTHON>'} "
                  "forecast/lab/build_artifacts.py")
 
 
@@ -87,6 +95,21 @@ def _live(model_id, estate, grain):
             "steps": [{"period": f["month"], "value": f["ensemble"], "lower": f["lower"],
                        "upper": f["upper"]} for f in d["forecast"]],
         }
+    spec = reg.model_spec(model_id)
+    if spec["source"] == "derived":
+        return _derived(spec, estate, grain)
+    if model_id == "seasonal_profile":
+        h = reg.history(estate, grain)
+        anchor = h["period"].iloc[-1]
+        ctx = reg.seasonal_profile.group_context(reg.ESTATES, reg.month_history, estate, anchor)
+        vals = reg.seasonal_profile.forecast(estate, ctx, reg.MAX_H)
+        return {
+            "anchor": {"period": reg.period_str(anchor, grain), "value": round(float(h["value"].iloc[-1]))},
+            "data_through": reg.period_str(anchor, grain), "generated_at": None,
+            "band": None, "notes": [f"shape pooled over {', '.join(reg.ESTATES[e]['label'] for e in ctx)}"],
+            "steps": [{"period": reg.period_str(p, grain), "value": round(v), "lower": None, "upper": None}
+                      for p, v in zip(reg.future_periods(anchor, grain), vals)],
+        }
     if model_id == "naive_trailing3":
         ctx, anchor = reg.context(estate, grain)
         level = float(np.mean(ctx[-3:]))
@@ -114,14 +137,43 @@ def _live(model_id, estate, grain):
     raise KeyError(model_id)
 
 
+def _member_forecast(model_id, estate, grain):
+    spec = reg.model_spec(model_id)
+    return _live(model_id, estate, grain) if spec["source"] in ("live", "derived") \
+        else reg.read_artifact(model_id, estate, grain)
+
+
+def _derived(spec, estate, grain):
+    """Weighted mean of the members' forward forecasts; refused if their anchors differ."""
+    parts = [_member_forecast(m, estate, grain) for m in spec["members"]]
+    if any(p is None for p in parts):
+        return None
+    anchors = {p["anchor"]["period"] for p in parts}
+    if len(anchors) != 1:
+        raise ValueError("members are anchored on different months (" + ", ".join(
+            f"{reg.model_spec(m)['label']} {p['anchor']['period']}"
+            for m, p in zip(spec["members"], parts)) + "); rebuild the artifacts")
+    steps = []
+    for rows in zip(*(p["steps"] for p in parts)):
+        if len({r["period"] for r in rows}) != 1:
+            raise ValueError("members forecast different months")
+        steps.append({"period": rows[0]["period"], "lower": None, "upper": None,
+                      "value": round(sum(w * r["value"] for w, r in zip(spec["weights"], rows)))})
+    gens = [p.get("generated_at") for p in parts if p.get("generated_at")]
+    return {"anchor": parts[0]["anchor"], "data_through": parts[0].get("data_through"),
+            "generated_at": min(gens) if gens else None, "band": None,
+            "notes": [" + ".join(f"{w:g} x {reg.model_spec(m)['label']}"
+                                 for m, w in zip(spec["members"], spec["weights"]))],
+            "steps": steps}
+
+
 def _model_result(spec, estate, grain, lab_anchor):
     out = {k: spec[k] for k in ("id", "label", "color", "dash", "family", "about", "source")}
     ok, reason = reg.static_availability(spec["id"], estate, grain)
     if not ok:
         return {**out, "available": False, "reason": reason}
     try:
-        res = (_live(spec["id"], estate, grain) if spec["source"] == "live"
-               else reg.read_artifact(spec["id"], estate, grain))
+        res = _member_forecast(spec["id"], estate, grain)
     except Exception as exc:
         log.exception("[lab] %s failed on %s/%s", spec["id"], estate, grain)
         return {**out, "available": False, "reason": f"failed: {exc}"}
@@ -141,15 +193,20 @@ def _model_result(spec, estate, grain, lab_anchor):
 def _served_on_page(estate):
     """Id of the model the /forecast page serves for this estate, if any.
 
-    Live estates serve the ensemble; staging estates serve whichever arm
-    forecast/lab/select_staging.py picked.
+    Both sources serve a Chronos-2 arm: the source's selection
+    (forecast/lab/select_source.py), or a manual promotion (K3, promotion.py).
+    K3 on its ensemble fallback is not reflected here.
     """
-    spec = reg.ESTATES[estate]
-    if spec["source"] == "live":
-        return "served_ensemble" if spec["served"] else None
+    import forecast_sources as fs
+    source = reg.ESTATES[estate]["source"]
+    page_id = next((p for p, r in fs.SOURCE_ESTATES.get(source, {}).items() if r == estate), None)
+    if page_id is None:
+        return None
     try:
-        sel = _load_lab("select_staging").read(reg)
-        return (sel or {}).get("selected")
+        sel = _load_lab("select_source").read(reg, source) or {}
+        if not sel.get("served") and source != "live":
+            return None
+        return fs.served_model(sel, source, page_id)[0]
     except Exception:
         return None
 

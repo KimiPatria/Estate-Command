@@ -166,6 +166,12 @@ def heuristic(question: str, columns: list[str], kinds: dict[str, str],
     return validate(spec, columns, kinds)
 
 
+def obvious(columns: list[str], kinds: dict[str, str]) -> bool:
+    """Exactly one date or category column and one number column: a line over
+    time, or bars per item, is the only sensible chart."""
+    return len(columns) == 2 and sorted(kinds[c] == "number" for c in columns) == [False, True]
+
+
 def validate(raw, columns: list[str], kinds: dict[str, str]) -> Optional[dict]:
     """A chart spec that only names real columns in roles they can play, or None."""
     if not isinstance(raw, dict):
@@ -207,30 +213,47 @@ def validate(raw, columns: list[str], kinds: dict[str, str]) -> Optional[dict]:
     return {"type": kind, "x": x, "y": ys, "series": series, "title": title}
 
 
+# The shape the chart planner fills in. Column names stay free text here:
+# validate() checks them against the real columns.
+CHART_SCHEMA = {
+    "type": "object",
+    "required": ["chart"],
+    "properties": {
+        "chart": {"type": "string", "enum": [*CHART_TYPES, "none"],
+                  "description": "the chart type, or none"},
+        "x": {"type": "string", "description": "the one column on the x axis"},
+        "y": {"type": "array", "items": {"type": "string"}, "maxItems": 3,
+              "description": "1 to 3 number columns"},
+        "series": {"type": "string", "description": "optional category column that splits the measure"},
+        "title": {"type": "string", "description": "short plain title, no numbers"},
+    },
+}
+
+
 def llm_plan(question: str, columns: list[str], kinds: dict[str, str],
              rows: list[dict]) -> Optional[dict] | bool:
     """Ask the model for a chart. Returns a spec, False for "no chart", None on failure."""
     import json
 
     import llm_client
-    from gis.reasoning import parse_json
     from prompts import load_prompt
 
     cols = "\n".join(f"- {c} ({kinds[c]}, {_distinct(rows, c)} distinct)" for c in columns)
     sample = json.dumps([{c: r.get(c) for c in columns} for r in rows[:5]],
                         default=str, ensure_ascii=False)
-    try:
-        result = llm_client.chat(
-            [{"role": "system", "content": load_prompt("chat_chart_system")},
-             {"role": "user", "content": (f"QUESTION: {question}\n\nROWS RETURNED: {len(rows)}\n\n"
-                                          f"COLUMNS:\n{cols}\n\nFIRST ROWS: {sample}")}],
-            tier="routing", temperature=0, max_tokens=160, json_mode=True, task="chat_chart",
-        )
-    except Exception as exc:
-        log.warning("[chat] chart planner failed: %s", exc)
-        return None
-    parsed = parse_json(result.text or "")
-    if not isinstance(parsed, dict):
+    parsed = llm_client.chat_json(
+        [{"role": "system", "content": load_prompt("chat_chart_system")},
+         {"role": "user", "content": (f"QUESTION: {question}\n\nROWS RETURNED: {len(rows)}\n\n"
+                                      f"COLUMNS:\n{cols}\n\nFIRST ROWS: {sample}")}],
+        name="choose_chart", schema=CHART_SCHEMA,
+        description="Record which chart shows the result best, or none.",
+        # Nova 2 Lite, not the routing model: Nova Lite broke off this tool call
+        # ("invalid sequence as part of ToolUse") on 9 of 15 tries; Nova 2 Lite
+        # fills it cleanly. The chart is planned while the answer is written, so
+        # the extra half second is not seen.
+        tier="main", max_tokens=300, task="chat_chart",
+    )
+    if parsed is None:
         return None
     if str(parsed.get("chart") or parsed.get("type") or "").lower() in ("none", "null", ""):
         return False
@@ -366,6 +389,9 @@ def plan_chart(question: str, columns: list[str], rows: list[dict],
         if not any(k == "number" for k in kinds.values()):
             return None
         force = wants_chart(question)
+        # One label and one measure: the rule draws what the model would, so
+        # the model is not asked (it costs a call on every such answer).
+        use_llm = use_llm and not obvious(columns, kinds)
         spec = llm_plan(question, columns, kinds, rows) if use_llm else None
         if spec is False and not force:
             return None

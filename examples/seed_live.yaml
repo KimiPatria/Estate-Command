@@ -1,0 +1,225 @@
+# Hand-written few-shot examples for the LIVE estate databases (Postgres, BA + K3).
+#
+# Each pair is shown to the SQL writer when a user asks something similar, as a
+# verified example (ranked ahead of queries that only passed the checks). They
+# follow business_rules.txt: rule 3 deleted guard on t_oph / t_fdn, rule 5
+# oph_created_date, rule 6 all grading columns for a grading breakdown, rule 9
+# LIKE '%UPPERCASE%' on activity names, rule 10 area in its own subquery.
+#
+# One SQL runs on each estate's database, so no estate filter appears here.
+# Questions must NOT copy an eval question (evals/golden_chat.yaml,
+# evals/sql_cases*.yaml): the loader rejects any at cosine similarity >= 0.90.
+#
+#   python evals/seed_examples.py --check     # run every seed, lint, schema, leakage
+#   python evals/seed_examples.py --apply     # load them as verified examples
+
+- question: "Ripe and unripe bunches for each month of 2024"
+  sql: |
+    SELECT EXTRACT(MONTH FROM oph_created_date) AS month,
+           SUM(bunches_ripe) AS ripe_bunches, SUM(bunches_unripe) AS unripe_bunches
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2024-01-01' AND oph_created_date < DATE '2025-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(MONTH FROM oph_created_date)
+    ORDER BY month
+
+- question: "Show the full bunch grading breakdown for March 2025"
+  sql: |
+    SELECT SUM(bunches_ripe) AS ripe, SUM(bunches_unripe) AS unripe, SUM(bunches_overripe) AS overripe,
+           SUM(bunches_underripe) AS underripe, SUM(bunches_rotten) AS rotten, SUM(bunches_total) AS total
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-03-01' AND oph_created_date < DATE '2025-04-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+  notes: rule 6, every grading category
+
+- question: "Which division brought in the most bunches between July and December 2025?"
+  sql: |
+    SELECT oph_division_code AS division, SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-07-01' AND oph_created_date < DATE '2026-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_division_code
+    ORDER BY total_bunches DESC
+
+- question: "Harvest foremen ranked by ripe bunches their gangs brought in during 2025"
+  sql: |
+    SELECT mandor_employee_code, mandor_employee_name, SUM(bunches_ripe) AS ripe_bunches
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY mandor_employee_code, mandor_employee_name
+    ORDER BY ripe_bunches DESC
+    LIMIT 10
+
+- question: "Share of ripe bunches out of all bunches, division by division, in 2025"
+  sql: |
+    SELECT oph_division_code AS division,
+           SUM(bunches_ripe) * 100.0 / NULLIF(SUM(bunches_total), 0) AS ripe_pct
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_division_code
+    ORDER BY ripe_pct DESC
+  notes: a ratio of sums, never an average of ratios
+
+- question: "Brondolan per division in the second half of 2024"
+  sql: |
+    SELECT oph_division_code AS division, SUM(loose_fruits) AS loose_fruit
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2024-07-01' AND oph_created_date < DATE '2025-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_division_code
+    ORDER BY loose_fruit DESC
+  notes: brondolan = loose fruit
+
+- question: "Yield in bunches per mature hectare over 2025"
+  sql: |
+    SELECT h.bunches, a.ha, h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha
+    FROM (SELECT SUM(bunches_total) AS bunches FROM t_oph
+          WHERE (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+            AND oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01') h
+    CROSS JOIN (SELECT SUM(block_hectarage)::numeric AS ha FROM m_block WHERE block_state = 'MATURE') a
+  notes: rule 10, the area summed on its own
+
+- question: "rata-rata janjang per hektar untuk setiap divisi di tahun 2025"
+  sql: |
+    SELECT h.division, h.bunches, a.ha, h.bunches / NULLIF(a.ha, 0) AS bunches_per_ha
+    FROM (SELECT oph_division_code AS division, SUM(bunches_total) AS bunches FROM t_oph
+          WHERE (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+            AND oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+          GROUP BY oph_division_code) h
+    JOIN (SELECT block_division_code AS division, SUM(block_hectarage)::numeric AS ha FROM m_block
+          WHERE block_state = 'MATURE' GROUP BY block_division_code) a ON a.division = h.division
+    ORDER BY bunches_per_ha DESC
+  notes: per division, both sides grouped by division before the join
+
+- question: "Planted area of mature blocks in each division"
+  sql: |
+    SELECT block_division_code AS division, COUNT(*) AS blocks, SUM(block_hectarage) AS mature_ha
+    FROM m_block
+    WHERE block_state = 'MATURE'
+    GROUP BY block_division_code
+    ORDER BY division
+
+- question: "Number of blocks in each block state"
+  sql: |
+    SELECT block_state, COUNT(*) AS blocks, SUM(block_hectarage) AS ha
+    FROM m_block
+    GROUP BY block_state
+    ORDER BY blocks DESC
+
+- question: "Which divisions put the most mandays into fertiliser application during 2024?"
+  sql: |
+    SELECT workdone_division_code AS division, SUM(workdone_mandays) AS mandays
+    FROM t_workdone
+    WHERE workdone_activity_name LIKE '%MANUR%'
+      AND workdone_date >= DATE '2024-01-01' AND workdone_date < DATE '2025-01-01'
+    GROUP BY workdone_division_code
+    ORDER BY mandays DESC
+  notes: rule 9, LIKE with an uppercase keyword
+
+- question: "Which field activities took the most mandays in 2025?"
+  sql: |
+    SELECT workdone_activity_name, SUM(workdone_mandays) AS mandays
+    FROM t_workdone
+    WHERE workdone_date >= DATE '2025-01-01' AND workdone_date < DATE '2026-01-01'
+    GROUP BY workdone_activity_name
+    ORDER BY mandays DESC
+    LIMIT 10
+
+- question: "Overtime duration and mandays per month in 2025"
+  sql: |
+    SELECT EXTRACT(MONTH FROM overtime_date) AS month,
+           SUM(overtime_duration) AS overtime_duration, SUM(overtime_mandays) AS overtime_mandays
+    FROM t_overtime
+    WHERE overtime_date >= DATE '2025-01-01' AND overtime_date < DATE '2026-01-01'
+    GROUP BY EXTRACT(MONTH FROM overtime_date)
+    ORDER BY month
+
+- question: "Employees who worked the most overtime in 2025"
+  sql: |
+    SELECT overtime_employee_code, overtime_employee_name, SUM(overtime_duration) AS overtime_duration
+    FROM t_overtime
+    WHERE overtime_date >= DATE '2025-01-01' AND overtime_date < DATE '2026-01-01'
+    GROUP BY overtime_employee_code, overtime_employee_name
+    ORDER BY overtime_duration DESC
+    LIMIT 10
+
+- question: "Attendance days split by attendance code for 2025"
+  sql: |
+    SELECT attendance_code, attendance_desc, COUNT(*) AS person_days
+    FROM t_attendance
+    WHERE attendance_date >= DATE '2025-01-01' AND attendance_date < DATE '2026-01-01'
+    GROUP BY attendance_code, attendance_desc
+    ORDER BY person_days DESC
+
+- question: "Headcount by job code"
+  sql: |
+    SELECT employee_job_code, COUNT(DISTINCT employee_code) AS employees
+    FROM m_employee
+    GROUP BY employee_job_code
+    ORDER BY employees DESC
+
+- question: "jumlah karyawan di setiap divisi"
+  sql: |
+    SELECT employee_division_code AS division, COUNT(DISTINCT employee_code) AS employees
+    FROM m_employee
+    GROUP BY employee_division_code
+    ORDER BY employees DESC
+
+- question: "Actual tonnage sent to each delivery destination"
+  sql: |
+    SELECT fdn_deliver_to_name, SUM(fdn_actual_tonnage) AS tonnage
+    FROM t_fdn
+    WHERE (fdn_is_deleted = 0 OR fdn_is_deleted IS NULL)
+    GROUP BY fdn_deliver_to_name
+    ORDER BY tonnage DESC
+  notes: t_fdn has its own deleted flag
+
+- question: "berapa janjang matang setiap bulan selama tahun 2025"
+  sql: |
+    SELECT EXTRACT(MONTH FROM oph_created_date) AS bulan, SUM(bunches_ripe) AS janjang_matang
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(MONTH FROM oph_created_date)
+    ORDER BY bulan
+
+- question: "Daily bunch count for the last week of June 2025"
+  sql: |
+    SELECT oph_created_date AS day, SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-06-24' AND oph_created_date < DATE '2025-07-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_created_date
+    ORDER BY day
+
+- question: "Ripe bunches in 2024 against 2025, year by year"
+  sql: |
+    SELECT EXTRACT(YEAR FROM oph_created_date) AS year, SUM(bunches_ripe) AS ripe_bunches
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2024-01-01' AND oph_created_date < DATE '2026-01-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY EXTRACT(YEAR FROM oph_created_date)
+    ORDER BY year
+
+- question: "Harvest tickets that were removed, per month of 2025"
+  sql: |
+    SELECT EXTRACT(MONTH FROM oph_created_date) AS month, COUNT(*) AS removed_tickets
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2025-01-01' AND oph_created_date < DATE '2026-01-01'
+      AND oph_is_deleted = 1
+    GROUP BY EXTRACT(MONTH FROM oph_created_date)
+    ORDER BY month
+  notes: asks about deleted rows, so the flag is the filter itself
+
+- question: "Lowest-producing blocks of the first half of 2024, by total bunches"
+  sql: |
+    SELECT oph_division_code AS division, oph_block_code AS block, SUM(bunches_total) AS total_bunches
+    FROM t_oph
+    WHERE oph_created_date >= DATE '2024-01-01' AND oph_created_date < DATE '2024-07-01'
+      AND (oph_is_deleted = 0 OR oph_is_deleted IS NULL)
+    GROUP BY oph_division_code, oph_block_code
+    ORDER BY total_bunches ASC
+    LIMIT 10
+  notes: a block code repeats across divisions, so the division is kept with it

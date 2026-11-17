@@ -74,6 +74,8 @@ class RetrievalResult:
     stats: Optional[dict] = None      # forwarded to chat_history.add_turn(stats=...)
     estates_used: list[str] = field(default_factory=list)    # sql-only: estate(s) that answered
     estates_failed: list[str] = field(default_factory=list)  # sql-only: estate(s) excluded on error
+    sql_outcome: Optional[str] = None  # sql-only: how the query came to stand (chat_router.RunResult.outcome)
+    parts: list[dict] = field(default_factory=list)  # sql-only, overview route: one entry per measure
     # instrumentation (item #5)
     llm_calls: int = 0
     input_tokens: int = 0
@@ -124,7 +126,8 @@ class SqlRagSource(BaseRagSource):
                 route = "context"
             else:
                 resp, stats = self._run_sql_pipeline(session.session_id, query, session.turns, t0)
-                route = "sql"
+                # A broad question answered with several measures keeps its own route.
+                route = "overview" if getattr(resp, "route", None) == "overview" else "sql"
         latency_ms = int((time.monotonic() - t0) * 1000)
 
         return RetrievalResult(
@@ -143,6 +146,8 @@ class SqlRagSource(BaseRagSource):
             stats=stats,
             estates_used=resp.estates_used,
             estates_failed=resp.estates_failed,
+            sql_outcome=getattr(resp, "sql_outcome", None),
+            parts=list(getattr(resp, "parts", None) or []),
             llm_calls=len(usage_log),
             input_tokens=sum(u["input_tokens"] for u in usage_log),
             output_tokens=sum(u["output_tokens"] for u in usage_log),
@@ -319,6 +324,7 @@ def _run_both(
         stats=sql_result.stats,
         estates_used=sql_result.estates_used,
         estates_failed=sql_result.estates_failed,
+        sql_outcome=sql_result.sql_outcome,
         llm_calls=sql_result.llm_calls + kb_result.llm_calls + len(synth_log),
         input_tokens=sql_result.input_tokens + kb_result.input_tokens
                      + sum(u["input_tokens"] for u in synth_log),
@@ -381,7 +387,7 @@ def dispatch(
 
     _log_rag_summary(
         source=result.source, route=result.route, session_id=session.session_id,
-        query=query[:200], ok=True, llm_calls=result.llm_calls,
+        query=query[:200], ok=True, sql_outcome=result.sql_outcome, llm_calls=result.llm_calls,
         input_tokens=result.input_tokens, output_tokens=result.output_tokens,
         latency_ms=result.latency_ms,
     )

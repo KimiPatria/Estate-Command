@@ -54,6 +54,35 @@ SHADOW_MIN_RESOLVED = 6
 SHADOW_MIN_WIN_SHARE = 0.5
 MAX_SERVED_STEP = 6
 
+# Manual promotions: a person's decision to serve the challenger before the rule
+# above says PROMOTE. Append-only, like the rule itself: never edit an entry; a
+# reversal is a new entry. `served_model()` reads the latest entry per estate.
+MANUAL_PROMOTIONS = [
+    {"id": "manual-promotion-2026-11-12", "estate": "k3", "date": "2026-11-12",
+     "decided_by": "project lead (forecast planning session, buildplan_forecast_mlops.md D9)",
+     "from": CHAMPION, "to": CHALLENGER, "serve_steps": MAX_SERVED_STEP,
+     "fallback": CHAMPION,
+     "gate_a": "passed on 2026-09-23 (MAPE 10.45% vs 14.29%; DM-HLN p=0.0458, "
+               "anti-conservative; lower MAE at steps 1-3)",
+     "gate_b": "not passed: 0 of the 6 required step-1 months resolved. The K3 export "
+               "has not been refreshed since 2026-05, so no logged forecast can resolve yet.",
+     "reason": "Serve Chronos-2 zero-shot on every estate and both sources: the history "
+               "is short here and, by report, in the production data too, and a zero-shot "
+               "model needs no training on it. The ensemble stays computed as the fallback "
+               "and both stay in the shadow log, so Gate B still resolves and can overturn "
+               "this."},
+]
+
+
+def served_model(estate):
+    """(model id, promotion entry or None) the page serves for a live estate that
+    this module governs; (None, None) for estates it does not govern."""
+    entries = [p for p in MANUAL_PROMOTIONS if p["estate"] == estate]
+    if entries:
+        last = max(entries, key=lambda p: p["date"])
+        return last["to"], last
+    return (CHAMPION, None) if estate == ESTATE else (None, None)
+
 
 def _load_by_path(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -140,6 +169,7 @@ def status():
         "backtest": a, "shadow": b,
         "verdict": "PROMOTE" if not failing else "HOLD",
         "failing": failing,
+        "manual_promotion": served_model(ESTATE)[1],
         "shadow_log": shadow.summary(ESTATE),
     }
 
@@ -152,4 +182,8 @@ if __name__ == "__main__":
         print(f"\n[{gate}]")
         for c in s[gate]["checks"]:
             print(f"  {'PASS' if c['passed'] else 'fail'}  {c['id']}  {c['label']}: {c['detail']}")
+    mp = s["manual_promotion"]
+    if mp:
+        print(f"MANUAL PROMOTION {mp['id']}: {mp['from']} -> {mp['to']} (steps 1-{mp['serve_steps']}), "
+              f"{mp['date']}, by {mp['decided_by']}")
     print(f"\nVERDICT: {s['verdict']}" + (f" (failing: {', '.join(s['failing'])})" if s["failing"] else ""))
